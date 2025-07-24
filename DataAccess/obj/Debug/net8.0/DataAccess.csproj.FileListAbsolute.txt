@@ -1,0 +1,16 @@
+D:\mvcCourseCodaing\EEMS.web\DataAccess\bin\Debug\net8.0\DataAccess.deps.json
+D:\mvcCourseCodaing\EEMS.web\DataAccess\bin\Debug\net8.0\DataAccess.dll
+D:\mvcCourseCodaing\EEMS.web\DataAccess\bin\Debug\net8.0\DataAccess.pdb
+D:\mvcCourseCodaing\EEMS.web\DataAccess\bin\Debug\net8.0\Core.dll
+D:\mvcCourseCodaing\EEMS.web\DataAccess\bin\Debug\net8.0\Core.pdb
+D:\mvcCourseCodaing\EEMS.web\DataAccess\obj\Debug\net8.0\DataAccess.csproj.AssemblyReference.cache
+D:\mvcCourseCodaing\EEMS.web\DataAccess\obj\Debug\net8.0\DataAccess.GeneratedMSBuildEditorConfig.editorconfig
+D:\mvcCourseCodaing\EEMS.web\DataAccess\obj\Debug\net8.0\DataAccess.AssemblyInfoInputs.cache
+D:\mvcCourseCodaing\EEMS.web\DataAccess\obj\Debug\net8.0\DataAccess.AssemblyInfo.cs
+D:\mvcCourseCodaing\EEMS.web\DataAccess\obj\Debug\net8.0\DataAccess.csproj.CoreCompileInputs.cache
+D:\mvcCourseCodaing\EEMS.web\DataAccess\obj\Debug\net8.0\DataAccess.sourcelink.json
+D:\mvcCourseCodaing\EEMS.web\DataAccess\obj\Debug\net8.0\DataAccess.csproj.Up2Date
+D:\mvcCourseCodaing\EEMS.web\DataAccess\obj\Debug\net8.0\DataAccess.dll
+D:\mvcCourseCodaing\EEMS.web\DataAccess\obj\Debug\net8.0\refint\DataAccess.dll
+D:\mvcCourseCodaing\EEMS.web\DataAccess\obj\Debug\net8.0\DataAccess.pdb
+D:\mvcCourseCodaing\EEMS.web\DataAccess\obj\Debug\net8.0\ref\DataAccess.dll
