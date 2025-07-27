@@ -26,7 +26,8 @@ namespace Core.Entities
         public string hourOfEntry { get; set; }
         public string hourOfEixt { get; set; }
         public equipMatiMovment equipsMatiMovment { get; set; }
-        public humenMovment humenMovment { get; set; }
+        public CarMovment carsMovment { get; set; }
+        public
 
 
 
