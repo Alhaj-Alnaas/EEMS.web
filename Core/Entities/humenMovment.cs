@@ -7,8 +7,7 @@ using System.Threading.Tasks;
 namespace Core.Entities
 {
 
-    public class HumenMovment:Person
-
+    public class humenMovment:Person
 
     {
         public string permitId { get; set; }
