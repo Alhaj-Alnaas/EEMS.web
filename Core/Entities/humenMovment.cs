@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Core.Entities
 {
-    public class humenMovment
+    public class HumenMovment
     {
         public string permitId { get; set; }
         public string orgToVisit { get; set; }

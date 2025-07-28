@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Core.Entities
 {
-    public class CarMovment
+    public class CarMovment:Person
     {
         public string permitId { get; set; }
         public string carType { get; set; }
