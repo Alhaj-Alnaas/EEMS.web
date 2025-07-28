@@ -10,6 +10,7 @@ namespace Core.Entities
     public class HumenMovment:Person
 
 
+
     {
         // change name
         public string permitId { get; set; }
