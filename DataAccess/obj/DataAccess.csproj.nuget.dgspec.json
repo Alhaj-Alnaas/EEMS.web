@@ -1,23 +1,23 @@
 {
   "format": 1,
   "restore": {
-    "D:\\EMMS\\DataAccess\\DataAccess.csproj": {}
+    "D:\\mvcCourseCodaing\\EEMS.web\\DataAccess\\DataAccess.csproj": {}
   },
   "projects": {
-    "D:\\EMMS\\Core\\Core.csproj": {
+    "D:\\mvcCourseCodaing\\EEMS.web\\Core\\Core.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\EMMS\\Core\\Core.csproj",
+        "projectUniqueName": "D:\\mvcCourseCodaing\\EEMS.web\\Core\\Core.csproj",
         "projectName": "Core",
-        "projectPath": "D:\\EMMS\\Core\\Core.csproj",
-        "packagesPath": "C:\\Users\\user\\.nuget\\packages\\",
-        "outputPath": "D:\\EMMS\\Core\\obj\\",
+        "projectPath": "D:\\mvcCourseCodaing\\EEMS.web\\Core\\Core.csproj",
+        "packagesPath": "C:\\Users\\21892\\.nuget\\packages\\",
+        "outputPath": "D:\\mvcCourseCodaing\\EEMS.web\\Core\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
         ],
         "configFilePaths": [
-          "C:\\Users\\user\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\21892\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
@@ -26,6 +26,7 @@
         ],
         "sources": {
           "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "C:\\Program Files\\dotnet\\library-packs": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -44,7 +45,7 @@
           "auditLevel": "low",
           "auditMode": "direct"
         },
-        "SdkAnalysisLevel": "9.0.200"
+        "SdkAnalysisLevel": "9.0.300"
       },
       "frameworks": {
         "net8.0": {
@@ -65,24 +66,24 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.203/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.301/PortableRuntimeIdentifierGraph.json"
         }
       }
     },
-    "D:\\EMMS\\DataAccess\\DataAccess.csproj": {
+    "D:\\mvcCourseCodaing\\EEMS.web\\DataAccess\\DataAccess.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\EMMS\\DataAccess\\DataAccess.csproj",
+        "projectUniqueName": "D:\\mvcCourseCodaing\\EEMS.web\\DataAccess\\DataAccess.csproj",
         "projectName": "DataAccess",
-        "projectPath": "D:\\EMMS\\DataAccess\\DataAccess.csproj",
-        "packagesPath": "C:\\Users\\user\\.nuget\\packages\\",
-        "outputPath": "D:\\EMMS\\DataAccess\\obj\\",
+        "projectPath": "D:\\mvcCourseCodaing\\EEMS.web\\DataAccess\\DataAccess.csproj",
+        "packagesPath": "C:\\Users\\21892\\.nuget\\packages\\",
+        "outputPath": "D:\\mvcCourseCodaing\\EEMS.web\\DataAccess\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
         ],
         "configFilePaths": [
-          "C:\\Users\\user\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\21892\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
@@ -91,14 +92,15 @@
         ],
         "sources": {
           "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "C:\\Program Files\\dotnet\\library-packs": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
           "net8.0": {
             "targetAlias": "net8.0",
             "projectReferences": {
-              "D:\\EMMS\\Core\\Core.csproj": {
-                "projectPath": "D:\\EMMS\\Core\\Core.csproj"
+              "D:\\mvcCourseCodaing\\EEMS.web\\Core\\Core.csproj": {
+                "projectPath": "D:\\mvcCourseCodaing\\EEMS.web\\Core\\Core.csproj"
               }
             }
           }
@@ -113,7 +115,7 @@
           "auditLevel": "low",
           "auditMode": "direct"
         },
-        "SdkAnalysisLevel": "9.0.200"
+        "SdkAnalysisLevel": "9.0.300"
       },
       "frameworks": {
         "net8.0": {
@@ -144,7 +146,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.203/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.301/PortableRuntimeIdentifierGraph.json"
         }
       }
     }
