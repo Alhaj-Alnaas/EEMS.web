@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Core.Entities
 {
-    public class ApproveMovment
+    public class ApproveMovment:Base
     {
        public string permitId  { get; set;  }
        public string approvedBy { get; set; }

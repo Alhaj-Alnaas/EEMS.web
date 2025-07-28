@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Core.Entities
 {
-    public class Permit
+    public class Permit:Base
     {
         public string no { get; set; }
         public string classification { get; set; }
