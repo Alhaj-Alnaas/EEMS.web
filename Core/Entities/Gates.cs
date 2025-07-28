@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Core.Entities
 {
-    public class Gates
+    public class Gates:Base
     {
         public string no { get; set; }
         public string description  { get; set; }
