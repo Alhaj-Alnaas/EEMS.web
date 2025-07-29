@@ -1,0 +1,19 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Core.Entities
+{
+    public class CarMovment
+    {
+        public string permitId { get; set; }
+        public string carType { get; set; }
+        public string carNo { get; set; }
+        public int driverId { get; set; }
+        public string driverOrg { get; set; }
+        public string driverNationality { get; set; }
+        public string licenseNo { get; set; }
+    }
+}
