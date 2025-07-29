@@ -6,10 +6,10 @@ using System.Threading.Tasks;
 
 namespace Core.Entities
 {
-    public class User
+    public class User:Base
     {
         public string fileNo { get; set; }
-      
+     
         public string name { get; set; }
         public string department { get; set; }
         public string phone { get; set; }

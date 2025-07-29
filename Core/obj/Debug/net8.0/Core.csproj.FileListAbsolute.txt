@@ -10,3 +10,11 @@ D:\mvcCourseCodaing\EEMS.web\Core\obj\Debug\net8.0\Core.dll
 D:\mvcCourseCodaing\EEMS.web\Core\obj\Debug\net8.0\refint\Core.dll
 D:\mvcCourseCodaing\EEMS.web\Core\obj\Debug\net8.0\Core.pdb
 D:\mvcCourseCodaing\EEMS.web\Core\obj\Debug\net8.0\ref\Core.dll
+D:\EEMS\Core\obj\Debug\net8.0\Core.GeneratedMSBuildEditorConfig.editorconfig
+D:\EEMS\Core\obj\Debug\net8.0\Core.AssemblyInfoInputs.cache
+D:\EEMS\Core\obj\Debug\net8.0\Core.AssemblyInfo.cs
+D:\EEMS\Core\obj\Debug\net8.0\Core.csproj.CoreCompileInputs.cache
+D:\EEMS\Core\obj\Debug\net8.0\Core.sourcelink.json
+D:\EEMS\Core\obj\Debug\net8.0\Core.dll
+D:\EEMS\Core\obj\Debug\net8.0\refint\Core.dll
+D:\EEMS\Core\obj\Debug\net8.0\Core.pdb

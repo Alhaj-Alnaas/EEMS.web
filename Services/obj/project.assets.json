@@ -3119,23 +3119,39 @@
     ]
   },
   "packageFolders": {
+<<<<<<< HEAD
     "C:\\Users\\21892\\.nuget\\packages\\": {},
+=======
+    "C:\\Users\\HP\\.nuget\\packages\\": {},
+>>>>>>> 4ac0c03dd5cb06d533e72ecc14760c9d48370b5f
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
+<<<<<<< HEAD
       "projectUniqueName": "D:\\mvcCourseCodaing\\EEMS.web\\Services\\Services.csproj",
       "projectName": "Services",
       "projectPath": "D:\\mvcCourseCodaing\\EEMS.web\\Services\\Services.csproj",
       "packagesPath": "C:\\Users\\21892\\.nuget\\packages\\",
       "outputPath": "D:\\mvcCourseCodaing\\EEMS.web\\Services\\obj\\",
+=======
+      "projectUniqueName": "D:\\EEMS\\Services\\Services.csproj",
+      "projectName": "Services",
+      "projectPath": "D:\\EEMS\\Services\\Services.csproj",
+      "packagesPath": "C:\\Users\\HP\\.nuget\\packages\\",
+      "outputPath": "D:\\EEMS\\Services\\obj\\",
+>>>>>>> 4ac0c03dd5cb06d533e72ecc14760c9d48370b5f
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
       ],
       "configFilePaths": [
+<<<<<<< HEAD
         "C:\\Users\\21892\\AppData\\Roaming\\NuGet\\NuGet.Config",
+=======
+        "C:\\Users\\HP\\AppData\\Roaming\\NuGet\\NuGet.Config",
+>>>>>>> 4ac0c03dd5cb06d533e72ecc14760c9d48370b5f
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
@@ -3151,8 +3167,13 @@
         "net8.0": {
           "targetAlias": "net8.0",
           "projectReferences": {
+<<<<<<< HEAD
             "D:\\mvcCourseCodaing\\EEMS.web\\DataAccess\\DataAccess.csproj": {
               "projectPath": "D:\\mvcCourseCodaing\\EEMS.web\\DataAccess\\DataAccess.csproj"
+=======
+            "D:\\EEMS\\DataAccess\\DataAccess.csproj": {
+              "projectPath": "D:\\EEMS\\DataAccess\\DataAccess.csproj"
+>>>>>>> 4ac0c03dd5cb06d533e72ecc14760c9d48370b5f
             }
           }
         }
@@ -3188,7 +3209,11 @@
             "privateAssets": "all"
           }
         },
+<<<<<<< HEAD
         "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.301/PortableRuntimeIdentifierGraph.json"
+=======
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300/PortableRuntimeIdentifierGraph.json"
+>>>>>>> 4ac0c03dd5cb06d533e72ecc14760c9d48370b5f
       }
     }
   }

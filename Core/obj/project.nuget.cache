@@ -1,8 +1,14 @@
 {
   "version": 2,
+<<<<<<< HEAD
   "dgSpecHash": "cOt2+NWPhsM=",
   "success": true,
   "projectFilePath": "D:\\mvcCourseCodaing\\EEMS.web\\Core\\Core.csproj",
+=======
+  "dgSpecHash": "x7ABY0K0w2M=",
+  "success": true,
+  "projectFilePath": "D:\\EEMS\\Core\\Core.csproj",
+>>>>>>> 4ac0c03dd5cb06d533e72ecc14760c9d48370b5f
   "expectedPackageFiles": [],
   "logs": []
 }

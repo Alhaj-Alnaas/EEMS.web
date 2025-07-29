@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Core.Entities
 {
-    public class equipMatiMovment
+    public class EquipMatiMovment:Base
     {
         public string permitId { get; set; }
         public string description { get; set; }
