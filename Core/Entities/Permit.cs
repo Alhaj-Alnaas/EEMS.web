@@ -7,15 +7,16 @@ using System.Threading.Tasks;
 
 namespace Core.Entities
 {
-    public class Permit:Base
+    public class Permit : Base
     {
         public string no { get; set; }
         public string classification { get; set; }
         public string type { get; set; }
-        public string reqDepApprovaltype { get; set; }
-        public string secuDepApproval { get; set; }
+        public bool reqDepApproval { get; set; }
+        public bool secuDepApproval { get; set; }
         public int gateId { get; set; }
-        public string status { get; set; }
+        public char status { get; set; }
+        public string statusDescription { get; set; }
         public bool isClosed { get; set; }
         public string closeOn { get; set; }
         public string moveFrom { get; set; }
@@ -24,12 +25,10 @@ namespace Core.Entities
         public string phoneNo { get; set; }
         public DateTime date { get; set; }
         public string hourOfEntry { get; set; }
-        public string hourOfEixt { get; set; }
-        public equipMatiMovment equipsMatiMovment { get; set; }
-        public CarMovment carsMovment { get; set; }
-        public
-
-
-
+        public virtual ICollection<ProcedureMovment> Procedures { get; set; }
+        public virtual ICollection<CarMovment> Cars { get; set; }
+        public virtual ICollection<HumanMovment> Humans { get; set; }
+        public virtual ICollection<EquipMatiMovment> EquipmentsAndMatirials { get; set; }
     }
+       
 }

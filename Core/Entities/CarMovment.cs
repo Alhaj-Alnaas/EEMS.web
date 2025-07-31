@@ -8,7 +8,8 @@ namespace Core.Entities
 {
     public class CarMovment:Person
     {
-        public string permitId { get; set; }
+        public Guid permitId { get; set; }
+        public Permit permit { get; set; }
         public string carType { get; set; }
         public string carNo { get; set; }
         public int driverId { get; set; }

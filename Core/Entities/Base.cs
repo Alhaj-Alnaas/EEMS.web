@@ -17,8 +17,7 @@ namespace Core.Entities
         public Boolean isDeleted { get; set; }
         public string deletedBy { get; set; }
         public DateTime deletedOn { get; set; }
-
-
+        public string  remarks { get; set; }
 
 
     }
