@@ -1,6 +1,16 @@
 {
   "version": 2,
+<<<<<<< HEAD
   "dgSpecHash": "C0CCI6A0sws=",
+=======
+<<<<<<< HEAD
+  "dgSpecHash": "x7ABY0K0w2M=",
+  "success": true,
+  "projectFilePath": "D:\\EEMS\\Core\\Core.csproj",
+  "expectedPackageFiles": [],
+=======
+  "dgSpecHash": "NDTEgSD7dTA=",
+>>>>>>> 2f98d96c802403b31f0525ba14d7c0e4d1b6aef4
   "success": true,
   "projectFilePath": "D:\\EEMS\\Core\\Core.csproj",
   "expectedPackageFiles": [
@@ -52,5 +62,6 @@
     "C:\\Users\\HP\\.nuget\\packages\\system.text.json\\8.0.0\\system.text.json.8.0.0.nupkg.sha512",
     "C:\\Users\\HP\\.nuget\\packages\\system.threading.tasks.extensions\\4.5.4\\system.threading.tasks.extensions.4.5.4.nupkg.sha512"
   ],
+>>>>>>> f2d11a0d4e34e6a8d6934eba14a52100aef2de92
   "logs": []
 }

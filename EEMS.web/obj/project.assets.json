@@ -5184,23 +5184,55 @@
     ]
   },
   "packageFolders": {
+<<<<<<< HEAD
     "C:\\Users\\HP\\.nuget\\packages\\": {},
+=======
+<<<<<<< HEAD
+    "C:\\Users\\HP\\.nuget\\packages\\": {},
+=======
+    "C:\\Users\\21892\\.nuget\\packages\\": {},
+>>>>>>> f2d11a0d4e34e6a8d6934eba14a52100aef2de92
+>>>>>>> 2f98d96c802403b31f0525ba14d7c0e4d1b6aef4
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
+<<<<<<< HEAD
       "projectUniqueName": "D:\\EEMS\\EEMS.web\\EEMS.web.csproj",
       "projectName": "EEMS.web",
       "projectPath": "D:\\EEMS\\EEMS.web\\EEMS.web.csproj",
       "packagesPath": "C:\\Users\\HP\\.nuget\\packages\\",
       "outputPath": "D:\\EEMS\\EEMS.web\\obj\\",
+=======
+<<<<<<< HEAD
+      "projectUniqueName": "D:\\EEMS\\EEMS.web\\EEMS.web.csproj",
+      "projectName": "EEMS.web",
+      "projectPath": "D:\\EEMS\\EEMS.web\\EEMS.web.csproj",
+      "packagesPath": "C:\\Users\\HP\\.nuget\\packages\\",
+      "outputPath": "D:\\EEMS\\EEMS.web\\obj\\",
+=======
+      "projectUniqueName": "D:\\mvcCourseCodaing\\EEMS.web\\EEMS.web\\EEMS.web.csproj",
+      "projectName": "EEMS.web",
+      "projectPath": "D:\\mvcCourseCodaing\\EEMS.web\\EEMS.web\\EEMS.web.csproj",
+      "packagesPath": "C:\\Users\\21892\\.nuget\\packages\\",
+      "outputPath": "D:\\mvcCourseCodaing\\EEMS.web\\EEMS.web\\obj\\",
+>>>>>>> f2d11a0d4e34e6a8d6934eba14a52100aef2de92
+>>>>>>> 2f98d96c802403b31f0525ba14d7c0e4d1b6aef4
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
       ],
       "configFilePaths": [
+<<<<<<< HEAD
         "C:\\Users\\HP\\AppData\\Roaming\\NuGet\\NuGet.Config",
+=======
+<<<<<<< HEAD
+        "C:\\Users\\HP\\AppData\\Roaming\\NuGet\\NuGet.Config",
+=======
+        "C:\\Users\\21892\\AppData\\Roaming\\NuGet\\NuGet.Config",
+>>>>>>> f2d11a0d4e34e6a8d6934eba14a52100aef2de92
+>>>>>>> 2f98d96c802403b31f0525ba14d7c0e4d1b6aef4
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
@@ -5278,7 +5310,15 @@
             "privateAssets": "all"
           }
         },
+<<<<<<< HEAD
         "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300/PortableRuntimeIdentifierGraph.json"
+=======
+<<<<<<< HEAD
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300/PortableRuntimeIdentifierGraph.json"
+=======
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.301/PortableRuntimeIdentifierGraph.json"
+>>>>>>> f2d11a0d4e34e6a8d6934eba14a52100aef2de92
+>>>>>>> 2f98d96c802403b31f0525ba14d7c0e4d1b6aef4
       }
     }
   }
