@@ -1,23 +1,23 @@
 {
   "format": 1,
   "restore": {
-    "D:\\mvcCourseCodaing\\EEMS.web\\EEMS.web\\EEMS.web.csproj": {}
+    "D:\\EEMS\\EEMS.web\\EEMS.web.csproj": {}
   },
   "projects": {
-    "D:\\mvcCourseCodaing\\EEMS.web\\Core\\Core.csproj": {
+    "D:\\EEMS\\Core\\Core.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\mvcCourseCodaing\\EEMS.web\\Core\\Core.csproj",
+        "projectUniqueName": "D:\\EEMS\\Core\\Core.csproj",
         "projectName": "Core",
-        "projectPath": "D:\\mvcCourseCodaing\\EEMS.web\\Core\\Core.csproj",
-        "packagesPath": "C:\\Users\\21892\\.nuget\\packages\\",
-        "outputPath": "D:\\mvcCourseCodaing\\EEMS.web\\Core\\obj\\",
+        "projectPath": "D:\\EEMS\\Core\\Core.csproj",
+        "packagesPath": "C:\\Users\\HP\\.nuget\\packages\\",
+        "outputPath": "D:\\EEMS\\Core\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
         ],
         "configFilePaths": [
-          "C:\\Users\\21892\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\HP\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
@@ -80,24 +80,24 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.301/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300/PortableRuntimeIdentifierGraph.json"
         }
       }
     },
-    "D:\\mvcCourseCodaing\\EEMS.web\\DataAccess\\DataAccess.csproj": {
+    "D:\\EEMS\\DataAccess\\DataAccess.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\mvcCourseCodaing\\EEMS.web\\DataAccess\\DataAccess.csproj",
+        "projectUniqueName": "D:\\EEMS\\DataAccess\\DataAccess.csproj",
         "projectName": "DataAccess",
-        "projectPath": "D:\\mvcCourseCodaing\\EEMS.web\\DataAccess\\DataAccess.csproj",
-        "packagesPath": "C:\\Users\\21892\\.nuget\\packages\\",
-        "outputPath": "D:\\mvcCourseCodaing\\EEMS.web\\DataAccess\\obj\\",
+        "projectPath": "D:\\EEMS\\DataAccess\\DataAccess.csproj",
+        "packagesPath": "C:\\Users\\HP\\.nuget\\packages\\",
+        "outputPath": "D:\\EEMS\\DataAccess\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
         ],
         "configFilePaths": [
-          "C:\\Users\\21892\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\HP\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
@@ -113,8 +113,8 @@
           "net8.0": {
             "targetAlias": "net8.0",
             "projectReferences": {
-              "D:\\mvcCourseCodaing\\EEMS.web\\Core\\Core.csproj": {
-                "projectPath": "D:\\mvcCourseCodaing\\EEMS.web\\Core\\Core.csproj"
+              "D:\\EEMS\\Core\\Core.csproj": {
+                "projectPath": "D:\\EEMS\\Core\\Core.csproj"
               }
             }
           }
@@ -170,24 +170,24 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.301/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300/PortableRuntimeIdentifierGraph.json"
         }
       }
     },
-    "D:\\mvcCourseCodaing\\EEMS.web\\EEMS.web\\EEMS.web.csproj": {
+    "D:\\EEMS\\EEMS.web\\EEMS.web.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\mvcCourseCodaing\\EEMS.web\\EEMS.web\\EEMS.web.csproj",
+        "projectUniqueName": "D:\\EEMS\\EEMS.web\\EEMS.web.csproj",
         "projectName": "EEMS.web",
-        "projectPath": "D:\\mvcCourseCodaing\\EEMS.web\\EEMS.web\\EEMS.web.csproj",
-        "packagesPath": "C:\\Users\\21892\\.nuget\\packages\\",
-        "outputPath": "D:\\mvcCourseCodaing\\EEMS.web\\EEMS.web\\obj\\",
+        "projectPath": "D:\\EEMS\\EEMS.web\\EEMS.web.csproj",
+        "packagesPath": "C:\\Users\\HP\\.nuget\\packages\\",
+        "outputPath": "D:\\EEMS\\EEMS.web\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
         ],
         "configFilePaths": [
-          "C:\\Users\\21892\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\HP\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
@@ -203,8 +203,8 @@
           "net8.0": {
             "targetAlias": "net8.0",
             "projectReferences": {
-              "D:\\mvcCourseCodaing\\EEMS.web\\DataAccess\\DataAccess.csproj": {
-                "projectPath": "D:\\mvcCourseCodaing\\EEMS.web\\DataAccess\\DataAccess.csproj"
+              "D:\\EEMS\\DataAccess\\DataAccess.csproj": {
+                "projectPath": "D:\\EEMS\\DataAccess\\DataAccess.csproj"
               }
             }
           }
@@ -265,7 +265,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.301/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

@@ -5184,23 +5184,23 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\21892\\.nuget\\packages\\": {},
+    "C:\\Users\\HP\\.nuget\\packages\\": {},
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\mvcCourseCodaing\\EEMS.web\\EEMS.web\\EEMS.web.csproj",
+      "projectUniqueName": "D:\\EEMS\\EEMS.web\\EEMS.web.csproj",
       "projectName": "EEMS.web",
-      "projectPath": "D:\\mvcCourseCodaing\\EEMS.web\\EEMS.web\\EEMS.web.csproj",
-      "packagesPath": "C:\\Users\\21892\\.nuget\\packages\\",
-      "outputPath": "D:\\mvcCourseCodaing\\EEMS.web\\EEMS.web\\obj\\",
+      "projectPath": "D:\\EEMS\\EEMS.web\\EEMS.web.csproj",
+      "packagesPath": "C:\\Users\\HP\\.nuget\\packages\\",
+      "outputPath": "D:\\EEMS\\EEMS.web\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
       ],
       "configFilePaths": [
-        "C:\\Users\\21892\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\HP\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
@@ -5216,8 +5216,8 @@
         "net8.0": {
           "targetAlias": "net8.0",
           "projectReferences": {
-            "D:\\mvcCourseCodaing\\EEMS.web\\DataAccess\\DataAccess.csproj": {
-              "projectPath": "D:\\mvcCourseCodaing\\EEMS.web\\DataAccess\\DataAccess.csproj"
+            "D:\\EEMS\\DataAccess\\DataAccess.csproj": {
+              "projectPath": "D:\\EEMS\\DataAccess\\DataAccess.csproj"
             }
           }
         }
@@ -5278,7 +5278,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.301/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300/PortableRuntimeIdentifierGraph.json"
       }
     }
   }
