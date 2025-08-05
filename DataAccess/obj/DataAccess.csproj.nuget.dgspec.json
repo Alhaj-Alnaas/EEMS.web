@@ -1,23 +1,23 @@
 {
   "format": 1,
   "restore": {
-    "D:\\EEMS\\DataAccess\\DataAccess.csproj": {}
+    "D:\\mvcCourseCodaing\\EEMS.web\\DataAccess\\DataAccess.csproj": {}
   },
   "projects": {
-    "D:\\EEMS\\Core\\Core.csproj": {
+    "D:\\mvcCourseCodaing\\EEMS.web\\Core\\Core.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\EEMS\\Core\\Core.csproj",
+        "projectUniqueName": "D:\\mvcCourseCodaing\\EEMS.web\\Core\\Core.csproj",
         "projectName": "Core",
-        "projectPath": "D:\\EEMS\\Core\\Core.csproj",
-        "packagesPath": "C:\\Users\\HP\\.nuget\\packages\\",
-        "outputPath": "D:\\EEMS\\Core\\obj\\",
+        "projectPath": "D:\\mvcCourseCodaing\\EEMS.web\\Core\\Core.csproj",
+        "packagesPath": "C:\\Users\\21892\\.nuget\\packages\\",
+        "outputPath": "D:\\mvcCourseCodaing\\EEMS.web\\Core\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
         ],
         "configFilePaths": [
-          "C:\\Users\\HP\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\21892\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
@@ -50,6 +50,16 @@
       "frameworks": {
         "net8.0": {
           "targetAlias": "net8.0",
+          "dependencies": {
+            "Microsoft.AspNetCore.Identity.EntityFrameworkCore": {
+              "target": "Package",
+              "version": "[8.0.17, )"
+            },
+            "Microsoft.AspNetCore.Identity.UI": {
+              "target": "Package",
+              "version": "[8.0.17, )"
+            }
+          },
           "imports": [
             "net461",
             "net462",
@@ -66,24 +76,24 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.301/PortableRuntimeIdentifierGraph.json"
         }
       }
     },
-    "D:\\EEMS\\DataAccess\\DataAccess.csproj": {
+    "D:\\mvcCourseCodaing\\EEMS.web\\DataAccess\\DataAccess.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\EEMS\\DataAccess\\DataAccess.csproj",
+        "projectUniqueName": "D:\\mvcCourseCodaing\\EEMS.web\\DataAccess\\DataAccess.csproj",
         "projectName": "DataAccess",
-        "projectPath": "D:\\EEMS\\DataAccess\\DataAccess.csproj",
-        "packagesPath": "C:\\Users\\HP\\.nuget\\packages\\",
-        "outputPath": "D:\\EEMS\\DataAccess\\obj\\",
+        "projectPath": "D:\\mvcCourseCodaing\\EEMS.web\\DataAccess\\DataAccess.csproj",
+        "packagesPath": "C:\\Users\\21892\\.nuget\\packages\\",
+        "outputPath": "D:\\mvcCourseCodaing\\EEMS.web\\DataAccess\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
         ],
         "configFilePaths": [
-          "C:\\Users\\HP\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\21892\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
@@ -99,8 +109,8 @@
           "net8.0": {
             "targetAlias": "net8.0",
             "projectReferences": {
-              "D:\\EEMS\\Core\\Core.csproj": {
-                "projectPath": "D:\\EEMS\\Core\\Core.csproj"
+              "D:\\mvcCourseCodaing\\EEMS.web\\Core\\Core.csproj": {
+                "projectPath": "D:\\mvcCourseCodaing\\EEMS.web\\Core\\Core.csproj"
               }
             }
           }
@@ -121,6 +131,10 @@
         "net8.0": {
           "targetAlias": "net8.0",
           "dependencies": {
+            "Microsoft.AspNetCore.Identity.EntityFrameworkCore": {
+              "target": "Package",
+              "version": "[8.0.17, )"
+            },
             "Microsoft.EntityFrameworkCore": {
               "target": "Package",
               "version": "[8.0.17, )"
@@ -138,6 +152,10 @@
               "suppressParent": "All",
               "target": "Package",
               "version": "[8.0.17, )"
+            },
+            "Microsoft.Extensions.Configuration": {
+              "target": "Package",
+              "version": "[8.0.0, )"
             }
           },
           "imports": [
@@ -156,7 +174,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.301/PortableRuntimeIdentifierGraph.json"
         }
       }
     }
