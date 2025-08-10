@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Core.Interfaces.Services
 {
-    public interface ICarMovment
+    public interface ICarMovment<T> where T : class
     {
         void InsertCarMovment(CarMovment carMovment);
         void UpdateCarMovment(CarMovment carMovment);

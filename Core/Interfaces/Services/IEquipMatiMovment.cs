@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Core.Interfaces.Services
 {
-    public interface IEquipMatiMovment
+    public interface IEquipMatiMovment<T> where T : class
     {
         void InsertEquipMatiMovment( EquipMatiMovment equipMatiMovment);
         void UpdateEquipMatiMovment(EquipMatiMovment equipMatiMovment);

@@ -183,3 +183,5 @@ D:\mvcCourseCodaing\EEMS.web\EEMS.web\obj\Debug\net8.0\refint\EEMS.web.dll
 D:\mvcCourseCodaing\EEMS.web\EEMS.web\obj\Debug\net8.0\EEMS.web.pdb
 D:\mvcCourseCodaing\EEMS.web\EEMS.web\obj\Debug\net8.0\EEMS.web.genruntimeconfig.cache
 D:\mvcCourseCodaing\EEMS.web\EEMS.web\obj\Debug\net8.0\ref\EEMS.web.dll
+D:\mvcCourseCodaing\EEMS.web\EEMS.web\bin\Debug\net8.0\Services.dll
+D:\mvcCourseCodaing\EEMS.web\EEMS.web\bin\Debug\net8.0\Services.pdb

@@ -7,7 +7,7 @@ using Core.Entities;
 
 namespace Core.Interfaces.Services
 {
-    public interface IGates
+    public interface IGates<T> where T : class
     {
         void InsertGate( Gate gate);
         void UpdateGate( Gate gate);

@@ -8,7 +8,7 @@ using Core.Entities;
 
 namespace Core.Interfaces.Services
 {
-    public interface IHumenMovment
+    public interface IHumenMovment<T> where T : class
     {
 
         void InsertHumenMovment( HumanMovment humenMovment);

@@ -16,6 +16,8 @@ namespace DataAccess.UnitOfWork
         private readonly DataContext _context;
         private IGenericRepository<T> _entity;
         protected readonly IUserProvider _userProvider;
+
+
         public UnitOfWork(
             DataContext context,
             IUserProvider userProvider)

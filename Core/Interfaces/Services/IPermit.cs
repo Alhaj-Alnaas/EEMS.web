@@ -9,7 +9,7 @@ using Core.Entities;
 
 namespace Core.Interfaces.Services
 {
-    public interface IPermit
+    public interface IPermit<T> where T : class
     {
         void InsertPermit(Permit permit);
         void UpdatePermit(Permit permit);

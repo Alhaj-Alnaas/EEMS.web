@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Core.Interfaces.Services
 {
-    public interface IProcedureMovment
+    public interface IProcedureMovment<T> where T : class
     {
         void InsertProcedureMovment(ProcedureMovment procedureMovment);
         void UpdateProcedureMovment(ProcedureMovment procedureMovment);
