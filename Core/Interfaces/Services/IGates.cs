@@ -7,12 +7,12 @@ using Core.Entities;
 
 namespace Core.Interfaces.Services
 {
-    public interface IGates<T> where T : class
+    public interface IGates
     {
-        void InsertGate( Gate gate);
-        void UpdateGate( Gate gate);
-        void DeleteGate( Gate gate );
-        List<Gate> GetAllGates();
-        List<Gate> GetGatesByUsing(in string PemitType);
+        Task<IEnumerable<Gate>> GetAllAsync();
+        Task<Gate> GetByIdAsync(Guid id);
+        Task InsertAsync(Gate gate, List<int> selectedPermitTypeIds);
+        Task UpdateAsync(Gate gate, List<int> selectedPermitTypeIds);
+        Task DeleteAsync(Gate gate);
     }
 }

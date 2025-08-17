@@ -10,38 +10,71 @@ using Core.Interfaces.Services;
 
 namespace Services
 {
-    public class GateServices<T> : IGates<T> where T: Gate
+    public class GateServices : IGates
     {
-        private readonly IUnitOfWork<Gate> _unitOfWork;
-       public  GateServices(IUnitOfWork<Gate> unitOfWork) {
-            _unitOfWork = unitOfWork;   
-              } 
-        public void DeleteGate(Gate gate)
+        private readonly IUnitOfWork _unitOfWork;
+
+        public GateServices(IUnitOfWork unitOfWork)
         {
-            _unitOfWork.Entity.Delete(gate);
-            _unitOfWork .Save();
+            _unitOfWork = unitOfWork;
         }
 
-        public List<Gate> GetAllGates()
+        public async Task<IEnumerable<Gate>> GetAllAsync()
         {
-            throw new NotImplementedException();
+            return await _unitOfWork.Gates.GetAllAsync();
         }
 
-        public List<Gate> GetGatesByUsing(in string PemitType)
+        public async Task<Gate> GetByIdAsync(Guid id)
         {
-            throw new NotImplementedException();
+            return await _unitOfWork.Gates.GetByIdAsync(id);
         }
 
-        public void InsertGate(Gate gate)
+        public async Task InsertAsync(Gate gate, List<int> selectedPermitTypeIds)
         {
-            _unitOfWork .Entity.Insert(gate);
-            _unitOfWork .Save ();
+            // جلب PermitTypes من نفس DbContext
+            var permitTypes = (await _unitOfWork.PermitTypes.GetAllAsync())
+                .Where(p => selectedPermitTypeIds.Contains(p.Id))
+                .ToList();
+
+            gate.PermitTypes = permitTypes;
+
+            _unitOfWork.Gates.Insert(gate);
+            await _unitOfWork.SaveAsync();
         }
 
-        public void UpdateGate(Gate gate)
+        public async Task UpdateAsync(Gate gate, List<int> selectedPermitTypeIds)
         {
-            _unitOfWork.Entity.Update(gate);
-            _unitOfWork.Save();
+            // جلب البوابة الأصلية مع PermitTypes
+            var existingGate = await _unitOfWork.Gates.GetByIdAsync(gate.Id);
+            if (existingGate == null) throw new Exception("البوابة غير موجودة");
+
+            // تحديث الحقول
+            existingGate.no = gate.no;
+            existingGate.description = gate.description;
+            existingGate.isActive = gate.isActive;
+            existingGate.remarks = gate.remarks;
+            existingGate.updatedOn = DateTime.Now;
+            existingGate.updatedBy = gate.updatedBy;
+
+            // تحديث Many-to-Many PermitTypes
+            var permitTypes = (await _unitOfWork.PermitTypes.GetAllAsync())
+                .Where(p => selectedPermitTypeIds.Contains(p.Id))
+                .ToList();
+
+            existingGate.PermitTypes.Clear();
+            foreach (var permit in permitTypes)
+            {
+                existingGate.PermitTypes.Add(permit);
+            }
+
+            _unitOfWork.Gates.Update(existingGate);
+            await _unitOfWork.SaveAsync();
+        }
+
+        public async Task DeleteAsync(Gate gate)
+        {
+            _unitOfWork.Gates.Delete(gate);
+            await _unitOfWork.SaveAsync();
         }
     }
 }

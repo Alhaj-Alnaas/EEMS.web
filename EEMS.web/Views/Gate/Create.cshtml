@@ -1,0 +1,66 @@
+﻿@using EEMS.web.ViewModels
+@model CreateGateViewModel
+@Html.ValidationSummary(true, "", new { @class = "text-danger" })
+
+@{
+    ViewData["Title"] = "إضافة بوابة";
+}
+
+<div class="container mt-4">
+    <div class="card shadow-lg border-0 rounded-4">
+        <div class="card-header bg-warning text-dark rounded-top-4">
+            <h4 class="mb-0">📌 إضافة بوابة جديدة</h4>
+        </div>
+        <div class="card-body">
+            <form asp-action="Create">
+                <div class="mb-3">
+                    <label asp-for="No" class="form-label fw-bold">رقم البوابة</label>
+                    <input asp-for="No" class="form-control" placeholder="أدخل رقم البوابة" />
+                    <span asp-validation-for="No" class="text-danger"></span>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="Description" class="form-label fw-bold">الوصف</label>
+                    <input asp-for="Description" class="form-control" placeholder="أدخل وصف البوابة" />
+                    <span asp-validation-for="Description" class="text-danger"></span>
+                </div>
+
+                <div class="form-check form-switch mb-3">
+                    <input asp-for="IsActive" class="form-check-input" type="checkbox" />
+                    <label class="form-check-label fw-bold" asp-for="IsActive">مفعلة</label>
+                    <span asp-validation-for="IsActive" class="text-danger"></span>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="Remarks" class="form-label fw-bold">الملاحظات</label>
+                    <textarea asp-for="Remarks" class="form-control" rows="3" placeholder="أدخل الملاحظات هنا"></textarea>
+                    <span asp-validation-for="Remarks" class="text-danger"></span>
+                </div>
+
+                <div class="form-group mt-3">
+                    <label class="fw-bold">أنواع التصاريح المتاحة:</label><br />
+                    @foreach (var permit in Model.PermitTypes)
+                    {
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="SelectedPermitTypeIds" value="@permit.Id" id="permit_@permit.Id" />
+                            <label class="form-check-label" for="permit_@permit.Id">@permit.Name</label>
+                        </div>
+                    }
+                    <span asp-validation-for="SelectedPermitTypeIds" class="text-danger"></span>
+                </div>
+
+                <div class="text-end mt-4">
+                    <a asp-action="Index" class="btn btn-outline-secondary px-4">رجوع</a>
+                    <button type="submit" class="btn btn-warning text-dark px-4">💾 حفظ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}
+

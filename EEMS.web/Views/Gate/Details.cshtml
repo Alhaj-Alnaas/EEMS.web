@@ -1,0 +1,54 @@
+﻿@model Core.Entities.Gate
+
+@{
+    ViewData["Title"] = "تفاصيل البوابة";
+}
+
+<div class="container mt-4">
+    <div class="card shadow-lg border-0 rounded-4">
+        <div class="card-header bg-warning text-dark rounded-top-4">
+            <h4 class="mb-0">📖 تفاصيل البوابة</h4>
+        </div>
+        <div class="card-body">
+            <dl class="row">
+                <dt class="col-sm-3 fw-bold">رقم البوابة:</dt>
+                <dd class="col-sm-9">@Model.no</dd>
+
+                <dt class="col-sm-3 fw-bold">الوصف:</dt>
+                <dd class="col-sm-9">@Model.description</dd>
+
+                <dt class="col-sm-3 fw-bold">الحالة:</dt>
+                <dd class="col-sm-9">
+                    @if (Model.isActive)
+                    {
+                        <span class="badge bg-success">✔ مفعلة</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-danger">✖ غير مفعلة</span>
+                    }
+                </dd>
+
+                <dt class="col-sm-3 fw-bold">أضيفت بواسطة:</dt>
+                <dd class="col-sm-9">@Model.createdBy</dd>
+
+                <dt class="col-sm-3 fw-bold">تاريخ الإضافة:</dt>
+                <dd class="col-sm-9">@Model.createdOn.ToString("yyyy/MM/dd")</dd>
+
+                <dt class="col-sm-3 fw-bold">الملاحظات:</dt>
+                <dd class="col-sm-9">@Model.remarks</dd>
+            </dl>
+
+            <div class="d-flex justify-content-between mt-4">
+                <div>
+                    <a asp-action="Index" class="btn btn-secondary px-4">⬅ رجوع</a>
+                    <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary px-4">✏ تعديل</a>
+                </div>
+                <form asp-action="DeleteConfirmed" method="post" onsubmit="return confirm('هل أنت متأكد من حذف هذه البوابة؟');">
+                    <input type="hidden" asp-for="Id" />
+                    <button type="submit" class="btn btn-danger px-4">🗑 حذف</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

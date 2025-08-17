@@ -11,31 +11,29 @@ using System.Threading.Tasks;
 
 namespace DataAccess.UnitOfWork
 {
-    public class UnitOfWork<T> : IUnitOfWork<T> where T : Base
+    public class UnitOfWork  : IUnitOfWork, IDisposable
     {
         private readonly DataContext _context;
-        private IGenericRepository<T> _entity;
-        protected readonly IUserProvider _userProvider;
 
+        private IGenericRepository<Gate> _gates;
+        private IGenericRepository<PermitType> _permitTypes;
 
-        public UnitOfWork(
-            DataContext context,
-            IUserProvider userProvider)
+        public UnitOfWork(DataContext context)
         {
             _context = context;
-            _userProvider = userProvider;
-        }
-        public IGenericRepository<T> Entity
-        {
-            get
-            {
-                return _entity ?? (_entity = new GenericRepository<T>(_context, _userProvider));
-            }
         }
 
-        public void Save()
+        public IGenericRepository<Gate> Gates => _gates ??= new GenericRepository<Gate>(_context);
+        public IGenericRepository<PermitType> PermitTypes => _permitTypes ??= new GenericRepository<PermitType>(_context);
+
+        public async Task SaveAsync()
         {
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
+        }
+
+        public void Dispose()
+        {
+            _context.Dispose();
         }
     }
 }

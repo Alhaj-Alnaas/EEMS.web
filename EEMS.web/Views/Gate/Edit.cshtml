@@ -1,0 +1,64 @@
+﻿@model EditGateViewModel
+
+@{
+    ViewData["Title"] = "تعديل البوابة";
+}
+
+<h1>@ViewData["Title"]</h1>
+<hr />
+
+<form asp-action="Edit" method="post">
+    <input type="hidden" asp-for="Id" />
+
+    <div class="mb-3">
+        <label asp-for="No" class="form-label"></label>
+        <input asp-for="No" class="form-control" />
+        <span asp-validation-for="No" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Description" class="form-label"></label>
+        <input asp-for="Description" class="form-control" />
+        <span asp-validation-for="Description" class="text-danger"></span>
+    </div>
+
+    <div class="form-check mb-3">
+        <input asp-for="IsActive" class="form-check-input" />
+        <label asp-for="IsActive" class="form-check-label"></label>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Remarks" class="form-label"></label>
+        <textarea asp-for="Remarks" class="form-control"></textarea>
+        <span asp-validation-for="Remarks" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="SelectedPermitTypeIds" class="form-label">أنواع التصاريح المسموح بها</label>
+        <div class="border p-2" style="max-height:200px; overflow-y:auto; direction:rtl;">
+            @foreach (var permit in Model.PermitTypes)
+            {
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox"
+                           name="SelectedPermitTypeIds"
+                           value="@permit.Id"
+                           @(Model.SelectedPermitTypeIds.Contains(permit.Id) ? "checked" : "") />
+                    <label class="form-check-label">@permit.Name</label>
+                </div>
+            }
+        </div>
+        <span asp-validation-for="SelectedPermitTypeIds" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <button type="submit" class="btn btn-primary">حفظ التعديلات</button>
+        <a asp-action="Index" class="btn btn-secondary">إلغاء</a>
+    </div>
+</form>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}
+

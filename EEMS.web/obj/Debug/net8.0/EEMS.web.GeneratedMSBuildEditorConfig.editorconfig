@@ -1,11 +1,19 @@
 is_global = true
 build_property.TargetFramework = net8.0
+build_property.TargetFramework = net8.0
+build_property.TargetPlatformMinVersion = 
 build_property.TargetPlatformMinVersion = 
 build_property.UsingMicrosoftNETSdkWeb = true
+build_property.UsingMicrosoftNETSdkWeb = true
+build_property.ProjectTypeGuids = 
 build_property.ProjectTypeGuids = 
 build_property.InvariantGlobalization = 
+build_property.InvariantGlobalization = 
+build_property.PlatformNeutralAssembly = 
 build_property.PlatformNeutralAssembly = 
 build_property.EnforceExtendedAnalyzerRules = 
+build_property.EnforceExtendedAnalyzerRules = 
+build_property._SupportedPlatformList = Linux,macOS,Windows
 build_property._SupportedPlatformList = Linux,macOS,Windows
 build_property.RootNamespace = EEMS.web
 build_property.RootNamespace = EEMS.web
@@ -24,12 +32,36 @@ build_property.EnableCodeStyleSeverity =
 build_metadata.AdditionalFiles.TargetPath = QXJlYXNcSWRlbnRpdHlcUGFnZXNcX1ZpZXdTdGFydC5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
+[D:/mvcCourseCodaing/EEMS.web/EEMS.web/Views/Admin/Settings.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWRtaW5cU2V0dGluZ3MuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/mvcCourseCodaing/EEMS.web/EEMS.web/Views/Gate/Create.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcR2F0ZVxDcmVhdGUuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/mvcCourseCodaing/EEMS.web/EEMS.web/Views/Gate/Details.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcR2F0ZVxEZXRhaWxzLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/mvcCourseCodaing/EEMS.web/EEMS.web/Views/Gate/Edit.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcR2F0ZVxFZGl0LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/mvcCourseCodaing/EEMS.web/EEMS.web/Views/Gate/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcR2F0ZVxJbmRleC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
 [D:/mvcCourseCodaing/EEMS.web/EEMS.web/Views/Home/Index.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9tZVxJbmRleC5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
 [D:/mvcCourseCodaing/EEMS.web/EEMS.web/Views/Home/Privacy.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9tZVxQcml2YWN5LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/mvcCourseCodaing/EEMS.web/EEMS.web/Views/Shared/DashboardCharts.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXERhc2hib2FyZENoYXJ0cy5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
 [D:/mvcCourseCodaing/EEMS.web/EEMS.web/Views/Shared/Error.cshtml]
@@ -42,6 +74,10 @@ build_metadata.AdditionalFiles.CssScope =
 
 [D:/mvcCourseCodaing/EEMS.web/EEMS.web/Views/Shared/_ValidationScriptsPartial.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXF9WYWxpZGF0aW9uU2NyaXB0c1BhcnRpYWwuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/mvcCourseCodaing/EEMS.web/EEMS.web/Views/UserManagement/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcVXNlck1hbmFnZW1lbnRcSW5kZXguY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
 [D:/mvcCourseCodaing/EEMS.web/EEMS.web/Views/_ViewImports.cshtml]

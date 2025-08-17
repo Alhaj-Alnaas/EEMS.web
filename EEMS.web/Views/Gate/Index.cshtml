@@ -1,0 +1,62 @@
+﻿@model IEnumerable<Core.Entities.Gate>
+
+@{
+    ViewData["Title"] = "إدارة البوابات";
+}
+
+<div class="container mt-4">
+    <div class="card shadow-lg border-0 rounded-4">
+        <div class="card-header bg-warning text-dark rounded-top-4">
+            <h4 class="mb-0">📋 صفحة إدارة البوابات</h4>
+        </div>
+        <div class="card-body">
+            <div class="mb-3 text-end">
+                <a asp-action="Create" class="btn btn-warning text-dark fw-bold px-4">➕ إضافة بوابة</a>
+            </div>
+
+            <table class="table table-bordered table-hover align-middle text-center">
+                <thead class="table-warning">
+                    <tr>
+                        <th>رقم البوابة</th>
+                        <th>الوصف</th>
+                        <th>الحالة</th>
+                        <th>أضيفت بواسطة</th>
+                        <th>تاريخ الإضافة</th>
+                        <th>الملاحظات</th>
+                        <th>الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model)
+                    {
+                        <tr>
+                            <td>@Html.DisplayFor(modelItem => item.no)</td>
+                            <td>@Html.DisplayFor(modelItem => item.description)</td>
+                            <td>
+                                @if (item.isActive)
+                                {
+                                    <span class="badge bg-success">✔ مفعلة</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-danger">✖ غير مفعلة</span>
+                                }
+                            </td>
+                            <td>@Html.DisplayFor(modelItem => item.createdBy)</td>
+                            <td>@item.createdOn.ToString("yyyy/MM/dd")</td>
+                            <td>@Html.DisplayFor(modelItem => item.remarks)</td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a asp-action="Details" asp-route-id="@item.Id"
+                                       class="btn btn-info btn-sm text-white">👁 عرض</a>
+                                    <a asp-action="Edit" asp-route-id="@item.Id"
+                                       class="btn btn-primary btn-sm">✏ تعديل</a>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

@@ -432,6 +432,51 @@ namespace DataAccess.Migrations
                     b.ToTable("Permits");
                 });
 
+            modelBuilder.Entity("Core.Entities.PermitType", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("createdBy")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("createdOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("deletedBy")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("deletedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("isDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("remarks")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("updatedBy")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("updatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("PermitTypes");
+                });
+
             modelBuilder.Entity("Core.Entities.ProcedureMovment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -620,6 +665,21 @@ namespace DataAccess.Migrations
                     b.ToTable("UsersRoles");
                 });
 
+            modelBuilder.Entity("GatePermitType", b =>
+                {
+                    b.Property<Guid>("GatesId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("PermitTypesId")
+                        .HasColumnType("int");
+
+                    b.HasKey("GatesId", "PermitTypesId");
+
+                    b.HasIndex("PermitTypesId");
+
+                    b.ToTable("GatePermitTypes", (string)null);
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
                 {
                     b.Property<string>("Id")
@@ -806,6 +866,21 @@ namespace DataAccess.Migrations
                         .IsRequired();
 
                     b.Navigation("permit");
+                });
+
+            modelBuilder.Entity("GatePermitType", b =>
+                {
+                    b.HasOne("Core.Entities.Gate", null)
+                        .WithMany()
+                        .HasForeignKey("GatesId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Core.Entities.PermitType", null)
+                        .WithMany()
+                        .HasForeignKey("PermitTypesId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>

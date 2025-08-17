@@ -13,98 +13,48 @@ namespace DataAccess.Repositories
 {
     public class GenericRepository<T> : IGenericRepository<T> where T : Base
     {
-        private readonly DataContext _context;
-        private DbSet<T> dbSet = null;
-        protected readonly IUserProvider _userProvider;
-        public GenericRepository(
-            DataContext context
-            , IUserProvider userProvider)
+        protected readonly DbContext _context;
+        protected readonly DbSet<T> _dbSet;
+
+        public GenericRepository(DbContext context)
         {
             _context = context;
-            dbSet = _context.Set<T>();
-            _userProvider = userProvider;
+            _dbSet = _context.Set<T>();
         }
 
-        public async Task<IEnumerable<T>> GetAllAsync(
-            Expression<Func<T, bool>> filter = null,
-            Func<IQueryable<T>, IOrderedQueryable<T>> orderBy = null,
-            string includeProperties = "")
+        public async Task<IEnumerable<T>> GetAllAsync()
         {
-            IQueryable<T> query = dbSet;
-
-            if (filter != null)
-            {
-                query = query.Where(filter);
-            }
-
-            foreach (var includeProperty in includeProperties.Split
-                (new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
-            {
-                query = query.Include(includeProperty);
-            }
-
-            if (orderBy != null)
-            {
-                return await orderBy(query).AsNoTracking().ToListAsync();
-            }
-            else
-            {
-                return await query.AsNoTracking().ToListAsync();
-            }
+            return await _dbSet.ToListAsync();
         }
 
-        public async Task<T> FindAsync(Expression<Func<T, bool>> filter = null, string includeProperties = "")
+        public async Task<T> GetByIdAsync(object id)
         {
-            IQueryable<T> query = dbSet;
-
-            if (filter != null)
-            {
-                query = query.Where(filter);
-            }
-
-            foreach (var includeProperty in includeProperties.Split
-                (new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
-            {
-                query = query.Include(includeProperty);
-            }
-            return await query.AsNoTracking().SingleOrDefaultAsync();
+            return await _dbSet.FindAsync(id);
         }
 
         public void Insert(T entity)
         {
-            //entity.Id ??= Guid.NewGuid();
-            if (entity.Id == null)
-                entity.Id = Guid.NewGuid();
-            if (entity.createdBy == null)
-                entity.createdBy = _userProvider.GetCurrentUserId();
-            dbSet.Add(entity);
+            _dbSet.Add(entity);
         }
 
         public void Update(T entity)
         {
-            entity.updatedBy = _userProvider.GetCurrentUserId();
-            entity.updatedOn = DateTime.Now;
-            dbSet.Attach(entity);
+            _dbSet.Attach(entity);
             _context.Entry(entity).State = EntityState.Modified;
         }
 
         public void Delete(T entity)
         {
-            entity.deletedOn = DateTime.Now;
-            entity.deletedBy = _userProvider.GetCurrentUserId();
-            entity.isDeleted = true;
-            dbSet.Attach(entity);
-            _context.Entry(entity).State = EntityState.Modified;
+            if (_context.Entry(entity).State == EntityState.Detached)
+                _dbSet.Attach(entity);
+            _dbSet.Remove(entity);
         }
 
         public void PermanentDelete(T entity)
         {
             if (_context.Entry(entity).State == EntityState.Detached)
-            {
-                dbSet.Attach(entity);
-            }
-            dbSet.Remove(entity);
+                _dbSet.Attach(entity);
+            _dbSet.Remove(entity);
         }
-
     }
 }

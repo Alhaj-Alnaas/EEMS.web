@@ -12,6 +12,7 @@ namespace Core.Entities
         public string no { get; set; }
         public string description  { get; set; }
         public bool  isActive   { get; set; }
+        public ICollection<PermitType> PermitTypes { get; set; } = new List<PermitType>();
 
     }
 }

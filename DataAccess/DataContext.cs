@@ -17,6 +17,16 @@ namespace DataAccess
         public DbSet<HumanMovment> HumansMovment { get; set; }
         public DbSet<ProcedureMovment> ProceduresMovment { get; set; }
         public DbSet<Gate> Gates { get; set; }
+        public DbSet<PermitType> PermitTypes { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder); // مهم جدًا للـ Identity
+            modelBuilder.Entity<Gate>()
+                .HasMany(g => g.PermitTypes)
+                .WithMany(p => p.Gates)
+                .UsingEntity(j => j.ToTable("GatePermitTypes"));
+        }
         public DbSet<GateUsedFor> GatesUsedFor { get; set; }
         public DbSet<User> SystemUser { get; set; }
         public DbSet<UserRoles> UsersRoles { get; set; }
