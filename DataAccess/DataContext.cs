@@ -27,7 +27,7 @@ namespace DataAccess
                 .WithMany(p => p.Gates)
                 .UsingEntity(j => j.ToTable("GatePermitTypes"));
         }
-        public DbSet<GateUsedFor> GatesUsedFor { get; set; }
+       // public DbSet<GateUsedFor> GatesUsedFor { get; set; }
         public DbSet<User> SystemUser { get; set; }
         public DbSet<UserRoles> UsersRoles { get; set; }
        

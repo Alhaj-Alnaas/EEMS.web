@@ -1,4 +1,5 @@
 ﻿
+using Microsoft.EntityFrameworkCore.Query;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,12 +10,10 @@ namespace EEMS.Core.Interfaces.Repositories
 {
     public  interface IGenericRepository<T> where T : class
     {
-        Task<IEnumerable<T>> GetAllAsync();
-        //Expression<Func<T, bool>> filter = null,
-        //Func<IQueryable<T>, IOrderedQueryable<T>> orderBy = null,
-        //string includeProperties = "");
-        //Task<T> FindAsync(Expression<Func<T, bool>> filter = null, string includeProperties = "");
-        Task<T> GetByIdAsync(object id);
+        Task<IEnumerable<T>> GetAllAsync(Func<IQueryable<T>, IIncludableQueryable<T, object>>? include = null);
+
+        Task<T> GetByIdAsync(Guid id,
+            Func<IQueryable<T>, IIncludableQueryable<T, object>>? include = null);
         void Insert(T entity);
         void Update(T entity);
         void Delete(T entity);
