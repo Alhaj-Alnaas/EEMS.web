@@ -28,8 +28,7 @@ namespace DataAccess
                 .UsingEntity(j => j.ToTable("GatePermitTypes"));
         }
        // public DbSet<GateUsedFor> GatesUsedFor { get; set; }
-        public DbSet<User> SystemUser { get; set; }
-        public DbSet<UserRoles> UsersRoles { get; set; }
+       // public DbSet<User> SystemUser { get; set; }
        
     }
 }

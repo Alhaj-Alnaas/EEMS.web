@@ -1,0 +1,167 @@
+﻿@model EEMS.web.ViewModels.CreateUserViewModel
+
+@{
+    ViewData["Title"] = "إضافة مستخدم جديد";
+}
+
+<div class="container mt-4">
+    <div class="card shadow-lg border-0 rounded-4">
+        <div class="card-header bg-secondary text-white rounded-top-4 d-flex align-items-center">
+            <i class="bi bi-person-plus-fill me-2"></i>
+            <h4 class="mb-0">إضافة مستخدم جديد</h4>
+        </div>
+        <div class="card-body">
+            <form asp-action="CreateUser" method="post">
+
+                <!-- صندوق الرسائل -->
+                <div id="alertBox" class="alert alert-dismissible fade show d-none" role="alert">
+                    <span id="alertMessage"></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+
+                <!-- لتخزين رسالة النجاح القادمة من السيرفر -->
+                <input type="hidden" id="SuccessMessageValue" value="@TempData["SuccessMessage"]" />
+
+                <!-- استدعاء ملف الجافاسكريبت -->
+                <script src="~/js/UserManagement/alerts.js"></script>
+                <script src="~/js/UserManagement/employee.js"></script>
+                <script src="~/js/UserManagement/passwordStrength.js"></script>
+                <script src="~/js/UserManagement/create.js"></script>
+
+                @* <script src="~/js/pages/UserManagement/create.js"></script> *@
+
+                <div class="row">
+
+                    <!-- العمود الأيسر: بيانات الموظف -->
+                    <div class="col-md-6">
+                        <div class="card mb-3 shadow-sm h-100">
+                            <div class="card-header bg-light fw-bold">البيانات الأساسية</div>
+                            <div class="card-body">
+                                <!-- الرقم الوظيفي -->
+                                <div class="mb-3 input-group input-group-sm">
+                                    <span class="input-group-text"><i class="bi bi-card-text"></i></span>
+                                    <input asp-for="EmpFileNo" id="EmpFileNo" class="form-control" placeholder="الرقم الوظيفي" />
+                                    <button type="button" class="btn btn-info btn-sm" onclick="fetchEmployeeData()">عرض</button>
+                                </div>
+                                <span asp-validation-for="EmpFileNo" class="text-danger small"></span>
+
+                                <!-- الاسم الكامل -->
+                                <div class="mb-3 input-group input-group-sm">
+                                    <span class="input-group-text"><i class="bi bi-person"></i></span>
+                                    <input asp-for="EmpName" id="EmpName" class="form-control" placeholder="الاسم الكامل" readonly />
+                                </div>
+
+                                <!-- الإدارة -->
+                                <div class="mb-3 input-group input-group-sm">
+                                    <span class="input-group-text"><i class="bi bi-building"></i></span>
+                                    <input asp-for="Department" id="Department" class="form-control" placeholder="الإدارة" readonly />
+                                </div>
+
+                                <!-- الوظيفة -->
+                                <div class="mb-3 input-group input-group-sm">
+                                    <span class="input-group-text"><i class="bi bi-briefcase"></i></span>
+                                    <input asp-for="JobTypeName" id="JobTypeName" class="form-control" placeholder="الوظيفة" readonly />
+                                </div>
+
+                                <!-- البريد الإلكتروني -->
+                                <div class="mb-3 input-group input-group-sm">
+                                    <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                                    <input asp-for="EmpEmail" id="EmpEmail" class="form-control" readonly />
+                                </div>
+
+                                <!-- الحالة الوظيفية -->
+                                <div class="mb-3 input-group input-group-sm">
+                                    <span class="input-group-text"><i class="bi bi-person-check"></i></span>
+                                    <input asp-for="JobStatus" id="JobStatus" class="form-control" readonly />
+                                </div>
+
+                                <!-- الحقول الإضافية من API -->
+                                <input type="hidden" asp-for="EmpPhone" id="EmpPhone" />
+                                <input type="hidden" asp-for="RespCodeId" id="RespCodeId" />
+                                <input type="hidden" asp-for="EmpResponsibilityCode" id="EmpResponsibilityCode" />
+                                <input type="hidden" asp-for="JobCatId" id="JobCatId" />
+                                <input type="hidden" asp-for="DesignationId" id="DesignationId" />
+
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- العمود الأيمن: تصنيف المستخدم + كلمة المرور -->
+                    <div class="col-md-6">
+                        <!-- تصنيف المستخدم -->
+                        <div class="card mb-3 shadow-sm">
+                            <div class="card-header bg-light fw-bold">تصنيف المستخدم</div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <select asp-for="UserType" class="form-select">
+                                        <option value="">-- اختر تصنيف المستخدم --</option>
+                                        <option value="Admin">Admin</option>
+                                        <option value="Application User">Application User</option>
+                                        <option value="Base User">Base User</option>
+                                    </select>
+                                    <span asp-validation-for="UserType" class="text-danger small"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- كلمة المرور -->
+                        <div class="card mb-3 shadow-sm">
+                            <div class="card-header bg-light fw-bold">كلمة المرور</div>
+                            <div class="card-body">
+                                <div class="mb-3 input-group input-group-sm">
+                                    <span class="input-group-text"><i class="bi bi-key-fill"></i></span>
+                                    <input asp-for="Password" class="form-control" type="password" placeholder="كلمة المرور" />
+                                    <span asp-validation-for="Password" class="text-danger"></span>
+
+                                </div>
+                               
+
+                                <div class="mb-3 input-group input-group-sm">
+                                    <span class="input-group-text"><i class="bi bi-key"></i></span>
+                                    <input asp-for="ConfirmPassword" class="form-control" type="password" placeholder="تأكيد كلمة المرور" />
+                                    <span asp-validation-for="ConfirmPassword" class="text-danger"></span>
+                                </div>
+                               
+                                <!-- شريط القوة -->
+                                <div class="progress mt-2" style="height: 8px;">
+                                    <div id="passwordStrengthBar" class="progress-bar" role="progressbar" style="width: 0%;"></div>
+                                </div>
+                                <small id="passwordStrengthText" class="form-text"></small>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- زر الحفظ -->
+                <div class="text-center mt-3">
+                    <button type="submit" class="btn btn-warning btn-lg px-5">حفظ المستخدم</button>
+                    <button type="button" id="btnCancel" class="btn btn-secondary btn-lg px-4">رجوع</button>
+                    @* <a asp-action="UsersList" class="btn btn-secondary btn-lg px-4">إلغاء</a> *@
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        document.getElementById("btnCancel").addEventListener("click", function () {
+            window.location.href = "/Home/Index"; 
+        });
+    </script>
+
+    <style>
+        .bg-orange {
+            background-color: orange !important;
+        }
+
+        .card-header.bg-light {
+            background-color: #f8f9fa !important;
+        }
+    </style>
+}

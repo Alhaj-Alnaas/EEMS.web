@@ -8,7 +8,7 @@ namespace EEMS.Core.Interfaces.UnitOfWork
     {
         IGenericRepository<Gate> Gates { get; }
         IGenericRepository<PermitType> PermitTypes { get; }
-
+        
         Task SaveAsync();
     }
 }

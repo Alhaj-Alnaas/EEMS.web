@@ -18,6 +18,7 @@ namespace DataAccess.UnitOfWork
         private IGenericRepository<Gate> _gates;
         private IGenericRepository<PermitType> _permitTypes;
 
+
         public UnitOfWork(DataContext context)
         {
             _context = context;
@@ -25,7 +26,7 @@ namespace DataAccess.UnitOfWork
 
         public IGenericRepository<Gate> Gates => _gates ??= new GenericRepository<Gate>(_context);
         public IGenericRepository<PermitType> PermitTypes => _permitTypes ??= new GenericRepository<PermitType>(_context);
-
+        
         public async Task SaveAsync()
         {
             await _context.SaveChangesAsync();
