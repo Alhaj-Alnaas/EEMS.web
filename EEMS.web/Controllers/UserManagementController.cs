@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Templates.BlazorIdentity.Pages.Manage;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 
 public class UserManagementController : Controller
@@ -167,6 +168,91 @@ public class UserManagementController : Controller
         return Json(exists);
     }
 
-   
 
+    [HttpGet]
+    public IActionResult ViewUser()
+    {
+        return View();
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> ViewUser(string empFileNo)
+    {
+        if (string.IsNullOrEmpty(empFileNo))
+        {
+            TempData["ErrorMessage"] = "الرجاء إدخال رقم الملف.";
+            return View();
+        }
+
+        var user = await _userManager.Users
+            .FirstOrDefaultAsync(u => u.FileNumber == empFileNo);
+
+        if (user == null)
+        {
+            TempData["ErrorMessage"] = "المستخدم غير موجود.";
+            return View();
+        }
+
+        var model = new ViewUserViewModel
+        {
+            Id = user.Id,
+            EmpFileNo = user.FileNumber,
+            EmpName = user.FullName,
+            Department = user.Department,
+            JobTypeName = user.JobtypeName,
+            UserType = user.UserType
+        };
+
+        return View(model);
+    }
+
+    // حفظ نوع المستخدم فقط
+    [HttpPost]
+    public async Task<IActionResult> SaveUserType(ViewUserViewModel model)
+    {
+        var user = await _userManager.FindByIdAsync(model.Id);
+        if (user == null)
+        {
+            TempData["ErrorMessage"] = "المستخدم غير موجود.";
+            return RedirectToAction("ViewUser");
+        }
+
+        user.UserType = model.UserType;
+        user.Discriminator = model.UserType;
+        await _userManager.UpdateAsync(user);
+
+        TempData["SuccessMessage"] = "تم تحديث نوع المستخدم بنجاح!";
+        return RedirectToAction("ViewUser");
+    }
+
+    // تصفير كلمة المرور
+    [HttpPost]
+    public async Task<IActionResult> ResetPassword(string id)
+    {
+        var user = await _userManager.FindByIdAsync(id);
+        if (user == null)
+        {
+            TempData["ErrorMessage"] = "المستخدم غير موجود.";
+            return RedirectToAction("ViewUser");
+        }
+
+        var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+        var newPassword = "Eems@" + user.FileNumber;
+        var result = await _userManager.ResetPasswordAsync(user, token, newPassword);
+
+        if (result.Succeeded)
+        {
+            TempData["ResetPasswordMessage"] = $"تم تصفير كلمة المرور بنجاح (كلمة المرور الجديدة: {newPassword})";
+        }
+        else
+        {
+            TempData["ResetPasswordError"] = "فشل تصفير كلمة المرور.";
+        }
+
+        return RedirectToAction("ViewUser");
+    }
 }
+
+
+
+

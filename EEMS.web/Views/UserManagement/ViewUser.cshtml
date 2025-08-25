@@ -1,0 +1,94 @@
+﻿@model EEMS.web.ViewModels.ViewUserViewModel
+
+@{
+    ViewData["Title"] = "عرض بيانات المستخدم";
+}
+
+<script src="~/js/UserManagement/alerts.js"></script>
+
+<div class="container mt-4">
+    <div class="card shadow-lg border-0 rounded-4 p-4">
+
+        <h4 class="mb-4">عرض بيانات المستخدم</h4>
+
+        <!-- صندوق الرسائل -->
+        <div id="alertBox" class="alert d-none alert-dismissible fade show" role="alert">
+            <span id="alertMessage"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+
+        <!-- البحث عن المستخدم -->
+        <form asp-action="ViewUser" method="post" class="row g-3 mb-4">
+            <div class="col-md-6">
+                <input type="text" name="empFileNo" class="form-control" placeholder="أدخل رقم الملف" required />
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-info w-100">عرض</button>
+            </div>
+        </form>
+
+        @if (Model != null)
+        {
+            <div class="row g-3">
+                <!-- بيانات المستخدم -->
+                <div class="col-12 mb-3">
+                    <label class="form-label">اسم الموظف</label>
+                    <input type="text" class="form-control" value="@Model.EmpName" readonly />
+                </div>
+
+                <div class="col-12 mb-3">
+                    <label class="form-label">الإدارة</label>
+                    <input type="text" class="form-control" value="@Model.Department" readonly />
+                </div>
+
+                <div class="col-12 mb-3">
+                    <label class="form-label">الوظيفة</label>
+                    <input type="text" class="form-control" value="@Model.JobTypeName" readonly />
+                </div>
+
+                <div class="col-12 mb-3">
+                    <label class="form-label">نوع المستخدم</label>
+                    <form asp-action="SaveUserType" method="post" class="d-flex gap-2">
+                        <input type="hidden" asp-for="Id" />
+                        <select class="form-select" asp-for="UserType">
+                            <option value="Admin" selected="@Model.UserType == " Admin"">Admin</option>
+                            <option value="ApplicationUser" selected="@Model.UserType == " ApplicationUser"">Application User</option>
+                            <option value="BaseUser" selected="@Model.UserType == " BaseUser"">Base User</option>
+                            <option value="SaftyUser" selected="@Model.UserType == " SaftyUser"">Safty User</option>
+                        </select>
+                        <button type="submit" class="btn btn-warning">حفظ التعديلات</button>
+                    </form>
+                </div>
+
+                <div class="col-12 mb-3">
+                    <form asp-action="ResetPassword" method="post">
+                        <input type="hidden" name="id" value="@Model.Id" />
+                        <button type="submit" class="btn btn-danger w-100">تصفير كلمة المرور</button>
+                    </form>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            // الرسائل من TempData
+            var resetPasswordMessage = '@Html.Raw(TempData["ResetPasswordMessage"] ?? "")';
+            var resetPasswordError = '@Html.Raw(TempData["ResetPasswordError"] ?? "")';
+            var successMessage = '@Html.Raw(TempData["SuccessMessage"] ?? "")';
+            var errorMessage = '@Html.Raw(TempData["ErrorMessage"] ?? "")';
+
+            if (resetPasswordMessage.trim() !== "") {
+                showAlert(resetPasswordMessage, "success");
+            } else if (resetPasswordError.trim() !== "") {
+                showAlert(resetPasswordError, "danger");
+            } else if (successMessage.trim() !== "") {
+                showAlert(successMessage, "success");
+            } else if (errorMessage.trim() !== "") {
+                showAlert(errorMessage, "danger");
+            }
+        });
+    </script>
+}
