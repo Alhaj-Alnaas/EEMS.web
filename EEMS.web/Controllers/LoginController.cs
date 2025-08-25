@@ -2,6 +2,7 @@
 using Core.Interfaces.Services;
 using EEMS.web.ViewModels;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.V4.Pages.Account.Internal;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
@@ -30,54 +31,83 @@ namespace EEMS.web.Controllers
             return View(new LoginViewModel());
         }
 
+    
+        [HttpPost]
+        public async Task<IActionResult> CheckUser(string username)
+        {
+            var user = await _userManager.FindByNameAsync(username);
+           
+            if (user == null)
+            {
+                return Json(new { success = false, message = "اسم المستخدم غير موجود." });
+            }
+
+            
+            if (!string.Equals(user.JobStatus.Trim(), "AE", StringComparison.OrdinalIgnoreCase))
+            {
+                return Json(new { success = false, message = "الحالة الوظيفية غير فعالة، لا يمكن الدخول." });
+             }
+
+
+            if (user.UserType == "SaftyUser")
+            {
+                var gates = (await _gateService.GetAllAsync())
+                            .Select(g => new { g.Id, g.no })
+                            .ToList();
+
+                return Json(new { success = true, isSafty = true, gates });
+            }
+
+            return Json(new { success = true, isSafty = false });
+        }
+
+        // 
         [HttpPost]
         public async Task<IActionResult> Login(LoginViewModel model)
         {
-            //if (!ModelState.IsValid)
-            //    return View(model);
-
             var user = await _userManager.FindByNameAsync(model.Username);
 
             if (user == null)
             {
-                model.ErrorMessage = "اسم المستخدم غير موجود.";
-                return View(model);
+                return Json(new { success = false, message = "اسم المستخدم غير موجود." });
             }
 
-            // التحقق من الحالة الوظيفية
+            
             if (!string.Equals(user.JobStatus.Trim(), "AE", StringComparison.OrdinalIgnoreCase))
             {
-                model.ErrorMessage = "الحالة الوظيفية غير فعالة، لا يمكن الدخول.";
-                return View(model);
+                return Json(new { success = false, message = "الحالة الوظيفية غير فعالة، لا يمكن الدخول." });
             }
+
+            // لو مستخدم SaftyUser يجب أن يختار بوابة
+            //if (user.UserType == "SaftyUser" && string.IsNullOrEmpty(model.SelectedGate))
+            //{
+            //    model.ErrorMessage = "يرجى اختيار البوابة.";
+            //    return View(model);
+            //}
 
             var result = await _signInManager.PasswordSignInAsync(
-              model.Username,
-              model.Password,
-              isPersistent: false,
-              lockoutOnFailure: false
- );
+                          model.Username,
+                          model.Password,
+                          isPersistent: false,
+                          lockoutOnFailure: false
+             );
 
-            if (!result.Succeeded)
+            if (result.Succeeded)
             {
-                model.ErrorMessage = "اسم المستخدم أو كلمة المرور غير صحيحة.";
-                return View(model);
+                return RedirectToAction("Index", "Home"); // ✅ الصفحة الرئيسية بعد الدخول
             }
 
-            if (user.UserType == "SaftyUser")
-            {
-                var gates = await _gateService.GetAllAsync();
-                model.Gates = gates.Select(g => new SelectListItem { Value = g.Id.ToString(), Text = g.no }).ToList();
-                model.IsSaftyUser = true;
+            model.ErrorMessage = "اسم المستخدم أو كلمة المرور غير صحيحة.";
+            return View(model);
+        }
 
-                if (!model.SelectedGateId.HasValue)
-                {
-                    model.ErrorMessage = "يرجى اختيار البوابة.";
-                    return View(model);
-                }
-            }
 
-            return RedirectToAction("Index", "Home");
+       
+        [HttpPost]
+        public async Task<IActionResult> Logout()
+        {
+            await _signInManager.SignOutAsync();
+            return RedirectToAction("Login", "Login");
         }
     }
 }

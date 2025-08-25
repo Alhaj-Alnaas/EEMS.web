@@ -1,11 +1,10 @@
 ﻿@model EEMS.web.ViewModels.LoginViewModel
-
 @{
-    Layout = null; // فصل الصفحة عن الـ Layout الرئيسي
+    Layout = null; 
 }
 
 <!DOCTYPE html>
-<html lang="ar">
+<html lang="ar" dir="rtl">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -14,64 +13,123 @@
     <style>
         body {
             background-color: #f8f9fa;
+            direction: rtl;
+            text-align: center;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
         }
 
         .login-card {
             width: 400px;
             border-radius: 10px;
+            margin: 50px auto;
+            text-align: center;
         }
 
-        .login-header {
-            font-weight: bold;
+        .form-control, .form-select {
+            text-align: center;
         }
 
         .alert {
             font-size: 0.9rem;
+            text-align: center;
         }
+
+        #gateContainer, #passwordContainer {
+            display: none;
+        }
+
+        #gatesDropdown {
+            color: #000 !important;
+            background-color: #fff !important;
+            text-align-last: center; 
+        }
+
+        #loginButton {
+            background-color: orange;
+            border: none;
+        }
+
+            #loginButton:hover {
+                background-color: darkorange;
+            }
     </style>
 </head>
 <body>
-    <div class="container vh-100 d-flex justify-content-center align-items-center">
-        <div class="card shadow-lg p-4 login-card">
-            <h3 class="text-center login-header mb-4">تسجيل الدخول</h3>
+    <div class="card shadow-sm p-4 login-card">
+        <h3 class="mb-4">تسجيل الدخول</h3>
 
-            <form asp-action="Login" method="post">
-                <div class="mb-3">
-                    <label asp-for="Username" class="form-label">اسم المستخدم</label>
-                    <input asp-for="Username" class="form-control" />
-                    <span asp-validation-for="Username" class="text-danger"></span>
-                </div>
+        <div id="loginAlert" class="alert d-none alert-danger" role="alert"></div>
 
-                <div class="mb-3">
-                    <label asp-for="Password" class="form-label">كلمة المرور</label>
-                    <input asp-for="Password" type="password" class="form-control" />
-                    <span asp-validation-for="Password" class="text-danger"></span>
-                </div>
+        <form asp-action="Login" method="post" id="loginForm">
+            <div class="mb-3">
+                <label for="usernameInput" class="form-label">رقم الملف</label>
+                <input type="text" id="usernameInput" name="Username" class="form-control" autocomplete="off" />
+            </div>
 
-                @if (Model.IsSaftyUser && Model.Gates != null && Model.Gates.Any())
-                {
-                    <div class="mb-3">
-                        <label asp-for="SelectedGateId" class="form-label">اختر البوابة</label>
-                        <select asp-for="SelectedGateId" asp-items="Model.Gates" class="form-select">
-                            <option value="">-- اختر البوابة --</option>
-                        </select>
-                        <span asp-validation-for="SelectedGateId" class="text-danger"></span>
-                    </div>
-                }
+            <div id="gateContainer" class="mb-3">
+                <label for="gatesDropdown" class="form-label">اختر البوابة</label>
+                <select id="gatesDropdown" name="SelectedGate" class="form-select"></select>
+            </div>
 
-                <button type="submit" class="btn btn-primary w-100">تسجيل الدخول</button>
-            </form>
+            <div id="passwordContainer" class="mb-3">
+                <label for="passwordInput" class="form-label">كلمة المرور</label>
+                <input type="password" id="passwordInput" name="Password" class="form-control" />
+            </div>
 
-            @if (!string.IsNullOrEmpty(Model.ErrorMessage))
-            {
-                <div class="alert alert-danger mt-3">@Model.ErrorMessage</div>
-            }
-        </div>
+            <button type="submit" class="btn w-100" id="loginButton">تسجيل الدخول</button>
+        </form>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.21.1/jquery.validate.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate-unobtrusive/4.0.0/jquery.validate.unobtrusive.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        $(document).ready(function () {
+            // منع الفورم من الإرسال قبل ظهور كلمة المرور
+            $("#loginForm").on("submit", function (e) {
+                if (!$("#passwordContainer").is(":visible")) {
+                    e.preventDefault();
+                }
+            });
+
+            $("#usernameInput").on("keyup", function (e) {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    var username = $(this).val();
+                    if (!username) {
+                        showAlert("الرجاء إدخال رقم الملف");
+                        return;
+                    }
+
+                    $.post("/Login/CheckUser", { username: username }, function (res) {
+                        if (!res.success) {
+                            showAlert(res.message);
+                            return;
+                        }
+
+                        if (res.isSafty && res.gates.length > 0) {
+                            $("#gateContainer").show();
+                            $("#gatesDropdown").empty();
+                            res.gates.forEach(g => {
+                                $("#gatesDropdown").append(new Option(g.text, g.value));
+                            });
+                            $("#gatesDropdown").focus(); 
+                        } else {
+                            $("#gateContainer").hide();
+                        }
+
+                        $("#passwordContainer").show();
+                        $("#passwordInput").focus();
+                    });
+                }
+            });
+
+            function showAlert(msg) {
+                $("#loginAlert").text(msg).removeClass("d-none");
+                setTimeout(() => $("#loginAlert").addClass("d-none").text(""), 5000);
+            }
+        });
+    </script>
 </body>
 </html>
+

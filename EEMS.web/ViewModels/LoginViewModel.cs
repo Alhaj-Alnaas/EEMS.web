@@ -5,18 +5,18 @@ namespace EEMS.web.ViewModels
 {
     public class LoginViewModel
     {
-        [Required(ErrorMessage = "اسم المستخدم مطلوب")]
+        [Required(ErrorMessage = "الرجاء إدخال رقم الملف")]
+        [Display(Name = "رقم الملف")]
         public string Username { get; set; }
 
-        [Required(ErrorMessage = "كلمة المرور مطلوبة")]
+        [Required(ErrorMessage = "الرجاء إدخال كلمة المرور")]
         [DataType(DataType.Password)]
+        [Display(Name = "كلمة المرور")]
         public string Password { get; set; }
 
-        public bool IsSaftyUser { get; set; } = false;
-
-        public List<SelectListItem> Gates { get; set; }
-
-        public int? SelectedGateId { get; set; }
+        [Display(Name = "البوابة")]
+        public string SelectedGate { get; set; }
+        public List<SelectListItem> Gates { get; set; } = new();
 
         public string ErrorMessage { get; set; }
     }
