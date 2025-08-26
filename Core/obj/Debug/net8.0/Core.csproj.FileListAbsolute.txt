@@ -11,3 +11,16 @@ D:\mvcCourseCodaing\EEMS.web\Core\obj\Debug\net8.0\Core.dll
 D:\mvcCourseCodaing\EEMS.web\Core\obj\Debug\net8.0\refint\Core.dll
 D:\mvcCourseCodaing\EEMS.web\Core\obj\Debug\net8.0\Core.pdb
 D:\mvcCourseCodaing\EEMS.web\Core\obj\Debug\net8.0\ref\Core.dll
+D:\EE\EEMS.web\Core\bin\Debug\net8.0\Core.deps.json
+D:\EE\EEMS.web\Core\bin\Debug\net8.0\Core.dll
+D:\EE\EEMS.web\Core\bin\Debug\net8.0\Core.pdb
+D:\EE\EEMS.web\Core\obj\Debug\net8.0\Core.csproj.AssemblyReference.cache
+D:\EE\EEMS.web\Core\obj\Debug\net8.0\Core.GeneratedMSBuildEditorConfig.editorconfig
+D:\EE\EEMS.web\Core\obj\Debug\net8.0\Core.AssemblyInfoInputs.cache
+D:\EE\EEMS.web\Core\obj\Debug\net8.0\Core.AssemblyInfo.cs
+D:\EE\EEMS.web\Core\obj\Debug\net8.0\Core.csproj.CoreCompileInputs.cache
+D:\EE\EEMS.web\Core\obj\Debug\net8.0\Core.sourcelink.json
+D:\EE\EEMS.web\Core\obj\Debug\net8.0\Core.dll
+D:\EE\EEMS.web\Core\obj\Debug\net8.0\refint\Core.dll
+D:\EE\EEMS.web\Core\obj\Debug\net8.0\Core.pdb
+D:\EE\EEMS.web\Core\obj\Debug\net8.0\ref\Core.dll
