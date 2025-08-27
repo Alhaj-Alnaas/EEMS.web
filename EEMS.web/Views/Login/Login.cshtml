@@ -1,8 +1,86 @@
 ﻿@model EEMS.web.ViewModels.LoginViewModel
 @{
-    Layout = null; 
+    Layout = null;
 }
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>تسجيل الدخول</title>
 
+    <!-- مكتبات CSS الخارجية -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+
+    <!-- ملف CSS المحلي -->
+    <link href="~/css/login.css" rel="stylesheet" asp-append-version="true" />
+</head>
+<body>
+    <div class="login-container">
+        <div class="card login-card">
+            <div class="card-header">
+                <h3><i class="fas fa-user-lock ms-2"></i>تسجيل الدخول</h3>
+            </div>
+            <div class="card-body">
+                <div class="alert-container">
+                    <div id="loginAlert" class="alert hidden" role="alert"></div>
+                </div>
+
+                <form id="loginForm" autocomplete="off">
+                    <div class="form-group">
+                        <label for="usernameInput" class="form-label">رقم الملف</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-id-card"></i></span>
+                            <input type="text" id="usernameInput" name="Username" class="form-control" placeholder="أدخل رقم الملف" />
+                        </div>
+                    </div>
+
+                    <div id="gateContainer" class="form-group hidden">
+                        <label for="gatesDropdown" class="form-label">اختر البوابة</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-door-open"></i></span>
+                            <select id="gatesDropdown" name="SelectedGate" class="form-select">
+                                <option value="" disabled selected>-- اختر البوابة --</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="passwordContainer" class="form-group hidden">
+                        <label for="passwordInput" class="form-label">كلمة المرور</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                            <input type="password" id="passwordInput" name="Password" class="form-control" placeholder="أدخل كلمة المرور" />
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-login" id="loginButton">
+                        <span>تسجيل الدخول</span>
+                        <span class="loading-spinner">
+                            <i class="fas fa-spinner fa-spin"></i>
+                        </span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- مكتبات JavaScript الخارجية -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- ملف JavaScript المحلي -->
+    <script src="~/js/login.js" asp-append-version="true"></script>
+</body>
+</html>
+
+
+
+
+@* @model EEMS.web.ViewModels.LoginViewModel
+@{
+    Layout = null;
+}
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -10,126 +88,372 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>تسجيل الدخول</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
     <style>
+        :root {
+            --primary-color: #ff8c00;
+            --primary-hover: #e67e00;
+            --bg-light: #f8f9fa;
+            --text-dark: #333;
+            --card-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
-            background-color: #f8f9fa;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             direction: rtl;
             text-align: center;
-            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px;
+        }
+
+        .login-container {
+            width: 100%;
+            max-width: 420px;
         }
 
         .login-card {
-            width: 400px;
-            border-radius: 10px;
-            margin: 50px auto;
-            text-align: center;
+            background: white;
+            border-radius: 15px;
+            box-shadow: var(--card-shadow);
+            overflow: hidden;
+            transition: transform 0.3s ease;
+        }
+
+            .login-card:hover {
+                transform: translateY(-5px);
+            }
+
+        .card-header {
+            background: var(--primary-color);
+            color: white;
+            padding: 20px;
+            border-bottom: none;
+        }
+
+            .card-header h3 {
+                margin: 0;
+                font-weight: 600;
+            }
+
+        .card-body {
+            padding: 30px;
         }
 
         .form-control, .form-select {
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            padding: 12px 15px;
             text-align: center;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+            .form-control:focus, .form-select:focus {
+                border-color: var(--primary-color);
+                box-shadow: 0 0 0 0.25rem rgba(255, 140, 0, 0.25);
+            }
+
+        .form-label {
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: var(--text-dark);
+        }
+
+        .btn-login {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            font-weight: 600;
+            font-size: 16px;
+            width: 100%;
+            transition: all 0.3s;
+        }
+
+            .btn-login:hover {
+                background: var(--primary-hover);
+                transform: translateY(-2px);
+            }
+
+        .alert-container {
+            margin-bottom: 20px;
         }
 
         .alert {
-            font-size: 0.9rem;
+            border-radius: 8px;
+            padding: 12px 15px;
+            font-size: 15px;
             text-align: center;
-        }
-
-        #gateContainer, #passwordContainer {
-            display: none;
-        }
-
-        #gatesDropdown {
-            color: #000 !important;
-            background-color: #fff !important;
-            text-align-last: center; 
-        }
-
-        #loginButton {
-            background-color: orange;
             border: none;
         }
 
-            #loginButton:hover {
-                background-color: darkorange;
-            }
+        .alert-danger {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: right;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .loading-spinner {
+            display: none;
+            margin-left: 10px;
+        }
+
+
+        .card-body {
+            padding: 20px;
+        }
+
+        }
     </style>
 </head>
 <body>
-    <div class="card shadow-sm p-4 login-card">
-        <h3 class="mb-4">تسجيل الدخول</h3>
-
-        <div id="loginAlert" class="alert d-none alert-danger" role="alert"></div>
-
-        <form asp-action="Login" method="post" id="loginForm">
-            <div class="mb-3">
-                <label for="usernameInput" class="form-label">رقم الملف</label>
-                <input type="text" id="usernameInput" name="Username" class="form-control" autocomplete="off" />
+    <div class="login-container">
+        <div class="card login-card">
+            <div class="card-header">
+                <h3><i class="fas fa-user-lock ms-2"></i>تسجيل الدخول</h3>
             </div>
+            <div class="card-body">
+                <div class="alert-container">
+                    <div id="loginAlert" class="alert alert-danger hidden" role="alert"></div>
+                </div>
 
-            <div id="gateContainer" class="mb-3">
-                <label for="gatesDropdown" class="form-label">اختر البوابة</label>
-                <select id="gatesDropdown" name="SelectedGate" class="form-select"></select>
+                <form id="loginForm" autocomplete="off">
+                    <div class="form-group">
+                        <label for="usernameInput" class="form-label">رقم الملف</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-id-card"></i></span>
+                            <input type="text" id="usernameInput" name="Username" class="form-control" placeholder="أدخل رقم الملف" />
+                        </div>
+                    </div>
+
+                    <div id="gateContainer" class="form-group hidden">
+                        <label for="gatesDropdown" class="form-label">اختر البوابة</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-door-open"></i></span>
+                            <select id="gatesDropdown" name="SelectedGate" class="form-select">
+                                <option value="" disabled selected>-- اختر البوابة --</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="passwordContainer" class="form-group hidden">
+                        <label for="passwordInput" class="form-label">كلمة المرور</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                            <input type="password" id="passwordInput" name="Password" class="form-control" placeholder="أدخل كلمة المرور" />
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-login" id="loginButton">
+                        <span>تسجيل الدخول</span>
+                        <span class="loading-spinner">
+                            <i class="fas fa-spinner fa-spin"></i>
+                        </span>
+                    </button>
+                </form>
             </div>
-
-            <div id="passwordContainer" class="mb-3">
-                <label for="passwordInput" class="form-label">كلمة المرور</label>
-                <input type="password" id="passwordInput" name="Password" class="form-control" />
-            </div>
-
-            <button type="submit" class="btn w-100" id="loginButton">تسجيل الدخول</button>
-        </form>
+        </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-
     <script>
-        $(document).ready(function () {
+        $(document).ready(function() {
+            const loginForm = $("#loginForm");
+            const usernameInput = $("#usernameInput");
+            const gatesDropdown = $("#gatesDropdown");
+            const passwordInput = $("#passwordInput");
+            const loginButton = $("#loginButton");
+            const loginAlert = $("#loginAlert");
+            const gateContainer = $("#gateContainer");
+            const passwordContainer = $("#passwordContainer");
+            const loadingSpinner = $(".loading-spinner");
+
             // منع الفورم من الإرسال قبل ظهور كلمة المرور
-            $("#loginForm").on("submit", function (e) {
-                if (!$("#passwordContainer").is(":visible")) {
+            loginForm.on("submit", function(e) {
+                e.preventDefault();
+
+                if (!passwordContainer.is(":visible")) {
+                    usernameInput.focus();
+                    return false;
+                }
+
+                // إظهار مؤشر التحميل
+                loadingSpinner.show();
+                loginButton.prop("disabled", true);
+
+                $.ajax({
+                    url: "/Login/Login",
+                    type: "POST",
+                    data: loginForm.serialize(),
+                    dataType: "json",
+                    success: function(res) {
+                        loadingSpinner.hide();
+                        loginButton.prop("disabled", false);
+
+                        if (res.success) {
+                            // توجيه المستخدم إلى الصفحة الرئيسية
+                            window.location.href = res.redirectUrl;
+                        } else {
+                            showAlert(res.message, "danger");
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        loadingSpinner.hide();
+                        loginButton.prop("disabled", false);
+
+                        let errorMsg = "حدث خطأ في الاتصال بالخادم";
+                        if (xhr.responseJSON && xhr.responseJSON.message) {
+                            errorMsg = xhr.responseJSON.message;
+                        }
+
+                        showAlert(errorMsg, "danger");
+                        console.error("Error:", error);
+                    }
+                });
+            });
+
+            // عند الضغط على Enter في حقل رقم الملف
+            usernameInput.on("keyup", function(e) {
+                if (e.key === "Enter") {
                     e.preventDefault();
+                    checkUsername();
                 }
             });
 
-            $("#usernameInput").on("keyup", function (e) {
-                if (e.key === "Enter") {
-                    e.preventDefault();
-                    var username = $(this).val();
-                    if (!username) {
-                        showAlert("الرجاء إدخال رقم الملف");
+            // عند تغيير قائمة البوابات
+            gatesDropdown.on("change", function() {
+                if ($(this).val()) {
+                    passwordInput.focus();
+                }
+            });
+
+            // دالة للتحقق من اسم المستخدم
+                    function checkUsername() {
+            const username = usernameInput.val().trim();
+
+            if (!username) {
+                showAlert("الرجاء إدخال رقم الملف", "danger");
+                return;
+            }
+
+            // إظهار مؤشر التحميل
+            loadingSpinner.show();
+            loginButton.prop("disabled", true);
+
+            $.ajax({
+                url: "/Login/CheckUser",
+                type: "POST",
+                data: { username: username },
+                dataType: "json",
+                success: function(res) {
+                    // إخفاء مؤشر التحميل
+                    loadingSpinner.hide();
+                    loginButton.prop("disabled", false);
+
+                    if (!res.success) {
+                        showAlert(res.message || "حدث خطأ أثناء التحقق من المستخدم", "danger");
                         return;
                     }
 
-                    $.post("/Login/CheckUser", { username: username }, function (res) {
-                        if (!res.success) {
-                            showAlert(res.message);
-                            return;
-                        }
+                    // عرض رسالة ترحيب تحتوي على اسم المستخدم
+                    showAlert(`مرحباً ${res.userName}، يرجى إدخال كلمة المرور`, "success");
 
-                        if (res.isSafty && res.gates.length > 0) {
-                            $("#gateContainer").show();
-                            $("#gatesDropdown").empty();
-                            res.gates.forEach(g => {
-                                $("#gatesDropdown").append(new Option(g.text, g.value));
-                            });
-                            $("#gatesDropdown").focus(); 
-                        } else {
-                            $("#gateContainer").hide();
-                        }
+                    // إظهار حقل كلمة المرور
+                    passwordContainer.removeClass("hidden");
 
-                        $("#passwordContainer").show();
-                        $("#passwordInput").focus();
-                    });
+                    // التعامل مع البوابات إذا كان المستخدم من الأمن
+                    if (res.isSafty && res.gates && res.gates.length > 0) {
+                        // إفراغ القائمة الحالية
+                        gatesDropdown.empty();
+
+                        // إضافة الخيار الافتراضي
+                        gatesDropdown.append('<option value="" disabled selected>-- اختر البوابة --</option>');
+
+                        // إضافة البوابات
+                        res.gates.forEach(function(gate) {
+                            // استخدام الخصائص الصحيحة
+                            const value = gate.value || gate.Id || "";
+                            const text = gate.text || gate.no || "بوابة غير معروفة";
+
+                            gatesDropdown.append(`<option value="${value}">${text}</option>`);
+                        });
+
+                        // إظهار حقل البوابات
+                        gateContainer.removeClass("hidden");
+
+                        // التركيز على قائمة البوابات
+                        setTimeout(function() {
+                            gatesDropdown.focus();
+                        }, 100);
+                    } else {
+                        // إخفاء حقل البوابات إذا لم يكن المستخدم من الأمن
+                        gateContainer.addClass("hidden");
+
+                        // التركيز على حقل كلمة المرور
+                        passwordInput.focus();
+                    }
+                },
+                error: function(xhr, status, error) {
+                    // إخفاء مؤشر التحميل
+                    loadingSpinner.hide();
+                    loginButton.prop("disabled", false);
+
+                    let errorMsg = "حدث خطأ في الاتصال بالخادم";
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        errorMsg = xhr.responseJSON.message;
+                    }
+
+                    showAlert(errorMsg, "danger");
+                    console.error("Error:", error);
                 }
             });
+        }
 
-            function showAlert(msg) {
-                $("#loginAlert").text(msg).removeClass("d-none");
-                setTimeout(() => $("#loginAlert").addClass("d-none").text(""), 5000);
+            // دالة لعرض الرسائل
+                    function showAlert(message, type) {
+            loginAlert.removeClass("alert-danger alert-success hidden").addClass(`alert-${type}`);
+
+            if (type === "danger") {
+                loginAlert.html(`<i class="fas fa-exclamation-circle me-2"></i>${message}`);
+            } else if (type === "success") {
+                loginAlert.html(`<i class="fas fa-check-circle me-2"></i>${message}`);
             }
+
+            // إظهار الرسالة
+            loginAlert.removeClass("hidden");
+
+            // إخفاء الرسالة بعد 5 ثواني
+            setTimeout(function() {
+                loginAlert.addClass("hidden");
+            }, 5000);
+        }
         });
     </script>
 </body>
 </html>
 
+
+ *@

@@ -251,6 +251,42 @@ public class UserManagementController : Controller
 
         return RedirectToAction("ViewUser");
     }
+    [HttpPost]
+    public async Task<IActionResult> DeleteUser(string id)
+    {
+        var user = await _userManager.FindByIdAsync(id);
+        if (user == null)
+        {
+            TempData["ErrorMessage"] = "المستخدم غير موجود.";
+            return RedirectToAction("ViewUser");
+        }
+        var result = await _userManager.DeleteAsync(user);
+        if (result.Succeeded)
+        {
+            TempData["SuccessMessage"] = "تم حذف المستخدم بنجاح!";
+        }
+        else
+        {
+            TempData["ErrorMessage"] = "فشل حذف المستخدم.";
+        }
+        return RedirectToAction("ViewUser");
+    }
+    [HttpPost]
+    public async Task<JsonResult> GetAllUsers()
+    {
+        var users = await _userManager.Users.ToListAsync();
+        var userList = users.Select(u => new
+        {
+            u.Id,
+            u.FileNumber,
+            u.FullName,
+            u.Department,
+            u.JobtypeName,
+            u.UserType
+        }).ToList();
+        return Json(userList);
+    }
+  
 }
 
 

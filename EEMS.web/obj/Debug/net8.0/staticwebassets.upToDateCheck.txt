@@ -1,5 +1,7 @@
+wwwroot\css\login.css
 wwwroot\css\site.css
 wwwroot\favicon.ico
+wwwroot\js\login.js
 wwwroot\js\site.js
 wwwroot\js\UserManagement\alerts.js
 wwwroot\js\UserManagement\create.js

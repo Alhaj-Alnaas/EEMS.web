@@ -9,10 +9,7 @@ namespace Core.Entities
 
     public class HumanMovment:Person
 
-
-
     {
-       
         public Guid permitId { get; set; }
         public Permit permit { get; set; }
         public string orgToVisit { get; set; }
