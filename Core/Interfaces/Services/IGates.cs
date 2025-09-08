@@ -10,7 +10,7 @@ namespace Core.Interfaces.Services
     public interface IGates
     {
         Task<IEnumerable<Gate>> GetAllAsync();
-        Task<Gate> GetByIdAsync(Guid id);
+        Task<Gate> GetByIdAsync(Guid id, bool includePermitTypes);
         Task InsertAsync(Gate gate, List<int> selectedPermitTypeIds);
         Task UpdateAsync(Gate gate, List<int> selectedPermitTypeIds);
         Task DeleteAsync(Gate gate);

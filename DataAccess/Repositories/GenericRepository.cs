@@ -2,6 +2,7 @@
 using Core.Interfaces.Services;
 using EEMS.Core.Interfaces.Repositories;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Query;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -22,14 +23,28 @@ namespace DataAccess.Repositories
             _dbSet = _context.Set<T>();
         }
 
-        public async Task<IEnumerable<T>> GetAllAsync()
+        public async Task<T?> GetByIdAsync(
+        Guid id,
+        Func<IQueryable<T>, IIncludableQueryable<T, object>>? include = null)
         {
-            return await _dbSet.ToListAsync();
+            IQueryable<T> query = _dbSet;
+
+            if (include != null)
+                query = include(query);
+
+            // يفترض أن المفتاح اسمه "Id" ونوعه Guid
+            return await query.FirstOrDefaultAsync(e => EF.Property<Guid>(e, "Id") == id);
         }
 
-        public async Task<T> GetByIdAsync(object id)
+        public async Task<IEnumerable<T>> GetAllAsync(
+            Func<IQueryable<T>, IIncludableQueryable<T, object>>? include = null)
         {
-            return await _dbSet.FindAsync(id);
+            IQueryable<T> query = _dbSet;
+
+            if (include != null)
+                query = include(query);
+
+            return await query.ToListAsync();
         }
 
         public void Insert(T entity)

@@ -8,13 +8,14 @@ using Core.Entities;
 
 namespace Core.Interfaces.Services
 {
-    public interface IHumenMovment<T> where T : class
+    public interface IHumenMovment
     {
 
-        void InsertHumenMovment( HumanMovment humenMovment);
-        void UpdateHumenMovment( HumanMovment humenMovment);
-        void DeleteHumenMovment( HumanMovment humenMovment);
-        List <HumanMovment> SearchBy(List<Parameter> parameters);
-        List<HumanMovment> GetHumenMovment(in string PermitId);
+        Task InsertHumenMovment( HumanMovment humenMovment);
+        Task UpdateHumenMovment( HumanMovment humenMovment);
+        Task DeleteHumenMovment( HumanMovment humenMovment);
+
+        Task<List<HumanMovment>> SearchByAsync(List<Entities.Parameter> parameters);
+        Task<List<HumanMovment>> GetHumenMovment(string PermitId);
     }
 }

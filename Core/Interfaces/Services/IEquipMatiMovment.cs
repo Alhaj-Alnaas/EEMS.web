@@ -8,11 +8,11 @@ using System.Threading.Tasks;
 
 namespace Core.Interfaces.Services
 {
-    public interface IEquipMatiMovment<T> where T : class
+    public interface IEquipMatiMovment
     {
-        void InsertEquipMatiMovment( EquipMatiMovment equipMatiMovment);
-        void UpdateEquipMatiMovment(EquipMatiMovment equipMatiMovment);
-        void DeleteEquipMatiMovment(EquipMatiMovment equipMatiMovment);
+        Task InsertEquipMatiMovment( EquipMatiMovment equipMatiMovment);
+        Task UpdateEquipMatiMovment(EquipMatiMovment equipMatiMovment);
+        Task DeleteEquipMatiMovment(EquipMatiMovment equipMatiMovment);
         List<string> EquipMatiMovmentSearchBy(EquipMatiMovment equipMatiMovment);
         List<string> GetEquipMatiMovment(EquipMatiMovment equipMatiMovment);
 

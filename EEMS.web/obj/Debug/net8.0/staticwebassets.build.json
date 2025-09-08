@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "Pba61ZcnB/FHdew8rUl3fSON2571w3W1xnaRFD2YQfg=",
+  "Hash": "gGK4MqjmtX8g9hhqo0b0P/PM51LYlX1O3Uw3xkfNaJE=",
   "Source": "EEMS.web",
   "BasePath": "_content/EEMS.web",
   "Mode": "Default",
@@ -1382,6 +1382,90 @@
       "OriginalItemSpec": "wwwroot\\js\\site.js"
     },
     {
+      "Identity": "D:\\EE\\EEMS.web\\EEMS.web\\wwwroot\\js\\UserManagement\\alerts.js",
+      "SourceId": "EEMS.web",
+      "SourceType": "Discovered",
+      "ContentRoot": "D:\\EE\\EEMS.web\\EEMS.web\\wwwroot\\",
+      "BasePath": "_content/EEMS.web",
+      "RelativePath": "js/UserManagement/alerts#[.{fingerprint}]?.js",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "Fingerprint": "jc4zvvjgaa",
+      "Integrity": "PXRu71DjLwL/KJfWgg4vEmxFfzwFfJH80YkKpJMDcK0=",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\js\\UserManagement\\alerts.js"
+    },
+    {
+      "Identity": "D:\\EE\\EEMS.web\\EEMS.web\\wwwroot\\js\\UserManagement\\create.js",
+      "SourceId": "EEMS.web",
+      "SourceType": "Discovered",
+      "ContentRoot": "D:\\EE\\EEMS.web\\EEMS.web\\wwwroot\\",
+      "BasePath": "_content/EEMS.web",
+      "RelativePath": "js/UserManagement/create#[.{fingerprint}]?.js",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "Fingerprint": "1j8os62wfm",
+      "Integrity": "LdV7DcZ5zEU7ma2SXZVWFAIknh/5ZAHoUgSKoA4jGMo=",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\js\\UserManagement\\create.js"
+    },
+    {
+      "Identity": "D:\\EE\\EEMS.web\\EEMS.web\\wwwroot\\js\\UserManagement\\employee.js",
+      "SourceId": "EEMS.web",
+      "SourceType": "Discovered",
+      "ContentRoot": "D:\\EE\\EEMS.web\\EEMS.web\\wwwroot\\",
+      "BasePath": "_content/EEMS.web",
+      "RelativePath": "js/UserManagement/employee#[.{fingerprint}]?.js",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "Fingerprint": "9h1m3kdmc9",
+      "Integrity": "/bNuNj/xfTRCHKTms242okWyz0D5tymd83qxIuE/O4g=",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\js\\UserManagement\\employee.js"
+    },
+    {
+      "Identity": "D:\\EE\\EEMS.web\\EEMS.web\\wwwroot\\js\\UserManagement\\passwordStrength.js",
+      "SourceId": "EEMS.web",
+      "SourceType": "Discovered",
+      "ContentRoot": "D:\\EE\\EEMS.web\\EEMS.web\\wwwroot\\",
+      "BasePath": "_content/EEMS.web",
+      "RelativePath": "js/UserManagement/passwordStrength#[.{fingerprint}]?.js",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "Fingerprint": "f8rcx2rwp8",
+      "Integrity": "382D5e6Jye1hqSGlzdLPwtZJT0ADDw6vTx3jksdPvIE=",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\js\\UserManagement\\passwordStrength.js"
+    },
+    {
       "Identity": "D:\\EE\\EEMS.web\\EEMS.web\\wwwroot\\lib\\bootstrap\\dist\\css\\bootstrap.css",
       "SourceId": "EEMS.web",
       "SourceType": "Discovered",
@@ -2685,7 +2769,7 @@
         },
         {
           "Name": "Last-Modified",
-          "Value": "Tue, 26 Aug 2025 09:25:25 GMT"
+          "Value": "Mon, 08 Sep 2025 08:00:21 GMT"
         },
         {
           "Name": "Cache-Control",
@@ -2722,7 +2806,7 @@
         },
         {
           "Name": "Last-Modified",
-          "Value": "Tue, 26 Aug 2025 09:25:25 GMT"
+          "Value": "Mon, 08 Sep 2025 08:00:21 GMT"
         },
         {
           "Name": "Cache-Control",
@@ -2767,7 +2851,7 @@
         },
         {
           "Name": "Last-Modified",
-          "Value": "Tue, 26 Aug 2025 09:25:25 GMT"
+          "Value": "Mon, 08 Sep 2025 08:00:21 GMT"
         },
         {
           "Name": "Cache-Control",
@@ -2812,7 +2896,7 @@
         },
         {
           "Name": "Last-Modified",
-          "Value": "Tue, 26 Aug 2025 09:25:25 GMT"
+          "Value": "Mon, 08 Sep 2025 08:00:21 GMT"
         },
         {
           "Name": "Cache-Control",
@@ -5207,6 +5291,334 @@
         {
           "Name": "integrity",
           "Value": "sha256-hRQyftXiu1lLX2P9Ly9xa4gHJgLeR1uGN5qegUobtGo="
+        }
+      ]
+    },
+    {
+      "Route": "js/UserManagement/alerts.jc4zvvjgaa.js",
+      "AssetFile": "D:\\EE\\EEMS.web\\EEMS.web\\wwwroot\\js\\UserManagement\\alerts.js",
+      "Selectors": [],
+      "ResponseHeaders": [
+        {
+          "Name": "Accept-Ranges",
+          "Value": "bytes"
+        },
+        {
+          "Name": "Content-Length",
+          "Value": "462"
+        },
+        {
+          "Name": "Content-Type",
+          "Value": "text/javascript"
+        },
+        {
+          "Name": "ETag",
+          "Value": "\"PXRu71DjLwL/KJfWgg4vEmxFfzwFfJH80YkKpJMDcK0=\""
+        },
+        {
+          "Name": "Last-Modified",
+          "Value": "Tue, 26 Aug 2025 09:28:58 GMT"
+        },
+        {
+          "Name": "Cache-Control",
+          "Value": "max-age=31536000, immutable"
+        }
+      ],
+      "EndpointProperties": [
+        {
+          "Name": "fingerprint",
+          "Value": "jc4zvvjgaa"
+        },
+        {
+          "Name": "label",
+          "Value": "js/UserManagement/alerts.js"
+        },
+        {
+          "Name": "integrity",
+          "Value": "sha256-PXRu71DjLwL/KJfWgg4vEmxFfzwFfJH80YkKpJMDcK0="
+        }
+      ]
+    },
+    {
+      "Route": "js/UserManagement/alerts.js",
+      "AssetFile": "D:\\EE\\EEMS.web\\EEMS.web\\wwwroot\\js\\UserManagement\\alerts.js",
+      "Selectors": [],
+      "ResponseHeaders": [
+        {
+          "Name": "Accept-Ranges",
+          "Value": "bytes"
+        },
+        {
+          "Name": "Content-Length",
+          "Value": "462"
+        },
+        {
+          "Name": "Content-Type",
+          "Value": "text/javascript"
+        },
+        {
+          "Name": "ETag",
+          "Value": "\"PXRu71DjLwL/KJfWgg4vEmxFfzwFfJH80YkKpJMDcK0=\""
+        },
+        {
+          "Name": "Last-Modified",
+          "Value": "Tue, 26 Aug 2025 09:28:58 GMT"
+        },
+        {
+          "Name": "Cache-Control",
+          "Value": "no-cache"
+        }
+      ],
+      "EndpointProperties": [
+        {
+          "Name": "integrity",
+          "Value": "sha256-PXRu71DjLwL/KJfWgg4vEmxFfzwFfJH80YkKpJMDcK0="
+        }
+      ]
+    },
+    {
+      "Route": "js/UserManagement/create.1j8os62wfm.js",
+      "AssetFile": "D:\\EE\\EEMS.web\\EEMS.web\\wwwroot\\js\\UserManagement\\create.js",
+      "Selectors": [],
+      "ResponseHeaders": [
+        {
+          "Name": "Accept-Ranges",
+          "Value": "bytes"
+        },
+        {
+          "Name": "Content-Length",
+          "Value": "902"
+        },
+        {
+          "Name": "Content-Type",
+          "Value": "text/javascript"
+        },
+        {
+          "Name": "ETag",
+          "Value": "\"LdV7DcZ5zEU7ma2SXZVWFAIknh/5ZAHoUgSKoA4jGMo=\""
+        },
+        {
+          "Name": "Last-Modified",
+          "Value": "Tue, 26 Aug 2025 09:28:58 GMT"
+        },
+        {
+          "Name": "Cache-Control",
+          "Value": "max-age=31536000, immutable"
+        }
+      ],
+      "EndpointProperties": [
+        {
+          "Name": "fingerprint",
+          "Value": "1j8os62wfm"
+        },
+        {
+          "Name": "label",
+          "Value": "js/UserManagement/create.js"
+        },
+        {
+          "Name": "integrity",
+          "Value": "sha256-LdV7DcZ5zEU7ma2SXZVWFAIknh/5ZAHoUgSKoA4jGMo="
+        }
+      ]
+    },
+    {
+      "Route": "js/UserManagement/create.js",
+      "AssetFile": "D:\\EE\\EEMS.web\\EEMS.web\\wwwroot\\js\\UserManagement\\create.js",
+      "Selectors": [],
+      "ResponseHeaders": [
+        {
+          "Name": "Accept-Ranges",
+          "Value": "bytes"
+        },
+        {
+          "Name": "Content-Length",
+          "Value": "902"
+        },
+        {
+          "Name": "Content-Type",
+          "Value": "text/javascript"
+        },
+        {
+          "Name": "ETag",
+          "Value": "\"LdV7DcZ5zEU7ma2SXZVWFAIknh/5ZAHoUgSKoA4jGMo=\""
+        },
+        {
+          "Name": "Last-Modified",
+          "Value": "Tue, 26 Aug 2025 09:28:58 GMT"
+        },
+        {
+          "Name": "Cache-Control",
+          "Value": "no-cache"
+        }
+      ],
+      "EndpointProperties": [
+        {
+          "Name": "integrity",
+          "Value": "sha256-LdV7DcZ5zEU7ma2SXZVWFAIknh/5ZAHoUgSKoA4jGMo="
+        }
+      ]
+    },
+    {
+      "Route": "js/UserManagement/employee.9h1m3kdmc9.js",
+      "AssetFile": "D:\\EE\\EEMS.web\\EEMS.web\\wwwroot\\js\\UserManagement\\employee.js",
+      "Selectors": [],
+      "ResponseHeaders": [
+        {
+          "Name": "Accept-Ranges",
+          "Value": "bytes"
+        },
+        {
+          "Name": "Content-Length",
+          "Value": "1468"
+        },
+        {
+          "Name": "Content-Type",
+          "Value": "text/javascript"
+        },
+        {
+          "Name": "ETag",
+          "Value": "\"/bNuNj/xfTRCHKTms242okWyz0D5tymd83qxIuE/O4g=\""
+        },
+        {
+          "Name": "Last-Modified",
+          "Value": "Tue, 26 Aug 2025 09:28:58 GMT"
+        },
+        {
+          "Name": "Cache-Control",
+          "Value": "max-age=31536000, immutable"
+        }
+      ],
+      "EndpointProperties": [
+        {
+          "Name": "fingerprint",
+          "Value": "9h1m3kdmc9"
+        },
+        {
+          "Name": "label",
+          "Value": "js/UserManagement/employee.js"
+        },
+        {
+          "Name": "integrity",
+          "Value": "sha256-/bNuNj/xfTRCHKTms242okWyz0D5tymd83qxIuE/O4g="
+        }
+      ]
+    },
+    {
+      "Route": "js/UserManagement/employee.js",
+      "AssetFile": "D:\\EE\\EEMS.web\\EEMS.web\\wwwroot\\js\\UserManagement\\employee.js",
+      "Selectors": [],
+      "ResponseHeaders": [
+        {
+          "Name": "Accept-Ranges",
+          "Value": "bytes"
+        },
+        {
+          "Name": "Content-Length",
+          "Value": "1468"
+        },
+        {
+          "Name": "Content-Type",
+          "Value": "text/javascript"
+        },
+        {
+          "Name": "ETag",
+          "Value": "\"/bNuNj/xfTRCHKTms242okWyz0D5tymd83qxIuE/O4g=\""
+        },
+        {
+          "Name": "Last-Modified",
+          "Value": "Tue, 26 Aug 2025 09:28:58 GMT"
+        },
+        {
+          "Name": "Cache-Control",
+          "Value": "no-cache"
+        }
+      ],
+      "EndpointProperties": [
+        {
+          "Name": "integrity",
+          "Value": "sha256-/bNuNj/xfTRCHKTms242okWyz0D5tymd83qxIuE/O4g="
+        }
+      ]
+    },
+    {
+      "Route": "js/UserManagement/passwordStrength.f8rcx2rwp8.js",
+      "AssetFile": "D:\\EE\\EEMS.web\\EEMS.web\\wwwroot\\js\\UserManagement\\passwordStrength.js",
+      "Selectors": [],
+      "ResponseHeaders": [
+        {
+          "Name": "Accept-Ranges",
+          "Value": "bytes"
+        },
+        {
+          "Name": "Content-Length",
+          "Value": "2047"
+        },
+        {
+          "Name": "Content-Type",
+          "Value": "text/javascript"
+        },
+        {
+          "Name": "ETag",
+          "Value": "\"382D5e6Jye1hqSGlzdLPwtZJT0ADDw6vTx3jksdPvIE=\""
+        },
+        {
+          "Name": "Last-Modified",
+          "Value": "Tue, 26 Aug 2025 09:28:58 GMT"
+        },
+        {
+          "Name": "Cache-Control",
+          "Value": "max-age=31536000, immutable"
+        }
+      ],
+      "EndpointProperties": [
+        {
+          "Name": "fingerprint",
+          "Value": "f8rcx2rwp8"
+        },
+        {
+          "Name": "label",
+          "Value": "js/UserManagement/passwordStrength.js"
+        },
+        {
+          "Name": "integrity",
+          "Value": "sha256-382D5e6Jye1hqSGlzdLPwtZJT0ADDw6vTx3jksdPvIE="
+        }
+      ]
+    },
+    {
+      "Route": "js/UserManagement/passwordStrength.js",
+      "AssetFile": "D:\\EE\\EEMS.web\\EEMS.web\\wwwroot\\js\\UserManagement\\passwordStrength.js",
+      "Selectors": [],
+      "ResponseHeaders": [
+        {
+          "Name": "Accept-Ranges",
+          "Value": "bytes"
+        },
+        {
+          "Name": "Content-Length",
+          "Value": "2047"
+        },
+        {
+          "Name": "Content-Type",
+          "Value": "text/javascript"
+        },
+        {
+          "Name": "ETag",
+          "Value": "\"382D5e6Jye1hqSGlzdLPwtZJT0ADDw6vTx3jksdPvIE=\""
+        },
+        {
+          "Name": "Last-Modified",
+          "Value": "Tue, 26 Aug 2025 09:28:58 GMT"
+        },
+        {
+          "Name": "Cache-Control",
+          "Value": "no-cache"
+        }
+      ],
+      "EndpointProperties": [
+        {
+          "Name": "integrity",
+          "Value": "sha256-382D5e6Jye1hqSGlzdLPwtZJT0ADDw6vTx3jksdPvIE="
         }
       ]
     },

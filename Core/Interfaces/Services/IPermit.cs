@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Core.Entities;
 
+
 namespace Core.Interfaces.Services
 {
     public interface IPermit<T> where T : class
@@ -20,7 +21,7 @@ namespace Core.Interfaces.Services
         List<Permit> GetPendingPermit( string UserId, string RespCode);
         List<Permit> GetClosedPermit( string UserId);
         List<Permit> GetAllPermit( string UserId);
-        List<Permit> SearchBy(List<Parameter> parameters);
+        //List<Permit> SearchBy(List<Parameter> parameters);
         string GeneratePermitSerialNumber( string permitType);
 
     }

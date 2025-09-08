@@ -34,7 +34,7 @@ namespace EEMS.web.Controllers
             if (id == Guid.Empty)
                 return NotFound();
 
-            var gate = await _gateService.GetByIdAsync(id);
+            var gate = await _gateService.GetByIdAsync(id, true);
 
             if (gate == null)
                 return NotFound();
@@ -86,7 +86,7 @@ namespace EEMS.web.Controllers
         // GET: GateController/Edit/5
         public async Task<IActionResult> Edit(Guid id)
         {
-            var gate = await _gateService.GetByIdAsync(id);
+            var gate = await _gateService.GetByIdAsync(id,true);
             if (gate == null) return NotFound();
 
             var vm = new EditGateViewModel
@@ -96,7 +96,7 @@ namespace EEMS.web.Controllers
                 Description = gate.description,
                 IsActive = gate.isActive,
                 Remarks = gate.remarks,
-                PermitTypes = (await _permitTypeService.GetAllAsync()).ToList(),
+                PermitTypes = (await _permitTypeService.GetAllAsync()).Where(pt=> pt.isDeleted==false).ToList(),
                 SelectedPermitTypeIds = gate.PermitTypes.Select(p => p.Id).ToList()
             };
 
@@ -109,12 +109,12 @@ namespace EEMS.web.Controllers
         public async Task<IActionResult> Edit(EditGateViewModel vm)
         {
             if (!ModelState.IsValid)
-            {
-                vm.PermitTypes = (await _permitTypeService.GetAllAsync()).ToList();
                 return View(vm);
-            }
 
-            var gate = new Gate
+            var gate = await _gateService.GetByIdAsync(vm.Id, includePermitTypes: true);
+            if (gate == null) return NotFound();
+
+             gate = new Gate
             {
                 Id = vm.Id,
                 no = vm.No,
@@ -124,14 +124,26 @@ namespace EEMS.web.Controllers
                 updatedBy = "10067"
             };
 
+            gate.PermitTypes.Clear();
+
+            //foreach (var permitId in vm.SelectedPermitTypeIds)
+            //{
+            //    gate.PermitTypes.Add(new GatePermitTypes
+            //    {
+            //        gatesId = gate.Id,
+            //        permitTypesId = permitId
+            //    });
+            //}
+
             await _gateService.UpdateAsync(gate, vm.SelectedPermitTypeIds);
+
             return RedirectToAction(nameof(Index));
         }
 
         // GET: GateController/Delete/5
         public async Task<IActionResult> Delete(Guid id)
         {
-            var gate = await _gateService.GetByIdAsync(id);
+            var gate = await _gateService.GetByIdAsync(id, false);
             if (gate == null) return NotFound();
             return View(gate);
         }
@@ -141,7 +153,7 @@ namespace EEMS.web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(Guid id)
         {
-            var gate = await _gateService.GetByIdAsync(id);
+            var gate = await _gateService.GetByIdAsync(id, false );
             if (gate == null)
                 return NotFound();
 

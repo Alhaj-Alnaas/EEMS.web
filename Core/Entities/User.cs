@@ -8,29 +8,21 @@ namespace Core.Entities
 {
     public class User: IdentityUser
     {
-        [MaxLength(6)]
-        [Column(TypeName = "varchar(6)")]
-        [Required(ErrorMessage = "أدخل الرقم الوظيفي...من فضلك")]
-        [Display(Name = "الرقم الوظيفي")]
-        public string FileNumber { get; set; } //EmpFileNo
+        public string FileNumber { get; set; }
+        public string FullName { get; set; }
+        public string Department { get; set; }
 
-        [ScaffoldColumn(false)]
-        [Display(Name = "الجهة")]
-        [Column(TypeName = "varchar(6)")]
-        public string ResponsibilityCode { get; set; }//EmpResponsibilitycode
+        public int? RespCodeId { get; set; }
+        public int? JobCatId { get; set; }
+        public int? DesignationId { get; set; }
 
-        [Display(Name = "الاسم")]
-        public string FullName { get; set; } //EmpName
-
-        [Display(Name = "التقسيم الإداري")]
-        public string Department { get; set; } // PerRespCodeNoName
-        public int RespCodeId { get; set; }
-        public int JobCatId { get; set; }
         public string JobStatus { get; set; }
-        public int DesignationId { get; set; }
         public string JobtypeName { get; set; }
-        public string PhoneConfirmationCode { get; set; }
+        public string ResponsibilityCode { get; set; }
+
         public string Discriminator { get; set; }
+        public string UserType { get; set; }
+
 
     }
 }

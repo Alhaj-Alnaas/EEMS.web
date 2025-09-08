@@ -13,6 +13,22 @@
       "PackagePath": "staticwebassets\\favicon.ico"
     },
     {
+      "Id": "D:\\EE\\EEMS.web\\EEMS.web\\wwwroot\\js\\UserManagement\\alerts.js",
+      "PackagePath": "staticwebassets\\js\\UserManagement\\alerts.js"
+    },
+    {
+      "Id": "D:\\EE\\EEMS.web\\EEMS.web\\wwwroot\\js\\UserManagement\\create.js",
+      "PackagePath": "staticwebassets\\js\\UserManagement\\create.js"
+    },
+    {
+      "Id": "D:\\EE\\EEMS.web\\EEMS.web\\wwwroot\\js\\UserManagement\\employee.js",
+      "PackagePath": "staticwebassets\\js\\UserManagement\\employee.js"
+    },
+    {
+      "Id": "D:\\EE\\EEMS.web\\EEMS.web\\wwwroot\\js\\UserManagement\\passwordStrength.js",
+      "PackagePath": "staticwebassets\\js\\UserManagement\\passwordStrength.js"
+    },
+    {
       "Id": "D:\\EE\\EEMS.web\\EEMS.web\\wwwroot\\js\\site.js",
       "PackagePath": "staticwebassets\\js\\site.js"
     },

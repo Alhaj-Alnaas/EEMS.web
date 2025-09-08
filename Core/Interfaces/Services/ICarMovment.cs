@@ -8,11 +8,11 @@ using System.Threading.Tasks;
 
 namespace Core.Interfaces.Services
 {
-    public interface ICarMovment<T> where T : class
+    public interface ICarMovment
     {
-        void InsertCarMovment(CarMovment carMovment);
-        void UpdateCarMovment(CarMovment carMovment);
-        void DeleteCarMovment(CarMovment carMovment);
+        Task InsertCarMovment(CarMovment carMovment);
+        Task UpdateCarMovment(CarMovment carMovment);
+        Task DeleteCarMovment(CarMovment carMovment);
         List <string> SearchByCarMovment(CarMovment carMovment);
         List<string> GetCarMovment(CarMovment carMovment);
 

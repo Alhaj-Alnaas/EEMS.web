@@ -8,6 +8,13 @@ namespace EEMS.Core.Interfaces.UnitOfWork
     {
         IGenericRepository<Gate> Gates { get; }
         IGenericRepository<PermitType> PermitTypes { get; }
+        IGenericRepository<Permit> Permit { get; }
+        IGenericRepository<EquipMatiMovment> EquipMatiMovment { get; }
+        IGenericRepository<CarMovment> CarMovment { get; }
+        IGenericRepository<ProcedureMovment> ProcedureMovment { get; }
+        IGenericRepository<HumanMovment> HumanMovment { get; }
+
+
 
         Task SaveAsync();
     }

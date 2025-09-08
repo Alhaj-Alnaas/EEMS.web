@@ -210,54 +210,6 @@ namespace DataAccess.Migrations
                     b.ToTable("Gates");
                 });
 
-            modelBuilder.Entity("Core.Entities.GateUsedFor", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("createdBy")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("createdOn")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("deletedBy")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("deletedOn")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("gateid")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<bool>("isDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("remarks")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("updatedBy")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("updatedOn")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("usingFor")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("gateid");
-
-                    b.ToTable("GatesUsedFor");
-                });
-
             modelBuilder.Entity("Core.Entities.HumanMovment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -556,7 +508,7 @@ namespace DataAccess.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("DesignationId")
+                    b.Property<int?>("DesignationId")
                         .HasColumnType("int");
 
                     b.Property<string>("Discriminator")
@@ -572,14 +524,13 @@ namespace DataAccess.Migrations
 
                     b.Property<string>("FileNumber")
                         .IsRequired()
-                        .HasMaxLength(6)
-                        .HasColumnType("varchar(6)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("FullName")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("JobCatId")
+                    b.Property<int?>("JobCatId")
                         .HasColumnType("int");
 
                     b.Property<string>("JobStatus")
@@ -607,22 +558,18 @@ namespace DataAccess.Migrations
                     b.Property<string>("PasswordHash")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("PhoneConfirmationCode")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("PhoneNumber")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("PhoneNumberConfirmed")
                         .HasColumnType("bit");
 
-                    b.Property<int>("RespCodeId")
+                    b.Property<int?>("RespCodeId")
                         .HasColumnType("int");
 
                     b.Property<string>("ResponsibilityCode")
                         .IsRequired()
-                        .HasColumnType("varchar(6)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("nvarchar(max)");
@@ -633,6 +580,10 @@ namespace DataAccess.Migrations
                     b.Property<string>("UserName")
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("UserType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -645,24 +596,6 @@ namespace DataAccess.Migrations
                         .HasFilter("[NormalizedUserName] IS NOT NULL");
 
                     b.ToTable("AspNetUsers", (string)null);
-                });
-
-            modelBuilder.Entity("Core.Entities.UserRoles", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("UsersRoles");
                 });
 
             modelBuilder.Entity("GatePermitType", b =>
@@ -833,17 +766,6 @@ namespace DataAccess.Migrations
                         .IsRequired();
 
                     b.Navigation("permit");
-                });
-
-            modelBuilder.Entity("Core.Entities.GateUsedFor", b =>
-                {
-                    b.HasOne("Core.Entities.Gate", "gate")
-                        .WithMany()
-                        .HasForeignKey("gateid")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("gate");
                 });
 
             modelBuilder.Entity("Core.Entities.HumanMovment", b =>

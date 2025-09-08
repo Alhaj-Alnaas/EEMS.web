@@ -23,10 +23,10 @@ namespace Services
             return await _unitOfWork.PermitTypes.GetAllAsync();
         }
 
-        public async Task<PermitType> GetByIdAsync(int id)
-        {
-            return await _unitOfWork.PermitTypes.GetByIdAsync(id);
-        }
+        //public async Task<PermitType> GetByIdAsync(int id)
+        //{
+        //    return await _unitOfWork.PermitTypes.GetByIdAsync(id);
+        //}
 
         public async Task InsertAsync(PermitType permitType)
         {

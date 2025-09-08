@@ -10,7 +10,7 @@ namespace Core.Interfaces.Services
     public  interface IPermitType
     {
         Task<IEnumerable<PermitType>> GetAllAsync();
-        Task<PermitType> GetByIdAsync(int id);
+        //Task<PermitType> GetByIdAsync(int id);
         Task InsertAsync(PermitType permitType);
         Task UpdateAsync(PermitType permitType);
         Task DeleteAsync(PermitType permitType);

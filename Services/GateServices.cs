@@ -1,12 +1,8 @@
 ﻿using Core.Entities;
-using EEMS.Core.Interfaces.UnitOfWork;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Text.RegularExpressions;
-using System.Linq.Expressions;
 using Core.Interfaces.Services;
+using EEMS.Core.Interfaces.UnitOfWork;
+using Microsoft.EntityFrameworkCore;
+
 
 namespace Services
 {
@@ -24,14 +20,21 @@ namespace Services
             return await _unitOfWork.Gates.GetAllAsync();
         }
 
-        public async Task<Gate> GetByIdAsync(Guid id)
+        public async Task<Gate?> GetByIdAsync(Guid id, bool includePermitTypes = false)
         {
+            if (includePermitTypes)
+            {
+                return await _unitOfWork.Gates.GetByIdAsync(
+                    id,
+                    q => q.Include(g => g.PermitTypes));
+            }
+
             return await _unitOfWork.Gates.GetByIdAsync(id);
         }
 
         public async Task InsertAsync(Gate gate, List<int> selectedPermitTypeIds)
         {
-            // جلب PermitTypes من نفس DbContext
+   
             var permitTypes = (await _unitOfWork.PermitTypes.GetAllAsync())
                 .Where(p => selectedPermitTypeIds.Contains(p.Id))
                 .ToList();
@@ -44,11 +47,9 @@ namespace Services
 
         public async Task UpdateAsync(Gate gate, List<int> selectedPermitTypeIds)
         {
-            // جلب البوابة الأصلية مع PermitTypes
             var existingGate = await _unitOfWork.Gates.GetByIdAsync(gate.Id);
             if (existingGate == null) throw new Exception("البوابة غير موجودة");
 
-            // تحديث الحقول
             existingGate.no = gate.no;
             existingGate.description = gate.description;
             existingGate.isActive = gate.isActive;
