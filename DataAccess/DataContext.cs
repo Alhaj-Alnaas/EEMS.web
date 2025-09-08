@@ -19,6 +19,7 @@ namespace DataAccess
         public DbSet<Gate> Gates { get; set; }
         public DbSet<PermitType> PermitTypes { get; set; }
 
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder); // مهم جدًا للـ Identity

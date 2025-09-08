@@ -1,5 +1,4 @@
-﻿
-using ACS.Web.Providers;
+﻿using ACS.Web.Providers;
 using Core.Entities;
 using Core.Interfaces.Services;
 using DataAccess;
@@ -8,26 +7,39 @@ using DataAccess.UnitOfWork;
 using EEMS.Core.Interfaces.Repositories;
 using EEMS.Core.Interfaces.UnitOfWork;
 using EEMS.web.Data;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// add this line by Alnaas to test
-// Add services to the container.
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+
+// ---------------- Session ----------------
+builder.Services.AddDistributedMemoryCache(); 
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(30); 
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+});
+
+
+// ---------------- Database ----------------
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
+
+builder.Services.AddDbContext<DataContext>(options =>
+    options.UseSqlServer(connectionString));
+
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 
-// Add DbContext
-builder.Services.AddDbContext<DataContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-// Add Identity
+// ---------------- Identity ----------------
 builder.Services.AddIdentity<User, IdentityRole>(options =>
 {
     options.Password.RequireDigit = true;
@@ -36,27 +48,52 @@ builder.Services.AddIdentity<User, IdentityRole>(options =>
     options.Password.RequireNonAlphanumeric = false;
     options.Password.RequiredLength = 6;
 })
-    .AddEntityFrameworkStores<DataContext>()
-    .AddDefaultTokenProviders();
+.AddEntityFrameworkStores<DataContext>()
+.AddDefaultTokenProviders();
 
-// Your DI registrations
-//builder.Services.AddScoped(IUnitOfWork, UnitOfWork<>);
+
+// ---------------- Authentication & Authorization ----------------
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.LoginPath = "/Login/Login";           
+    options.AccessDeniedPath = "/Login/AccessDenied"; 
+    options.ExpireTimeSpan = TimeSpan.FromMinutes(30);
+    options.SlidingExpiration = true;
+});
+
+//builder.Services.AddAuthorization();
+
+builder.Services.AddAuthorization(options =>
+{
+
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
+
+// ---------------- Dependency Injection ----------------
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
-
-//builder.Services.AddTransient<IUserProvider, UserProvider>();
 builder.Services.AddTransient<IGates, GateServices>();
 builder.Services.AddTransient<IPermitType, PermitTypeServices>();
 
 
-builder.Services.AddRazorPages();
-builder.Services.AddControllersWithViews();
+// ---------------- MVC with global authorization ----------------
+builder.Services.AddControllersWithViews(options =>
+{
+    var policy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+    options.Filters.Add(new AuthorizeFilter(policy));
+});
 
-builder.Services.AddControllersWithViews();
+builder.Services.AddRazorPages();
+
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+
+// ---------------- Pipeline ----------------
 if (app.Environment.IsDevelopment())
 {
     app.UseMigrationsEndPoint();
@@ -64,7 +101,6 @@ if (app.Environment.IsDevelopment())
 else
 {
     app.UseExceptionHandler("/Home/Error");
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
 
@@ -73,13 +109,16 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
+app.UseSession();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllerRoute(
     name: "default",
-// pattern: "{controller=Home}/{action=Index}/{id?}");
- pattern: "{controller=Login}/{action=Login}/{id?}");
+    pattern: "{controller=Login}/{action=Login}/{id?}");
+
 app.MapRazorPages();
 
 app.Run();
+

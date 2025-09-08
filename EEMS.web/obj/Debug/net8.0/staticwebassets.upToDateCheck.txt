@@ -1,6 +1,7 @@
 wwwroot\css\login.css
 wwwroot\css\site.css
 wwwroot\favicon.ico
+wwwroot\images\lisco-logo.png
 wwwroot\js\login.js
 wwwroot\js\site.js
 wwwroot\js\UserManagement\alerts.js

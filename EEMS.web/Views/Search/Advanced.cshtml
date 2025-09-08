@@ -1,0 +1,55 @@
+﻿@{
+    ViewData["Title"] = "بحث متقدم";
+}
+
+<div class="container mt-4">
+    <h2 class="mb-4 text-center">البحث المتقدم</h2>
+
+    <form method="get" asp-controller="Search" asp-action="AdvancedResult">
+        <div class="row g-3">
+            <!-- البوابات -->
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="bi bi-door-open"></i> البوابات</h5>
+                        <input type="text" class="form-control mt-2" name="gates" placeholder="ابحث في البوابات...">
+                    </div>
+                </div>
+            </div>
+
+            <!-- التصاريح -->
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="bi bi-file-earmark-text"></i> التصاريح</h5>
+                        <input type="text" class="form-control mt-2" name="permits" placeholder="ابحث في التصاريح...">
+                    </div>
+                </div>
+            </div>
+
+            <!-- الأفراد -->
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="bi bi-people"></i> الأفراد</h5>
+                        <input type="text" class="form-control mt-2" name="persons" placeholder="ابحث في الأفراد...">
+                    </div>
+                </div>
+            </div>
+
+            <!-- السيارات -->
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="bi bi-truck"></i> السيارات</h5>
+                        <input type="text" class="form-control mt-2" name="cars" placeholder="ابحث في السيارات...">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mt-4">
+            <button type="submit" class="btn btn-primary px-4">تنفيذ البحث</button>
+        </div>
+    </form>
+</div>

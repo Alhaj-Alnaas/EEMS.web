@@ -8,11 +8,12 @@ namespace Core.Entities
 {
     public class CarMovment:Person
     {
+        public Boolean isMultiMove { get; set; }
         public Guid permitId { get; set; }
         public Permit permit { get; set; }
         public string carType { get; set; }
         public string carNo { get; set; }
-        public int driverId { get; set; }
+       // public int drivingId { get; set; }
         public string driverOrg { get; set; }
         public string driverNationality { get; set; }
         public string licenseNo { get; set; }

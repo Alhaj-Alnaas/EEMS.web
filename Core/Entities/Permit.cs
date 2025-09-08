@@ -9,6 +9,7 @@ namespace Core.Entities
 {
     public class Permit : Base
     {
+        public string  reqDepartment { get; set; }
         public string no { get; set; }
         public string classification { get; set; }
         public string type { get; set; }
@@ -23,6 +24,7 @@ namespace Core.Entities
         public string moveTo { get; set; }
         public string requoidedAs { get; set; }
         public string phoneNo { get; set; }
+
         public DateTime date { get; set; }
         public string hourOfEntry { get; set; }
         public virtual ICollection<ProcedureMovment> Procedures { get; set; }

@@ -51,10 +51,10 @@
                     <form asp-action="SaveUserType" method="post" class="d-flex gap-2">
                         <input type="hidden" asp-for="Id" />
                         <select class="form-select" asp-for="UserType">
-                            <option value="Admin" selected="@Model.UserType == " Admin"">Admin</option>
-                            <option value="ApplicationUser" selected="@Model.UserType == " ApplicationUser"">Application User</option>
-                            <option value="BaseUser" selected="@Model.UserType == " BaseUser"">Base User</option>
-                            <option value="SaftyUser" selected="@Model.UserType == " SaftyUser"">Safty User</option>
+                            <option value="Admin" selected="@Model.UserType == "Admin"">Admin</option>
+                            <option value="ApplicationUser" selected="@Model.UserType == "ApplicationUser"">Application User</option>
+                            <option value="BaseUser" selected="@Model.UserType == "BaseUser"">Base User</option>
+                            <option value="SaftyUser" selected="@Model.UserType == "SaftyUser"">Safty User</option>
                         </select>
                         <button type="submit" class="btn btn-warning">حفظ التعديلات</button>
                     </form>

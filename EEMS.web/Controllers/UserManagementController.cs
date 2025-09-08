@@ -1,6 +1,7 @@
 ﻿using Core.Entities;
 using Core.Entities.DTOs;
 using EEMS.web.ViewModels;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -9,16 +10,19 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
-
+[Authorize]
 public class UserManagementController : Controller
 {
     private readonly UserManager<User> _userManager;
+    private readonly SignInManager<User> _signInManager;
     private readonly RoleManager<IdentityRole> _roleManager;
 
     public UserManagementController(UserManager<User> userManager,
+                                    SignInManager<User> signInManager,
                                     RoleManager<IdentityRole> roleManager)
     {
         _userManager = userManager;
+        _signInManager = signInManager;
         _roleManager = roleManager;
     }
 
@@ -251,6 +255,47 @@ public class UserManagementController : Controller
 
         return RedirectToAction("ViewUser");
     }
+
+    [HttpGet]
+    public IActionResult ChangePassword()
+    {
+        return View();
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ChangePassword(ChangePasswordViewModel model)
+    {
+        if (!ModelState.IsValid)
+        {
+            ViewBag.ErrorMessage = "البيانات غير صالحة، يرجى التحقق.";
+            return View(model);
+        }
+
+        var user = await _userManager.GetUserAsync(User);
+        if (user == null)
+        {
+            ViewBag.ErrorMessage = "المستخدم غير موجود.";
+            return RedirectToAction("Login", "Account");
+        }
+
+        var result = await _userManager.ChangePasswordAsync(user, model.OldPassword, model.NewPassword);
+        if (result.Succeeded)
+        {
+            await _signInManager.RefreshSignInAsync(user);
+
+            ViewBag.SuccessMessage = "تم تغيير كلمة المرور بنجاح.";
+            return View(model); 
+        }
+        foreach (var error in result.Errors)
+        {
+            ModelState.AddModelError(string.Empty, error.Description);
+        }
+
+        ViewBag.ErrorMessage = string.Join(" | ", result.Errors.Select(e => e.Description));
+        return View(model);
+    }
+
     [HttpPost]
     public async Task<IActionResult> DeleteUser(string id)
     {

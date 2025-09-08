@@ -23,6 +23,5 @@ namespace Core.Entities
         public string Discriminator { get; set; }
         public string UserType { get; set; }
 
-
     }
 }

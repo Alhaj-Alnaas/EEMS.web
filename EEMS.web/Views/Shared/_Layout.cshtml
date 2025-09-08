@@ -43,25 +43,95 @@
             transform: translateX(-50%);
         }
 
-        /* اسم المستخدم تحت زر الخروج */
-        .user-info {
-            font-size: 0.8rem;
-            color: #ddd;
-            text-align: center;
+        /* Bottom Bar Styles */
+        .bottom-bar {
+            background-color: #4a4a4a; 
+            color: white;
+            padding: 10px 0;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
+
+        .user-info-bottom {
+            display: flex;
+            align-items: center;
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+            .user-info-bottom i {
+                margin-left: 8px;
+                font-size: 1.2rem;
+            }
+
+        /* Footer Styles */
+        footer {
+            margin-bottom: 50px; /* Space for bottom bar */
+        }
+
+        /* لتنسيق القوائم الفرعية */
+        .dropdown-submenu {
+            position: relative;
+        }
+
+            .dropdown-submenu > .dropdown-menu {
+                display: none;
+                position: absolute;
+                top: 100%; 
+                right: 0; 
+                margin-top: 0;
+                border-radius: 0.25rem;
+            } 
+            .dropdown-submenu .show {
+                display: block;
+            }
+
     </style>
 </head>
 <body>
+   
     <header>
         <nav class="navbar navbar-expand-lg navbar-custom shadow-sm mb-3">
             <div class="container-fluid">
 
-                <!-- شعار النظام في الوسط -->
-                <a class="navbar-brand navbar-brand-centered d-flex align-items-center" asp-area="" asp-controller="Home" asp-action="Index">
-                    <i class="bi bi-shield-lock-fill me-2"></i> نظام إدارة التصاريح
+                <a  class="navbar-brand navbar-brand-centered d-flex align-items-center" asp-area="" asp-controller="Home" asp-action="Index">
+                    @* نظام إدارة التصاريح *@
                 </a>
 
-                <!-- زر التوسيع للشاشات الصغيرة -->
+                @section Scripts {
+                    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+                    @if (TempData["SuccessMessage"] != null)
+                    {
+                        <script>
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'تم بنجاح 🎉',
+                                text: '@TempData["SuccessMessage"]',
+                                confirmButtonText: 'موافق'
+                            });
+                        </script>
+                    }
+
+                    @if (TempData["ErrorMessage"] != null)
+                    {
+                        <script>
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'خطأ',
+                                text: '@TempData["ErrorMessage"]',
+                                confirmButtonText: 'حسناً'
+                            });
+                        </script>
+                    }
+                }
+
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar"
                         aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
@@ -77,7 +147,7 @@
                         </li>
 
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <a id="manageGates" class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                                 <i class="bi bi-door-open-fill me-1"></i> البوابات
                             </a>
                             <ul class="dropdown-menu">
@@ -95,22 +165,47 @@
                         </li>
 
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <a id="managePermit" class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                                 <i class="bi bi-file-earmark-text-fill me-1"></i> التصاريح
                             </a>
                             <ul class="dropdown-menu">
+
+                                <!-- إضافة تصريح (قائمة فرعية) -->
+                                <li class="dropdown-submenu">
+                                    <a class="dropdown-item dropdown-toggle" href="#">
+                                        <i class="bi bi-plus-circle me-1"></i> إضافة تصريح
+                                    </a>
+                                    <ul class="dropdown-menu">
+                                        <li>
+                                            <a class="dropdown-item" asp-controller="Permit" asp-action="Create" asp-route-type="Materials">
+                                                <i class="bi bi-box-arrow-in-down-right me-1"></i> تصريح مواد
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" asp-controller="Permit" asp-action="Create" asp-route-type="Visitors">
+                                                <i class="bi bi-people-fill me-1"></i> تصريح زوار
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" asp-controller="Permit" asp-action="Create" asp-route-type="Vehicles">
+                                                <i class="bi bi-truck me-1"></i> تصريح سيارات
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </li>
+
+                                <li><hr class="dropdown-divider" /></li>
+
+                                <!-- عرض كل التصاريح -->
                                 <li>
                                     <a class="dropdown-item" asp-controller="Permit" asp-action="Index">
                                         <i class="bi bi-list-check me-1"></i> عرض التصاريح
                                     </a>
                                 </li>
-                                <li>
-                                    <a class="dropdown-item" asp-controller="Permit" asp-action="Create">
-                                        <i class="bi bi-plus-circle me-1"></i> إضافة تصريح
-                                    </a>
-                                </li>
                             </ul>
                         </li>
+
+
 
 
                         <li class="nav-item dropdown">
@@ -120,19 +215,19 @@
                             <ul class="dropdown-menu">
 
                                 <li>
-                                    <a class="dropdown-item" asp-controller="UserManagement" asp-action="CreateUser">
+                                    <a id="addUser" class="dropdown-item" asp-controller="UserManagement" asp-action="CreateUser">
                                         <i class="bi bi-person-plus-fill me-1"></i> إضافة مستخدم
                                     </a>
                                 </li>
 
                                 <li>
-                                    <a class="dropdown-item" asp-controller="UserManagement" asp-action="ViewUser">
+                                    <a id="editUser"  class="dropdown-item" asp-controller="UserManagement" asp-action="ViewUser">
                                         <i class="bi bi-list-ul me-1"></i> عرض وتعديل بيانات مستخدم
                                     </a>
                                 </li>
                                 
                                 <li>
-                                    <a class="dropdown-item" asp-controller="UserManagement" asp-action="ChangePassword">
+                                    <a id="changePassword" class="dropdown-item" asp-controller="UserManagement" asp-action="ChangePassword">
                                         <i class="bi bi-key-fill me-1"></i> تغيير كلمة المرور
                                     </a>
                                 </li>
@@ -142,9 +237,19 @@
 
                     <!-- مربع البحث -->
                     <form class="d-flex me-3" method="get" asp-controller="Gate" asp-action="Search">
-                        <input class="form-control me-2" type="search" name="query" placeholder="بحث سريع..." aria-label="بحث سريع">
-                        <button class="btn btn-outline-light" type="submit"><i class="bi bi-search"></i></button>
+                        <div class="input-group">
+                            <!-- أيقونة البحث داخل مربع البحث -->
+                            <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                            <input class="form-control" type="search" name="query" placeholder="بحث سريع..." aria-label="بحث سريع">
+
+                            <!-- زر البحث المتقدم -->
+                            <a class="btn btn-outline-primary" asp-controller="Search" asp-action="Advanced">
+                                بحث متقدم
+                            </a>
+                        </div>
                     </form>
+
+                 
 
                     <!-- زر تسجيل الخروج مع اسم المستخدم -->
                     <div class="d-flex flex-column align-items-center">
@@ -153,8 +258,7 @@
                                 <i class="bi bi-box-arrow-right"></i> تسجيل الخروج
                             </button>
                         </form>
-                        <span class="user-info">@User.Identity?.Name</span>
-                    </div>
+                      
                 </div>
             </div>
         </nav>
@@ -172,6 +276,14 @@
         </div>
     </footer>
 
+    <!-- Bottom Bar -->
+    <div class="bottom-bar">
+        <div class="user-info-bottom">
+            <img src="~/images/liscologo.ico" alt="شعار النظام" class="system-logo" onerror="this.src='~/images/lisco-logo.png'">
+            <span id="userDisplayName">نظام إدارة التصاريح</span>
+        </div>
+    </div>
+
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
     <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
@@ -179,6 +291,79 @@
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+
+
+    
+
+
+    <!-- دالة التحكم في الصلاحيات -->
+    <script>
+        $(document).ready(function() {
+            // دالة للتحكم في ظهور العناصر بناءً على نوع المستخدم
+            function controlUserAccess() {
+                // جلب بيانات المستخدم من الجلسة
+                $.ajax({
+                    url: '/Login/GetUserData',
+                    type: 'GET',
+                    dataType: 'json',
+                    success: function(response) {
+                        if (response) {
+                            const userType = response.userType;
+
+                        // عرض اسم المستخدم
+                        $('#userDisplayName').text(' نظام إدارة التصاريح - المستخدم '+':'+  response.userName +'-'+ response.job);
+
+                        // التحكم في الصلاحيات
+                        if (userType === "BaseUser" || userType === "SaftyUser") {
+                            $('#addUser').hide();
+                            $('#editUser').hide();
+                            $('#manageGates').hide();
+                        }
+                        else if (userType === "ApplicationUser") {
+                            $('#addUser').hide();
+                            $('#editUser').hide();
+                            $('#manageGates').show();
+                        }
+                        else if (userType === "Admin") {
+                            $('#addUser').show();
+                            $('#editUser').show();
+                            $('#manageGates').show();
+                            }
+                        }
+                    },
+                    error: function(xhr) {
+                        if (xhr.status === 404) {
+                            // توجيه المستخدم لصفحة تسجيل الدخول إذا لم يتم العثور على بيانات المستخدم
+                            window.location.href = '/Login/Login';
+                        }
+                    }
+                });
+            }
+
+            // استدعاء الدالة عند تحميل الصفحة
+            controlUserAccess();
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+        document.querySelectorAll(".dropdown-submenu > a").forEach(function (el) {
+        el.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        let submenu = this.nextElementSibling;
+        submenu.classList.toggle("show");
+
+        // إغلاق أي قائمة فرعية أخرى مفتوحة
+        let parent = this.closest(".dropdown-menu");
+        parent.querySelectorAll(".dropdown-menu").forEach(function (sub) {
+        if (sub !== submenu) {
+        sub.classList.remove("show");
+        }
+        });
+        });
+        });
+        });
+    </script>
+
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
