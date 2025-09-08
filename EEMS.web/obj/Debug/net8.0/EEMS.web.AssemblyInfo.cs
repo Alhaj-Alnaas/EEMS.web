@@ -16,7 +16,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("EEMS.web")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7ad997b0baab61eca6211634ae50b1beaea11af9")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+167d32fbc1410f2db9a13e7c590f0d2491e1b509")]
 [assembly: System.Reflection.AssemblyProductAttribute("EEMS.web")]
 [assembly: System.Reflection.AssemblyTitleAttribute("EEMS.web")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
