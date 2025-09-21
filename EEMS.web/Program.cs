@@ -76,6 +76,7 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 builder.Services.AddTransient<IGates, GateServices>();
 builder.Services.AddTransient<IPermitType, PermitTypeServices>();
+builder.Services.AddScoped<IPermit, PermitServices>();
 
 
 // ---------------- MVC with global authorization ----------------

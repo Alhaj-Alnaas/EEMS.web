@@ -26,7 +26,9 @@ namespace DataAccess.UnitOfWork
 
         public IGenericRepository<Gate> Gates => _gates ??= new GenericRepository<Gate>(_context);
         public IGenericRepository<PermitType> PermitTypes => _permitTypes ??= new GenericRepository<PermitType>(_context);
-        
+
+        IGenericRepository<Permit> IUnitOfWork.Permits => throw new NotImplementedException();
+
         public async Task SaveAsync()
         {
             await _context.SaveChangesAsync();

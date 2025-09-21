@@ -12,7 +12,9 @@ namespace Core.Entities
         public Permit permit { get; set; }
         public string description { get; set; }
         public string qty { get; set; }
-        public DateTime returnDate { get; set; }
+        public string unit { get; set; }
+
+        // public DateTime returnDate { get; set; }
 
 
     }
