@@ -1,4 +1,6 @@
 ﻿using Core.Entities;
+using Core.Entities.DTOs;
+using Core.Interfaces.Repositories;
 using Core.Interfaces.Services;
 using DataAccess.Repositories;
 using EEMS.Core.Interfaces.Repositories;
@@ -17,18 +19,22 @@ namespace DataAccess.UnitOfWork
 
         private IGenericRepository<Gate> _gates;
         private IGenericRepository<PermitType> _permitTypes;
-
-
+        private IGenericRepository<Permit> _permits;
+        private IStoredProcedureRepository _storedProcedures;
+        
         public UnitOfWork(DataContext context)
         {
             _context = context;
+           
         }
 
         public IGenericRepository<Gate> Gates => _gates ??= new GenericRepository<Gate>(_context);
         public IGenericRepository<PermitType> PermitTypes => _permitTypes ??= new GenericRepository<PermitType>(_context);
+        public IGenericRepository<Permit> Permits => _permits ??= new GenericRepository<Permit>(_context);
 
-        IGenericRepository<Permit> IUnitOfWork.Permits => throw new NotImplementedException();
-
+        public IStoredProcedureRepository StoredProcedures
+        => _storedProcedures ??= new StoredProcedureRepository(_context);
+        
         public async Task SaveAsync()
         {
             await _context.SaveChangesAsync();

@@ -1,5 +1,6 @@
 ﻿using ACS.Web.Providers;
 using Core.Entities;
+using Core.Interfaces.Repositories;
 using Core.Interfaces.Services;
 using DataAccess;
 using DataAccess.Repositories;
@@ -13,9 +14,11 @@ using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Services;
 
+
+
 var builder = WebApplication.CreateBuilder(args);
 
-
+builder.Services.AddDistributedMemoryCache();
 // ---------------- Session ----------------
 builder.Services.AddDistributedMemoryCache(); 
 builder.Services.AddSession(options =>
@@ -74,9 +77,11 @@ builder.Services.AddAuthorization(options =>
 // ---------------- Dependency Injection ----------------
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
+//builder.Services.AddScoped(typeof(IStoredProcedureRepository<>), typeof(StoredProcedureRepository<>));
 builder.Services.AddTransient<IGates, GateServices>();
 builder.Services.AddTransient<IPermitType, PermitTypeServices>();
 builder.Services.AddScoped<IPermit, PermitServices>();
+builder.Services.AddScoped<IDepartmentService,DepartmentService>();
 
 
 // ---------------- MVC with global authorization ----------------
@@ -93,6 +98,10 @@ builder.Services.AddRazorPages();
 
 var app = builder.Build();
 
+app.UseRouting();
+
+
+app.UseSession();
 
 // ---------------- Pipeline ----------------
 if (app.Environment.IsDevelopment())
@@ -108,12 +117,12 @@ else
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 
-app.UseRouting();
 
-app.UseSession();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+
 
 app.MapControllerRoute(
     name: "default",

@@ -4,6 +4,7 @@ using EEMS.web.ViewModels;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using System.Linq;
@@ -139,9 +140,17 @@ namespace EEMS.web.Controllers
                     };
 
                     HttpContext.Session.SetString("UserData", JsonSerializer.Serialize(userData, options));
+                    
+                    HttpContext.Session.SetString("ResponsibilityCode", user.ResponsibilityCode);
+                    HttpContext.Session.SetString("UserName", user.UserName);
+                    HttpContext.Session.SetString("FullName", user.FullName);
+                    HttpContext.Session.SetString("UserType", user.UserType);
+                    HttpContext.Session.SetString("JobStatus", user.JobStatus);
+                    HttpContext.Session.SetString("JobtypeName", user.JobtypeName);
+                    HttpContext.Session.SetString("JobCatId", user.JobCatId.ToString());
 
 
-                    return Json(new { success = true, redirectUrl = Url.Action("Index", "Home") });
+                    return Json(new { success = true, redirectUrl = Url.Action("PermitIndex", "Permit") });
                 }
 
                 return Json(new { success = false, message = "اسم المستخدم أو كلمة المرور غير صحيحة." });

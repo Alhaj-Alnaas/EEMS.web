@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - EEMS.web</title>
+    <title>@ViewData["Title"] - EEMS</title>
 
     <!-- Bootstrap RTL -->
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.rtl.min.css" />
@@ -141,7 +141,7 @@
                     <!-- الروابط -->
                     <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                         <li class="nav-item">
-                            <a class="nav-link" asp-area="" asp-controller="Home" asp-action="Index">
+                            <a class="nav-link" asp-area="" asp-controller="Permit" asp-action="PermitIndex">
                                 <i class="bi bi-house-door-fill me-1"></i> الرئيسية
                             </a>
                         </li>
@@ -177,7 +177,7 @@
                                     </a>
                                     <ul class="dropdown-menu">
                                         <li>
-                                            <a class="dropdown-item" asp-controller="Permit" asp-action="Create" asp-route-type="Materials">
+                                            <a class="dropdown-item" asp-controller="MatirailPermit" asp-action="CreateMatirialPermint" asp-route-type="Materials">
                                                 <i class="bi bi-box-arrow-in-down-right me-1"></i> تصريح مواد
                                             </a>
                                         </li>
@@ -187,7 +187,7 @@
                                             </a>
                                         </li>
                                         <li>
-                                            <a class="dropdown-item" asp-controller="Permit" asp-action="Create" asp-route-type="Vehicles">
+                                            <a class="dropdown-item" asp-controller="Permit" asp-action="Create" asp-route-type="Cars">
                                                 <i class="bi bi-truck me-1"></i> تصريح سيارات
                                             </a>
                                         </li>
@@ -279,7 +279,7 @@
     <!-- Bottom Bar -->
     <div class="bottom-bar">
         <div class="user-info-bottom">
-            <img src="~/images/lisco.png" alt="شعار النظام" class="system-logo">
+            @* <img src="~/images/lisco.png" alt="شعار النظام" class="system-logo"> *@
             <span id="userDisplayName">نظام إدارة التصاريح</span>
         </div>
     </div>
@@ -293,10 +293,7 @@
     <script src="~/js/site.js" asp-append-version="true"></script>
 
 
-    
-
-
-    <!-- دالة التحكم في الصلاحيات -->
+   
     <script>
         $(document).ready(function() {
             // دالة للتحكم في ظهور العناصر بناءً على نوع المستخدم
@@ -311,7 +308,7 @@
                             const userType = response.userType;
 
                         // عرض اسم المستخدم
-                        $('#userDisplayName').text(' نظام إدارة التصاريح - المستخدم '+':'+  response.userName +'-'+ response.job);
+                        $('#userDisplayName').text(' نظام إدارة التصاريح  '+' :: '+  response.fullName +' : '+ response.job);
 
                         // التحكم في الصلاحيات
                         if (userType === "BaseUser" || userType === "SaftyUser") {

@@ -1,126 +1,69 @@
 ﻿using Core.Entities;
-using EEMS.web.Data;
+using Core.Interfaces.Services;
 using EEMS.web.ViewModels;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
 
-namespace EEMS.Web.Controllers
+namespace EEMS.web.Controllers
 {
     public class PermitController : Controller
+
     {
-        private readonly ApplicationDbContext _context;
+         private readonly IPermit _permitService;
+    private readonly IDepartmentService _departmentService;
+    private readonly UserManager<User> _userManager;
 
-        public PermitController(ApplicationDbContext context)
+    public PermitController(IPermit permitService, IDepartmentService departmentService, UserManager<User> userManager)
+    {
+        _permitService = permitService;
+        _departmentService = departmentService;
+        _userManager = userManager;
+    }
+
+    // GET: Permit/Index
+    public async Task<IActionResult> PermitIndex()
         {
-            _context = context;
-        }
+            string userId = HttpContext.Session.GetString("UserName");
+            var user = await _userManager.FindByNameAsync(userId);
 
-        // 📌 GET: Permit/Create?type=materials
-        [HttpGet]
-        public IActionResult Create(string type)
-        {
-            var model = new PermitViewModel
-            {
-                Type = type,
-                Date = DateTime.Now,
-                //Gates = _context.Gate
-                //                .Select(g => new SelectListItem { Value = g.Id.ToString(), Text = g.Name })
-                //                .ToList()
-            };
+            // get permit  
+            var permits = await _permitService.GetAllPermitAsync(user);
 
-            if (type == "materials")
-                return View("CreateMatirialPermint");
-
-            // لاحقاً لو عندك زوار أو سيارات
-            if (type == "visitors")
-                return View("CreateVisitorPermint");
-
-            if (type == "cars")
-                return View("CreateCarPermint");
-
-            return View("CreateMatirialPermint"); // افتراضي
-           
-            
-            // عرض صفحة الإضافة على حسب نوع التصريح
-            //switch (type?.ToLower())
+            // تحويل إلى ViewModel
+            //var permitVMs = permits.Select(p => new Permit
             //{
-            //    case "materials":
-            //        ViewData["Title"] = "إضافة تصريح مواد / معدات";
-            //        break;
-            //    case "visitors":
-            //        ViewData["Title"] = "إضافة تصريح زوار";
-            //        break;
-            //    case "cars":
-            //        ViewData["Title"] = "إضافة تصريح سيارات";
-            //        break;
-            //    default:
-            //        ViewData["Title"] = "إضافة تصريح عام";
-            //        break;
-            //}
-
-            //return View(model);
+            //    Id = p.Id,
+            //    No = p.no,
+            //    Classification = p.classification,
+            //    Type = p.type,
+            //    OrgDescription = p.OrgDescription,
+            //    IsTemp = p.IsTemp,
+            //    //ReturnDate = p.ReturnDate,
+            //    MoveFrom = p.moveFrom,
+            //    MoveTo = p.moveTo,
+            //    Notes = p.remarks,
+            //    RequoidedAs = p.requoidedAs,
+            //    PhoneNo = p.phoneNo,
+            //    Date = p.date,
+            //    HourOfEntry = p.hourOfEntry,
+            //}).ToList();
+            return View(permits);
         }
 
-        // 📌 POST: Permit/Create
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public IActionResult Create(PermitViewModel model)
+        // GET: Permit/Details/{id}
+        public async Task<IActionResult> Details(Guid id)
         {
-            if (!ModelState.IsValid)
-            {
-                ////model.Gates = _context.Gates
-                ////                      .Select(g => new SelectListItem { Value = g.Id.ToString(), Text = g.Name })
-                ////                      .ToList();
-                return View(model);
-            }
-
-            // تحويل الـ ViewModel → Entity
-            //var permit = new Permit
-            //{
-            //    No = model.No,
-            //    ReqDepartment = model.ReqDepartment,
-            //    Classification = model.Classification,
-            //    Type = model.Type,
-            //    ReqDepApproval = model.ReqDepApproval,
-            //    SecuDepApproval = model.SecuDepApproval,
-            //    GateId = model.GateId,
-            //    Status = model.Status,
-            //    StatusDescription = model.StatusDescription,
-            //    IsClosed = model.IsClosed,
-            //    CloseOn = model.CloseOn,
-            //    MoveFrom = model.MoveFrom,
-            //    MoveTo = model.MoveTo,
-            //    RequoidedAs = model.RequoidedAs,
-            //    PhoneNo = model.PhoneNo,
-            //    Date = model.Date,
-            //    HourOfEntry = model.HourOfEntry,
-            //    Cars = model.Cars?.ToList() ?? new(),
-            //    Humans = model.Humans?.ToList() ?? new(),
-            //    EquipmentsAndMatirials = model.EquipmentsAndMatirials?.ToList() ?? new()
-            //};
-
-            //_context.Permits.Add(permit);
-            //_context.SaveChanges();
-
-            return RedirectToAction("Index");
+            var permit = await _permitService.GetPermitByIdAsync(id);
+            if (permit == null) return NotFound();
+            return View(permit);
         }
 
-        // 📌 GET: Permit/Index
-        public IActionResult Index()
+        // GET: Permit/Edit/{id}
+        public async Task<IActionResult> Edit(Guid id)
         {
-            //var permits = _context.Permits
-            //    .Select(p => new
-            //    {
-            //        p.No,
-            //        p.Type,
-            //        p.ReqDepartment,
-            //        p.Date,
-            //        p.StatusDescription
-            //    })
-            //    .ToList();
-
-            // return View(permits);
-            return View();
+            var permit = await _permitService.GetPermitByIdAsync(id);
+            if (permit == null) return NotFound();
+            return View(permit);
         }
     }
 }

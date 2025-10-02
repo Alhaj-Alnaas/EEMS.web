@@ -23,6 +23,7 @@ namespace DataAccess.Repositories
             _dbSet = _context.Set<T>();
         }
 
+        public IQueryable<T> GetQueryable() => _dbSet.AsQueryable();
         public async Task<T?> GetByIdAsync(
         Guid id,
         Func<IQueryable<T>, IIncludableQueryable<T, object>>? include = null)
@@ -32,7 +33,6 @@ namespace DataAccess.Repositories
             if (include != null)
                 query = include(query);
 
-            // يفترض أن المفتاح اسمه "Id" ونوعه Guid
             return await query.FirstOrDefaultAsync(e => EF.Property<Guid>(e, "Id") == id);
         }
 
@@ -72,5 +72,16 @@ namespace DataAccess.Repositories
             _dbSet.Remove(entity);
         }
 
+        public async Task<List<T>> ExecuteStoredProcedureAsync<T>(string storedProcedure, params object[] parameters) where T : class
+        {
+            return await _context.Set<T>()
+                .FromSqlRaw(storedProcedure, parameters)
+                .ToListAsync();
+        }
+
+        Task<List<T>> IGenericRepository<T>.ExecuteStoredProcedureAsync<P>(string storedProcedure, params object[] parameters)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

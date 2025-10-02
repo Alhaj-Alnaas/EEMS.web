@@ -1,18 +1,112 @@
 ﻿using Core.Entities;
+using EEMS.web;
+using Core.Entities.DTOs;
 using Core.Interfaces.Services;
+using DataAccess;
 using EEMS.Core.Interfaces.UnitOfWork;
+using Microsoft.EntityFrameworkCore;
+using System.Data;
 using System.Reflection.Metadata;
-
+using System.Text.RegularExpressions;
+using EEMS.web.ViewModels;
 namespace Services
 {
     public class PermitServices : IPermit
     {
+        protected readonly DataContext _dataContext;
         private readonly IUnitOfWork _unitOfWork;
 
         public PermitServices(IUnitOfWork unitOfWork)
         {
             _unitOfWork = unitOfWork;
         }
+
+        // توليد رقم التصريح حسب نوعه
+        public async Task<string> GeneratePermitSerialNumberAsync(string permitType)
+        {
+            if (string.IsNullOrWhiteSpace(permitType))
+                throw new ArgumentException("permitType is required", nameof(permitType));
+
+            // السنة بصيغة 2 رقم
+            var now = DateTime.Now;
+            string year = now.ToString("yy");
+
+            // كود نوع التصريح
+            string typeCode = permitType.ToLower() switch
+            {
+                "materials" => "1",
+                "visitors" => "2",
+                "cars" => "3",
+                _ => permitType.Substring(0, 1).ToUpperInvariant()
+            };
+
+            // جلب آخر تصريح من قاعدة البيانات (فلترة بحسب النوع + نفس السنة إن أردت)
+            var lastPermit = await _unitOfWork.Permits.GetQueryable()
+                .Where(p => p.classification == permitType && p.createdOn.Year == DateTime.Now.Year) // && p.date.Year == DateTime.Now.Year
+                .OrderByDescending(p => p.createdOn) // أفضل من OrderByDescending(p => p.Id)
+                .FirstOrDefaultAsync();
+
+            int lastNumber = 0;
+
+            if (lastPermit != null && !string.IsNullOrWhiteSpace(lastPermit.no))
+            {
+                // نحاول استخراج آخر 4 أرقام من نهاية الحقل NO (مثال: "24-M-0003")
+                var match = Regex.Match(lastPermit.no, @"(\d{1,})$");
+                if (match.Success)
+                {
+                    int.TryParse(match.Value, out lastNumber);
+                }
+            }
+
+            lastNumber++; // الرقم الجديد
+
+            string newSerial = $"{year}-{typeCode}-{lastNumber:D4}";
+            return newSerial;
+
+
+            //if (string.IsNullOrEmpty(permitType))
+            //    throw new ArgumentException("Permit type cannot be null or empty", nameof(permitType));
+
+            //// استخراج آخر تصريح لهذا النوع
+            //var lastPermit =  _unitOfWork.Permits.GetQueryable()
+            //    .Where(p => p.type == permitType)
+            //    .OrderByDescending(p => p.Id)
+            //    .FirstOrDefaultAsync();
+
+            //int lastNumber = 0;
+            //if (lastPermit != null)
+            //{
+            //    var parts = lastPermit.Result.no.Split('-'); // YY-T-0001
+            //    if (parts.Length == 3)
+            //        int.TryParse(parts[2], out lastNumber);
+            //}
+
+            //lastNumber++;
+            //string year = DateTime.Now.ToString("yy");
+
+            //// تعيين كود النوع
+            //string typeCode;
+            //switch (permitType.ToLower())
+            //{
+            //    case "materials": typeCode = "M"; break;
+            //    case "visitors": typeCode = "V"; break;
+            //    case "cars": typeCode = "C"; break;
+            //    default: typeCode = permitType.Substring(0, 1).ToUpperInvariant(); break;
+            //}
+
+            //string newSerial = $"{year}-{typeCode}-{lastNumber:D4}";
+            //return newSerial;
+        }
+
+        //// جلب الإدارات حسب ResponsibilityCode من SP
+        //public async Task<List<DepartmentDto>> GetDepartmentsByResponsibilityAsync(string responsibilityCode)
+        //{
+        //    return await  _dataContext..FromSqlRaw("sp_show_Req_dep {0}"
+        //         , responsibilityCode);
+            
+        //       // return departments;
+            
+        //}
 
         public async Task InsertPermitAsync(Permit permit)
         {
@@ -41,7 +135,7 @@ namespace Services
             existingPermit.classification = permit.classification;
             existingPermit.type = permit.type;
             existingPermit.reqDepApproval = permit.reqDepApproval;
-            existingPermit.secuDepApproval = permit.secuDepApproval;
+           // existingPermit.secuDepApproval = permit.secuDepApproval;
             existingPermit.gateId = permit.gateId;
             existingPermit.status = permit.status;
             existingPermit.statusDescription = permit.statusDescription;
@@ -71,9 +165,15 @@ namespace Services
             await _unitOfWork.SaveAsync();
         }
 
-        Task<Permit> IPermit.GetPermitByIdAsync(string PermitId)
+        async Task<Permit> IPermit.GetPermitByIdAsync(Guid PermitId)
         {
-            throw new NotImplementedException();
+            var permit = await _unitOfWork.Permits
+       .GetQueryable()                
+       .Include(p => p.Cars)         
+       .Include(p => p.EquipmentsAndMatirials) 
+       .FirstOrDefaultAsync(p => p.Id == PermitId);
+
+            return permit;
         }
 
         Task<Permit> IPermit.GetPermitByTypeAsync(string permitType)
@@ -96,20 +196,27 @@ namespace Services
             throw new NotImplementedException();
         }
 
-        Task<List<Permit>> IPermit.GetAllPermitAsync(string UserId)
+        public async Task<List<Permit>> GetAllPermitAsync(User user)
         {
-            throw new NotImplementedException();
+            var query = _unitOfWork.Permits.GetQueryable();
+
+            if (user.ResponsibilityCode != "45010")
+            {
+                query = query.Where(p => p.createdBy == user.UserName);
+            }
+
+            return await query
+                .OrderByDescending(p => p.createdOn)
+                .ToListAsync();
         }
+
+
 
         Task<List<Permit>> IPermit.SearchByAsync(List<Parameter> parameters)
         {
             throw new NotImplementedException();
         }
 
-        string IPermit.GeneratePermitSerialNumber(string permitType)
-        {
-            throw new NotImplementedException();
-        }
 
         //public async Task<Permit> GetPermitByIdAsync(string permitId)
         //{

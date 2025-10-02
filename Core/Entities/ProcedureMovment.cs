@@ -14,6 +14,7 @@ namespace Core.Entities
        public DateTime doneOn { get; set; }
        public string doneAs { get; set; }
        public string shift { get; set; }
-       public char procedureType { get; set; } 
+       public char procedureType { get; set; }
+       
     }
 }

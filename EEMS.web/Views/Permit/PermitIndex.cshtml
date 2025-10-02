@@ -1,0 +1,52 @@
+﻿@using Core.Entities
+@using Core.Extensions
+@using Core.Enums
+@model IEnumerable<Permit>
+
+@{
+    ViewData["Title"] = "قائمة التصاريح";
+}
+
+<h2 class="mb-3">قائمة التصاريح</h2>
+
+<table class="table table-bordered table-striped table-hover">
+    <thead class="table-dark">
+        <tr>
+            <th>رقم التصريح</th>
+            <th>التصنيف</th>
+            <th>النوع</th>
+            <th>الجهة الطالبة</th>
+            <th>تصريح دائم؟</th>
+            <th>تاريخ التصريح</th>
+            <th>الوقت</th>
+            @* <th>التاريخ المتوقع للترجيع</th> *@
+            <th>قادم من</th>
+            <th>داهب إلى</th>
+            <th>الهاتف</th>
+            <th>إجراءات</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>@item.no</td>
+                <td>@item.classification</td>
+                <td>@item.type</td>
+                <td>@item.OrgDescription</td>
+                <td>@(item.IsTemp ? "لا" : "نعم")</td>
+                <td>@item.date.ToString("yyyy-MM-dd")</td>
+                <td>@item.hourOfEntry</td>
+                @* <td>@(item.ReturnDate.HasValue? item.ReturnDate.Value.ToString("yyyy-MM-dd") : "-")</td> *@
+                <td>@item.moveFrom</td>
+                <td>@item.moveTo</td>
+                <td>@item.phoneNo</td>
+                
+                <td>
+                    <a asp-controller="MatirailPermit" asp-action="Details" asp-route-permitId="@item.Id" class="btn btn-info btn-sm">تفاصيل</a>
+                    <a asp-controller="MatirailPermit" asp-action="EditMatirialPermint" asp-route-Id="@item.Id" class="btn btn-warning btn-sm">تعديل</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

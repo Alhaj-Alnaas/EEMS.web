@@ -18,5 +18,8 @@ namespace EEMS.Core.Interfaces.Repositories
         void Update(T entity);
         void Delete(T entity);
         void PermanentDelete(T entity);
+
+        IQueryable<T> GetQueryable(); // مهم لتنفيذ استعلامات مركبة على مستوى DB
+        Task<List<T>> ExecuteStoredProcedureAsync<P>(string storedProcedure, params object[] parameters) where P : class;
     } 
 }

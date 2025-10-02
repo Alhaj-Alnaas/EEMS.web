@@ -16,6 +16,10 @@ namespace Core.Entities
         public string personToVist { get; set; }
         public string purposeOfVisit { get; set; }
         public string phoneNo { get; set; }
+        public Guid PermitId { get; set; }
+
+        // Navigation
+        public Permit Permit { get; set; }
 
     }
 }

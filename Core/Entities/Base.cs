@@ -9,15 +9,15 @@ namespace Core.Entities
     public class Base
     {
 
-        public Guid Id { get; set; }    
-        public string createdBy { get; set; }  
-        public DateTime createdOn { get; set; }
-        public string updatedBy { get; set; }
-        public DateTime updatedOn { get; set; }
-        public Boolean isDeleted { get; set; }
-        public string deletedBy { get; set; }
-        public DateTime deletedOn { get; set; }
-        public string  remarks { get; set; }
+        public Guid Id { get; set; }//= Guid.NewGuid();
+        public string? createdBy { get; set; } = ""; 
+        public DateTime createdOn { get; set; } = DateTime.Now;
+        public string? updatedBy { get; set; } = "";
+        public DateTime? updatedOn { get; set; }= DateTime.Now;
+        public Boolean isDeleted { get; set; }=false;
+        public string? deletedBy { get; set; } = "";
+        public DateTime? deletedOn { get; set; }
+        public string? remarks { get; set; } = "";
 
 
     }

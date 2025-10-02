@@ -63,15 +63,15 @@ namespace EEMS.web.Controllers
                 vm.PermitTypes = (await _permitTypeService.GetAllAsync()).ToList();
                 return View(vm);
             }
-
+            string userId = HttpContext.Session.GetString("UserName");
             var gate = new Gate
             {
                 Id = Guid.NewGuid(),
                 createdOn = DateTime.Now,
-                createdBy = "10067",
+                createdBy = userId,
                 updatedOn = DateTime.Now,
-                updatedBy = "10067",
-                deletedBy = "10067",
+                updatedBy = userId,
+                deletedBy = userId,
                 isDeleted = false,
                 no = vm.No,
                 description = vm.Description,

@@ -50,9 +50,6 @@ namespace DataAccess.Migrations
                     b.Property<DateTime>("deletedOn")
                         .HasColumnType("datetime2");
 
-                    b.Property<int>("driverId")
-                        .HasColumnType("int");
-
                     b.Property<string>("driverNationality")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -66,6 +63,9 @@ namespace DataAccess.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("isDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("isMultiMove")
                         .HasColumnType("bit");
 
                     b.Property<string>("licenseNo")
@@ -103,6 +103,19 @@ namespace DataAccess.Migrations
                     b.HasIndex("permitId");
 
                     b.ToTable("CarsMovment");
+                });
+
+            modelBuilder.Entity("Core.Entities.DTOs.DepartmentDto", b =>
+                {
+                    b.Property<string>("DepartmentName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RespCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.ToTable("DepartmentsDto");
                 });
 
             modelBuilder.Entity("Core.Entities.EquipMatiMovment", b =>
@@ -143,8 +156,9 @@ namespace DataAccess.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("returnDate")
-                        .HasColumnType("datetime2");
+                    b.Property<string>("unit")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("updatedBy")
                         .IsRequired()
@@ -216,6 +230,9 @@ namespace DataAccess.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid>("PermitId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("createdBy")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -256,6 +273,9 @@ namespace DataAccess.Migrations
                     b.Property<Guid>("permitId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid>("permitId1")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("personToVist")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -281,7 +301,9 @@ namespace DataAccess.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("permitId");
+                    b.HasIndex("PermitId");
+
+                    b.HasIndex("permitId1");
 
                     b.ToTable("HumansMovment");
                 });
@@ -292,13 +314,22 @@ namespace DataAccess.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("IsTemp")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("OrgDescription")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("PermintsSectionApproval")
+                        .HasColumnType("bit");
+
                     b.Property<string>("classification")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("closeOn")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<DateTime>("closeOn")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("createdBy")
                         .IsRequired()
@@ -353,11 +384,15 @@ namespace DataAccess.Migrations
                     b.Property<bool>("reqDepApproval")
                         .HasColumnType("bit");
 
+                    b.Property<string>("reqDepartment")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("requoidedAs")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<bool>("secuDepApproval")
+                    b.Property<bool>("secuSectionApproval")
                         .HasColumnType("bit");
 
                     b.Property<string>("status")
@@ -770,11 +805,19 @@ namespace DataAccess.Migrations
 
             modelBuilder.Entity("Core.Entities.HumanMovment", b =>
                 {
-                    b.HasOne("Core.Entities.Permit", "permit")
+                    b.HasOne("Core.Entities.Permit", "Permit")
                         .WithMany("Humans")
-                        .HasForeignKey("permitId")
+                        .HasForeignKey("PermitId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("Core.Entities.Permit", "permit")
+                        .WithMany()
+                        .HasForeignKey("permitId1")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Permit");
 
                     b.Navigation("permit");
                 });

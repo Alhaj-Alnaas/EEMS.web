@@ -8,9 +8,9 @@ namespace Core.Entities
 {
     public class Person:Base
     {
-        public string idNumber { get; set; }
-        public string name { get; set; }
-        public string orginaization { get; set; }
-        public string nattiunality { get; set; }
+        public string idNumber { get; set; } = "";
+        public string name { get; set; } = "";
+        public string orginaization { get; set; } = "";
+        public string nattiunality { get; set; } = "";
     }
 }

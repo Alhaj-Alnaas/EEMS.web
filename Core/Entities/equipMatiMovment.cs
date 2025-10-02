@@ -11,11 +11,8 @@ namespace Core.Entities
         public Guid permitId { get; set; }
         public Permit permit { get; set; }
         public string description { get; set; }
-        public string qty { get; set; }
+        public int qty { get; set; }
         public string unit { get; set; }
-
-        // public DateTime returnDate { get; set; }
-
-
+        
     }
 }

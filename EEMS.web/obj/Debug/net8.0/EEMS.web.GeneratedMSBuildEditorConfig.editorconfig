@@ -64,8 +64,16 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTG9naW5cTG9naW4uY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/mvcCourseCodaing/EEMS.web/EEMS.web/Views/Permit/CreateMatirialPermint.cshtml]
-build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUGVybWl0XENyZWF0ZU1hdGlyaWFsUGVybWludC5jc2h0bWw=
+[D:/mvcCourseCodaing/EEMS.web/EEMS.web/Views/MatirailPermit/CreateMatirialPermint.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTWF0aXJhaWxQZXJtaXRcQ3JlYXRlTWF0aXJpYWxQZXJtaW50LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/mvcCourseCodaing/EEMS.web/EEMS.web/Views/MatirailPermit/EditMatirialPermint.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTWF0aXJhaWxQZXJtaXRcRWRpdE1hdGlyaWFsUGVybWludC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/mvcCourseCodaing/EEMS.web/EEMS.web/Views/Permit/PermitIndex.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUGVybWl0XFBlcm1pdEluZGV4LmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
 [D:/mvcCourseCodaing/EEMS.web/EEMS.web/Views/Search/Advanced.cshtml]
