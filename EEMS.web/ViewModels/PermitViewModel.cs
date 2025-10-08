@@ -1,4 +1,5 @@
 ﻿
+using Core.Entities;
 using Core.Entities.DTOs;
 using static Core.Enums.BaseEnums;
 
@@ -9,7 +10,7 @@ namespace EEMS.web.ViewModels
         public Guid Id { get; set; }
         public string No { get; set; }
         public string Classification { get; set; }
-        public PermitType Type { get; set; }
+        public EnumPermitType Type { get; set; }
         public string OrgDescription { get; set; }
         public bool IsTemp { get; set; }
         public DateTime? ReturnDate { get; set; }
@@ -20,10 +21,11 @@ namespace EEMS.web.ViewModels
         public string PhoneNo { get; set; }
         public DateTime Date { get; set; }
         public string? HourOfEntry { get; set; }
-
+        public char status { get; set; } = 'I';
         // الحركات المرتبطة
         public List<EquipMatiMovmentViewModel> EquipmentsAndMaterials { get; set; } = new();
         public List<CarMovmentViewModel> Cars { get; set; } = new();
+        public List<ProcedureMovmentViewModel> Procedures { get; set; } = new ();
         public List<DepartmentDto> Departments { get; set; } = new();
         public string ReqDepartment { get; set; }
 
@@ -45,5 +47,14 @@ namespace EEMS.web.ViewModels
         public int Quantity { get; set; }
         public UnitType Unit { get; set; }
         public DateTime? ReturnDate { get; set; }
+    }
+
+    public class ProcedureMovmentViewModel
+    {
+        public string? DonedBy { get; set; }
+        public DateTime? DoneOn { get; set; }
+        public string? DoneAs { get; set; }
+        public string? Remarks { get; set; }
+        public string? ProcedureType { get; set; }
     }
 }

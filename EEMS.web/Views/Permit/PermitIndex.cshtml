@@ -1,6 +1,7 @@
 ﻿@using Core.Entities
 @using Core.Extensions
 @using Core.Enums
+@using static Core.Enums.BaseEnums
 @model IEnumerable<Permit>
 
 @{
@@ -32,7 +33,7 @@
             <tr>
                 <td>@item.no</td>
                 <td>@item.classification</td>
-                <td>@item.type</td>
+                <td>@(item.type.ToEnumDescription<EnumPermitType>())</td>
                 <td>@item.OrgDescription</td>
                 <td>@(item.IsTemp ? "لا" : "نعم")</td>
                 <td>@item.date.ToString("yyyy-MM-dd")</td>
@@ -41,9 +42,9 @@
                 <td>@item.moveFrom</td>
                 <td>@item.moveTo</td>
                 <td>@item.phoneNo</td>
-                
+
                 <td>
-                    <a asp-controller="MatirailPermit" asp-action="Details" asp-route-permitId="@item.Id" class="btn btn-info btn-sm">تفاصيل</a>
+                    <a asp-controller="MatirailPermit" asp-action="Details" asp-route-Id="@item.Id" class="btn btn-info btn-sm">تفاصيل</a>
                     <a asp-controller="MatirailPermit" asp-action="EditMatirialPermint" asp-route-Id="@item.Id" class="btn btn-warning btn-sm">تعديل</a>
                 </td>
             </tr>

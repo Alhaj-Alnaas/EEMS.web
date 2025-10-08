@@ -337,7 +337,7 @@
                               
                                 <select asp-for="Type" class="form-select">
                                     <option value="">-- اختر نوع التصريح --</option>
-                                    @foreach (var type in Enum.GetValues(typeof(Core.Enums.BaseEnums.PermitType)).Cast<Core.Enums.BaseEnums.PermitType>())
+                                    @foreach (var type in Enum.GetValues(typeof(Core.Enums.BaseEnums.EnumPermitType)).Cast<Core.Enums.BaseEnums.EnumPermitType>())
                                     {
                                         <option value="@type">@type.GetDescription()</option>
                                     }
@@ -352,20 +352,12 @@
                                 <label class="form-label fw-bold">الجهة الطالبة</label>
                                 <select asp-for="ReqDepartment" class="form-select"
                                         asp-items="@(new SelectList(Model.Departments, "RespCode", "DepartmentName", Model.ReqDepartment))">
-                                    @* <option value="">-- اختر الجهة --</option>
-                                    @if (Model.Departments != null)
-                                    {
-                                        foreach (var dep in Model.Departments)
-                                        {
-                                            <option value="@dep.RespCode" data-description="@dep.DepartmentName">@dep.DepartmentName</option>
-                                        }
-                                    } *@
                                 </select>
                                 <div class="error-message">هذا الحقل مطلوب</div>
                             </div>
                             <div class="mb-sm-3">
-                                <label class="form-label fw-bold">وصف الجهة</label>
-                                <input name="OrgDescription" id="orgDescription" class="form-control" placeholder="وصف الجهة" />
+                                <label asp-for="OrgDescription" class="form-label fw-bold">وصف الجهة</label>
+                                <input asp-for="OrgDescription" name="OrgDescription" id="OrgDescription" class="form-control" placeholder="وصف الجهة" />
                                 <div class="error-message">هذا الحقل مطلوب</div>
                             </div>
                             <div class="mb-sm-3">
@@ -429,25 +421,7 @@
                                                             asp-items="Html.GetEnumSelectList<UnitType>()">
                                                         <option value="">-- اختر الوحدة --</option>
                                                     </select>
-                                               @*  <select name="EquipmentsAndMaterials[@i].Unit" class="form-select" required>
-                                                    <option value="">اختر وحدة</option>
-                                                        <option value="">-- اختر الوحدة --</option>
-                                                        <option value="قطعة">قطعة</option>
-                                                        <option value="قطعة" @(Model.EquipmentsAndMaterials[i].Unit == "قطعة" ? "selected" : "")>قطعة</option>
-                                                        <option value="كيلوغرام">كيلوغرام</option>
-                                                        <option value="جرام">جرام</option>
-                                                        <option value="طن">طن</option>
-                                                        <option value="لتر">لتر</option>
-                                                        <option value="متر">متر</option>
-                                                        <option value="متر مربع">متر مربع</option>
-                                                        <option value="متر مكعب">متر مكعب</option>
-                                                        <option value="صندوق">صندوق</option>
-                                                        <option value="عبوة">عبوة</option>
-                                                        <option value="كرتونة">كرتونة</option>
-                                                        <option value="شحنة">شحنة</option>
-                                                        <option value="طرد">طرد</option>
-                                                        <option value="غير معروف">غير معروف</option>
-                                                </select> *@
+                                             
                                             </td>
                                             <td class="text-center">
                                                 <button type="button" class="btn-icon btn-delete removeRow">
@@ -491,30 +465,7 @@
                                                             asp-items="Html.GetEnumSelectList<Nationality>()">
                                                         <option value="">-- اختر الجنسية --</option>
                                                     </select>
-                                                @* <select name="Cars[@i].driverNationality" class="form-select">
-                                                        <option value="">-- اختر الجنسية --</option>
-                                                        <option value="ليبي">ليبي</option>
-                                                        <option value="مصري">مصري</option>
-                                                        <option value="سوداني">سوداني</option>
-                                                        <option value="تونسي">تونسي</option>
-                                                        <option value="جزائري">جزائري</option>
-                                                        <option value="مغربي">مغربي</option>
-                                                        <option value="فلسطيني">فلسطيني</option>
-                                                        <option value="يمني">يمني</option>
-                                                        <option value="سوري">سوري</option>
-                                                        <option value="عراقي">عراقي</option>
-                                                        <option value="هندي">هندي</option>
-                                                        <option value="باكستاني">باكستاني</option>
-                                                        <option value="بنغلاديشي">بنغلاديشي</option>
-                                                        <option value="فلبيني">فلبيني</option>
-                                                        <option value="إندونيسي">إندونيسي</option>
-                                                        <option value="ماليزي">ماليزي</option>
-                                                        <option value="تركي">تركي</option>
-                                                        <option value="صيني">صيني</option>
-                                                        <option value="ياباني">ياباني</option>
-                                                        <option value="كوري">كوري</option>
-                                                        <option value="غير معروف">غير معروف</option>
-                                                </select> *@
+                                                
                                             </td>
                                             <td><input name="Cars[@i].licenseNo" value="@Model.Cars[i].licenseNo" class="form-control" /></td>
                                             <td class="text-center">
@@ -546,7 +497,7 @@
     <script>
         $(document).ready(function () {
 
-            // ================= دوال مساعدة ===================
+           
 
             // السماح فقط بالأرقام والنقطة العشرية
             function isNumberKey(evt) {
@@ -598,8 +549,8 @@
             // ملء وصف الجهة بناءً على اختيار الجهة الطالبة
             $('#reqDepartment').change(function () {
                 var selectedOption = $(this).find('option:selected');
-                var orgDescription = selectedOption.data('description');
-                $('#orgDescription').val(orgDescription);
+                var OrgDescription = selectedOption.data('description');
+                $('#OrgDescription').val(OrgDescription);
             });
 
             // التحقق قبل الإرسال
@@ -608,7 +559,7 @@
 
             // تحقق من الحقول المطلوبة الموجودة فعلاً
             var requiredFields = [
-                '#permitType', '#reqDepartment', '#orgDescription', '#FromLocation', '#ToLocation'
+                '#permitType', '#reqDepartment', '#OrgDescription', '#FromLocation', '#ToLocation'
             ];
 
             requiredFields.forEach(function (selector) {
@@ -634,7 +585,7 @@
 
 
             // إزالة حالة الخطأ عند تعديل الحقول المطلوبة
-            $('#permitType, #reqDepartment, #orgDescription, #FromLocation, #ToLocation')
+            $('#permitType, #reqDepartment, #OrgDescription, #FromLocation, #ToLocation')
                 .on('input change', function () {
                     if ($(this).val() && $(this).val() !== '') {
                         $(this).removeClass('is-invalid');

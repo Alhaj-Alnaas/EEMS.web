@@ -1,0 +1,485 @@
+﻿
+.container {
+    max-width: 1400px !important; /* تم زيادة الحد الأقصى للعرض */
+    padding: 0 10px;
+    margin: 0 auto;
+}
+
+/*
+==================================================
+            تنسيقات الأجزاء الهيكلية
+==================================================
+*/
+.header-bar {
+    background: linear-gradient(45deg, #495057, #343a40);
+    color: #fff;
+    padding: 5px;
+    border-radius: 5px 5px 0 0;
+    font-weight: bold;
+    margin-bottom: 0;
+    text-align: center;
+    font-size: 1.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.card {
+    border-radius: 10px;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    border: 2px solid #fd7e14; 
+    overflow: hidden;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.card-body {
+    padding: 15px;
+}
+
+.page-section {
+    margin-bottom: 20px; /* تم تقليل المسافة  15 */
+    padding: 15px; 
+    border-radius: 8px;
+    background-color: #fff;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.page-section-title {
+    font-weight: bold;
+    margin-bottom: 0.8rem !important; 
+    color: #343a40 !important; 
+    text-align: center;
+    padding-bottom: 5px; 
+    border-bottom: 1px solid #dee2e6;
+    font-size: 1.20rem !important;
+}
+
+/* تحسين المسافات بين الأعمدة في نظام Grid */
+.row {
+    margin-right: 0 !important;
+    margin-left: 0 !important;
+}
+
+.col-md-5, .col-md-7 {
+    padding-right: 5px !important;
+    padding-left: 5px !important;
+}
+
+/*
+==================================================
+        تنسيقات حقول الإدخال والنماذج
+==================================================
+*/
+.form-control, .form-select {
+    border-radius: 8px;
+    border: 1px solid #ced4da;
+    padding: 10px 15px; /* تم تقليل الحشو */
+    transition: all 0.3s ease;
+    background-color: #f8f9fa;
+    font-size: 1.02rem; /* تم تقليل حجم الخط */
+}
+
+    .form-control:focus, .form-select:focus {
+        border-color: #fd7e14;
+    }
+
+.form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 15px; /* تم تقليل المسافة */
+    font-size: 1.05rem; /* تم تقليل حجم الخط */
+}
+
+.notes-textarea {
+    min-height: 100px; /* تم تقليل الارتفاع الأدنى */
+    resize: vertical;
+}
+
+.form-check-input:checked {
+    background-color: #fd7e14;
+    border-color: #fd7e14;
+}
+
+.form-switch {
+    padding-right: 0;
+    margin-bottom: 10px; /* تم تقليل المسافة */
+}
+
+.form-check-label {
+    font-weight: 600;
+    color: #495057;
+    font-size: 1.0rem; /* تم تقليل حجم الخط */
+}
+
+.mb-sm-3 {
+    margin-bottom: 10px !important; /* تم تقليل المسافة */
+}
+
+/* تحسين حقل القراءة فقط */
+.form-control[readonly], .form-select[disabled] {
+    background-color: #f8f9fa;
+    border-color: #ced4da;
+    color: #495057;
+    cursor: default;
+}
+
+.field-container {
+    background-color: #fff;
+    border-radius: 8px;
+    padding: 15px; /* تم تقليل الحشو */
+    margin-bottom: 8px; /* تم تقليل المسافة */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03); /* تخفيف الظل */
+    transition: all 0.3s ease;
+}
+
+    .field-container:hover {
+        box-shadow: 0 3px 6px rgba(0, 0, 0, 0.08); /* تخفيف الظل */
+        transform: translateY(-1px);
+    }
+
+.highlight-field {
+    border-left: 4px solid #fd7e14;
+}
+
+.dual-field {
+    display: flex;
+    gap: 20px; /* تم تقليل المسافة */
+    margin-bottom: 10px; /* تم تقليل المسافة */
+}
+
+    .dual-field > div {
+        flex: 1;
+    }
+
+/*
+==================================================
+            تنسيقات الأزرار
+==================================================
+*/
+.btn {
+    font-weight: 600 !important;
+    border-radius: 10px !important; /* تم توحيد تنسيق الحواف */
+    transition: all 0.3s ease;
+    padding: 12px 20px !important; /* تم تقليل الحجم */
+    font-size: 1.0rem !important; /* تم تقليل حجم الخط */
+}
+
+.btn-orange {
+    background-color: #fd7e14;
+    color: #fff;
+    border: none;
+}
+
+    .btn-orange:hover {
+        background-color: #e96b0c;
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(253, 126, 20, 0.3);
+    }
+
+.btn-green {
+    background-color: #28a745;
+    color: #fff;
+    border: none;
+}
+
+    .btn-green:hover {
+        background-color: #218838;
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+    }
+
+.btn-blue {
+    background-color: #0d6efd;
+    color: #fff;
+    border: none;
+}
+
+    .btn-blue:hover {
+        background-color: #0b5ed7;
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(13, 110, 253, 0.3);
+    }
+
+.btn-red {
+    background-color: #dc3545;
+    color: #fff;
+    border: none;
+}
+
+    .btn-red:hover {
+        background-color: #bb2d3b;
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+    }
+
+.btn-purple {
+    background-color: #6f42c1;
+    color: #fff;
+    border: none;
+}
+
+    .btn-purple:hover {
+        background-color: #5a32a3;
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(111, 66, 193, 0.3);
+    }
+
+.btn-toggle {
+    background-color: #6c757d;
+    color: #fff;
+    border: none;
+    margin-bottom: 10px; /* تم تقليل المسافة */
+}
+
+    .btn-toggle:hover {
+        background-color: #5a6268;
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(108, 117, 125, 0.3);
+    }
+
+/* تنسيق الأزرار في الأسفل */
+.action-buttons {
+
+    display: flex; 
+    flex-wrap: wrap; 
+    gap: 10px; 
+    justify-content: flex-start; 
+    padding: 15px 0 5px;
+    border-top: 1px solid #e9ecef;
+    margin-top: 15px;
+
+}
+
+    .action-buttons .btn {
+        min-width: 120px !important; 
+        padding: 10px 20px !important; 
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px; 
+        position: relative;
+        overflow: hidden;
+    }
+
+        /* تأثير تموج الأزرار */
+        .action-buttons .btn::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 5px;
+            height: 5px;
+            background: rgba(255, 255, 255, 0.5);
+            opacity: 0;
+            border-radius: 100%;
+            transform: scale(1, 1) translate(-50%);
+            transform-origin: 50% 50%;
+        }
+
+        .action-buttons .btn:focus:not(:active)::after {
+            animation: ripple 1s ease-out;
+        }
+
+@keyframes ripple {
+    0% {
+        transform: scale(0);
+        opacity: 1;
+    }
+
+    100% {
+        transform: scale(100);
+        opacity: 0;
+    }
+}
+
+
+/* زر الرجوع الدائري (Back Button) */
+.btn-back {
+    position: fixed;
+    bottom: 15px; 
+    right: 15px; 
+    width: 70px !important; 
+    height: 50px !important; 
+    border-radius: 50%;
+    background-color: #fd7e14;
+    color: white;
+    border: none;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem !important;
+    z-index: 1000;
+    transition: all 0.3s ease;
+}
+
+    .btn-back:hover {
+        background-color: #e96b0c;
+        transform: scale(1.1);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+    }
+
+/*
+==================================================
+            تنسيقات الجداول
+==================================================
+*/
+table th, table td {
+    vertical-align: middle;
+    text-align: right;
+    font-size: 0.9rem; 
+}
+
+.table {
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.05);
+    font-size: 0.9rem; 
+}
+
+    .table thead th {
+        background-color: #f1f3f5;
+        border-bottom: 2px solid #dee2e6;
+        font-weight: 600;
+        color: #495057;
+        font-size: 1rem; 
+    }
+
+    .table tbody tr:hover {
+        background-color: rgba(253, 126, 20, 0.05);
+    }
+
+.table-responsive {
+    margin-bottom: 0.8rem; 
+}
+
+/*
+==================================================
+            تنسيقات متنوعة
+==================================================
+*/
+.section-title {
+    font-weight: bold;
+    margin-top: 1rem; /* تم تقليل المسافة */
+    margin-bottom: 0.8rem !important;
+    text-align: center;
+    color: #343a40 !important;
+    position: relative;
+    padding-bottom: 7px; 
+    font-size: 1.15rem !important;
+}
+
+    .section-title::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        right: 25%;
+        left: 25%;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, #fd7e14, transparent);
+    }
+
+.divider {
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #fd7e14, transparent);
+    margin: 15px 0; 
+}
+
+.no-data-message {
+    text-align: center;
+    color: #6c757d;
+    font-style: italic;
+    padding: 10px; 
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    margin-top: 5px;
+    font-size: 0.95rem; 
+}
+
+.header-bar + .card {
+    border-radius: 0 0 10px 10px;
+}
+
+.permit-status {
+    display: inline-block;
+    padding: 3px 10px; 
+    border-radius: 20px;
+    font-weight: 600;
+    margin-bottom: 0.5rem; 
+    font-size: 1.0rem; 
+}
+
+.status-pending {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.status-approved {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.status-rejected {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.status-closed {
+    background-color: #d1ecf1;
+    color: #0c5460;
+}
+
+/*.search-print-bar {
+    background-color: #f1f3f5;
+    padding: 10px;*/ /* تم تقليل الحشو */
+    /*border-radius: 8px;
+    margin-bottom: 15px;*/ /* تم تقليل المسافة */
+    /*display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}*/
+
+/*.search-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-grow: 1;
+}*/
+
+.hidden {
+    display: none;
+}
+
+.permit-number-display {
+    background-color: #fff;
+    color: #495057;
+    border: 2px solid #fd7e14;
+    border-radius: 8px;
+    padding: 8px 10px; 
+    font-weight: 700;
+    font-size: 1.1rem; 
+    text-align: center;
+}
+
+.permit-status-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex-grow: 1;
+    margin-top: 5px; 
+}
+
+.status-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 3px; /* تم تقليل المسافة */
+    font-size: 0.90rem; /* تم تقليل حجم الخط */
+}
+
+

@@ -1,0 +1,541 @@
+﻿@using Core.Entities.DTOs
+@using static Core.Enums.BaseEnums
+@model EEMS.web.ViewModels.PermitViewModel
+@using Core.Extensions
+
+
+@* @{
+    Layout = "_Layout";
+} *@
+
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>عرض تصريح المواد</title>
+
+    <!-- ✅ استيراد Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+
+    <!-- ✅ استيراد FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+    <!-- ✅ استيراد ملف التنسيق الخارجي -->
+    <link rel="stylesheet" href="~/css/permit-view.css" />
+
+</head>
+
+
+<body>
+    <div class="container mt-4">
+        <div class="card shadow-sm">
+            <div class="header-bar">عرض تصريح المواد</div>
+            <div class="card-body">
+                <!-- شريط البحث والطباعة -->
+                @* <div class="search-print-bar no-print">
+                    <div class="permit-search-container">
+                        <div class="search-container">
+                            <label class="form-label mb-0">
+                                البحث عن تصريح:
+                            </label>
+                            <input type="text" id="SearchPermit" class="form-control" style="max-width: 200px;" placeholder="أدخل رقم التصريح" />
+                            <button type="button" class="btn btn-blue" onclick="searchPermit()" >
+                                <i class="fas fa-search">
+
+                                </i> بحث
+                            </button>
+                        </div>
+                    </div> 
+                    <button type="button" class="btn btn-purple" onclick="printPermit()" >
+                        <i class="fas fa-print"></i> طباعة
+                    </button>
+                </div> *@
+
+                <div class="divider no-print"></div>
+
+                <!-- الصف الأول -->
+                <div class="page-section">
+                    <div class="row">
+                        <!-- العمود الأول: البيانات الأساسية -->
+                        <div class="col-md-5">
+
+                            <div >
+                                <div class="dual-field">
+                                    <div>
+                                        <label class="form-label fw-bold">رقم التصريح</label>
+                                        <input asp-for="No" id="No" type="text" class="form-control permit-number-display text-center fw-bold" readonly style="border: 2px solid #fd7e14;" />
+                                    </div>
+
+                                    <div class="permit-status-container">
+                                        <div class="status-label">حالة التصريح</div>
+                                        <div>
+                                            @if (Model.status == 'I')
+                                            {
+                                                <span class="permit-status status-pending">قيد الاعتماد</span>
+                                            }
+                                            else if (Model.status == 'A')
+                                            {
+                                                <span class="permit-status status-approved">معتمد</span>
+                                            }
+                                            else if (Model.status == 'D')
+                                            {
+                                                <span class="permit-status status-rejected">مرفوض</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="permit-status status-closed">مغلق</span>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div >
+                                <div class="dual-field">
+                                    <div>
+                                        <label asp-for="Date" class="form-label fw-bold">تاريخ التصريح</label>
+                                        <input asp-for="Date" type="date" class="form-control" readonly />
+                                    </div>
+                                    <div>
+                                        <label asp-for="HourOfEntry" class="form-label fw-bold">الوقت</label>
+                                        <input asp-for="HourOfEntry" type="time" class="form-control" readonly />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div >
+                                <div class="dual-field">
+                                    <div>
+                                        <label asp-for="Type" class="form-label fw-bold">نوع التصريح</label>
+                                        <select asp-for="Type" class="form-select" disabled>
+                                            @foreach (var type in Enum.GetValues(typeof(Core.Enums.BaseEnums.EnumPermitType)).Cast<Core.Enums.BaseEnums.EnumPermitType>())
+                                            {
+                                                if (type.ToString() == Model.Type.ToString())
+                                                {
+                                                    <option value="@type" selected>@type.GetDescription()</option>
+                                                }
+                                                else
+                                                {
+                                                    <option value="@type">@type.GetDescription()</option>
+                                                }
+                                            }
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="form-label fw-bold">تاريخ الترجيع</label>
+                                        <input asp-for="ReturnDate" type="date" class="form-control" readonly />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div >
+
+                                <label class="form-label fw-bold">الجهة الطالبة</label>
+                                <input asp-for="ReqDepartment" class="form-control" readonly />
+
+                            </div>
+
+                            <div >
+                                <label class="form-label fw-bold">وصف الجهة</label>
+                                <input asp-for="OrgDescription" class="form-control" readonly />
+                            </div>
+
+                            <div class="dual-field">
+
+                                <div>
+                                    <label class="form-label fw-bold">رقم الهاتف</label>
+                                    <input asp-for="PhoneNo" class="form-control" readonly />
+                                </div>
+
+                                <div>
+                                    <label class="form-label fw-bold">بوابة الدخول</label>
+                                    <select class="form-select" disabled>
+                                        <option value="">-- اختر بوابة الدخول --</option>
+                                        <option value="gate1">البوابة الرئيسية</option>
+                                        <option value="gate2">البوابة الشمالية</option>
+                                        <option value="gate3">البوابة الجنوبية</option>
+                                        <option value="gate4">بوابة الموظفين</option>
+                                        <option value="gate5">بوابة الشحن</option>
+                                    </select>
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                        <div class="col-md-1"></div>
+
+                        <!-- العمود الثاني: المواد والمعلومات الإضافية -->
+                        <div class="col-md-6">
+                            <!-- المواد -->
+                            <div >
+                                <h5 class="section-title">المواد والمعدات</h5>
+                                @if (Model.EquipmentsAndMaterials != null && Model.EquipmentsAndMaterials.Count > 0)
+                                {
+                                    <div class="table-responsive">
+                                        <table class="table table-bordered">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>اسم المادة</th>
+                                                    <th>الكمية</th>
+                                                    <th>الوحدة</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @for (int i = 0; i < Model.EquipmentsAndMaterials.Count; i++)
+                                                {
+                                                    <tr>
+                                                        <td>@Model.EquipmentsAndMaterials[i].ItemName</td>
+                                                        <td>@Model.EquipmentsAndMaterials[i].Quantity</td>
+                                                        <td>@Model.EquipmentsAndMaterials[i].Unit</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="no-data-message">لا توجد مواد أو معدات للعرض</div>
+                                }
+                            </div>
+
+                            
+                                <div class="dual-field">
+                                    <div>
+                                        <label class="form-label fw-bold">قادم من</label>
+                                        <input asp-for="MoveFrom" class="form-control" readonly />
+                                    </div>
+                                    <div>
+                                        <label class="form-label fw-bold">ذاهب إلى</label>
+                                        <input asp-for="MoveTo" class="form-control" readonly />
+                                    </div>
+                                </div>
+                           
+
+                            <div >
+                                <label class="form-label fw-bold">ملاحظات</label>
+                                <textarea name="Notes" class="form-control notes-textarea" readonly>@Model.Notes</textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- الأزرار في الأسفل -->
+                    <div class="field-container">
+                        <div class="action-buttons no-print">
+                            <button type="button" class="btn btn-green" onclick="approvePermit()">
+                                <i class="fas fa-check"></i> اعتماد
+                            </button>
+                            <button type="button" class="btn btn-red" onclick="rejectPermit()">
+                                <i class="fas fa-times"></i> رفض
+                            </button>
+                            <button type="button" class="btn btn-orange" onclick="returnPermit()">
+                                <i class="fas fa-undo"></i> ترجيع
+                            </button>
+                            <button type="button" class="btn btn-blue" onclick="closePermit()">
+                                <i class="fas fa-lock"></i> إغلاق
+                            </button>
+                            <button type="button" class="btn btn-red" onclick="deletePermit()">
+                                <i class="fas fa-trash"></i> حذف
+                            </button>
+
+                            <button type="button" class="btn btn-purple print-button-left" onclick="printPermit()">
+                                <i class="fas fa-print"></i> طباعة
+                            </button>
+                        </div>
+                    </div>
+
+
+                   @*  <div class="field-container">
+                    <div class="action-buttons no-print">
+
+                        <button type="button" class="btn btn-green" onclick="approvePermit()">
+                            <i class="fas fa-check"></i> اعتماد
+                        </button>
+                        <button type="button" class="btn btn-red" onclick="rejectPermit()">
+                            <i class="fas fa-times"></i> رفض
+                        </button>
+                        <button type="button" class="btn btn-orange" onclick="returnPermit()">
+                            <i class="fas fa-undo"></i> ترجيع
+                        </button>
+                        <button type="button" class="btn btn-blue" onclick="closePermit()">
+                            <i class="fas fa-lock"></i> إغلاق
+                        </button>
+                        <button type="button" class="btn btn-red" onclick="deletePermit()">
+                            <i class="fas fa-trash"></i> حذف
+                        </button>
+
+                            <button type="button" class="btn btn-purple float-left" onclick="printPermit()">
+                            <i class="fas fa-print"></i> طباعة
+                        </button>
+                        </div>
+
+                    </div> *@
+                </div>
+
+                <!-- زر إظهار/إخفاء الصف الثاني -->
+                <div class="text-center mb-3 no-print">
+                    <button type="button" class="btn-toggle" onclick="toggleSecondPage()">
+                        <i class="fas fa-chevron-down" id="toggle-icon"></i>
+                        <span id="toggle-text">إظهار التفاصيل الإضافية</span>
+                    </button>
+                </div>
+
+                <!-- الصف الثاني -->
+                <div id="second-page" class="page-section procedures-section hidden">
+                    <h5 class="page-section-title">التفاصيل الإضافية</h5>
+                    <div class="row">
+                        <!-- العمود الأول: السيارات -->
+                        <div class="col-md-5">
+                           
+                                <h5 class="section-title">السيارات</h5>
+                                @if (Model.Cars != null && Model.Cars.Count > 0)
+                                {
+                                    <div class="table-responsive">
+                                        <table class="table table-bordered">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>رقم السيارة</th>
+                                                    <th>نوع السيارة</th>
+                                                    <th>اسم السائق</th>
+                                                    <th>جنسية السائق</th>
+                                                    <th>رخصة القيادة</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @for (int i = 0; i < Model.Cars.Count; i++)
+                                                {
+                                                    <tr>
+                                                        <td>@Model.Cars[i].CarNo</td>
+                                                        <td>@Model.Cars[i].CarType</td>
+                                                        <td>@Model.Cars[i].DriverName</td>
+                                                        <td>@Model.Cars[i].driverNationality</td>
+                                                        <td>@Model.Cars[i].licenseNo</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="no-data-message">لا توجد سيارات للعرض</div>
+                                }
+                            
+                        </div>
+
+                        <div class="col-md-1"></div>
+
+                        <!-- العمود الثاني: الإجراءات -->
+                        <div class="col-md-6">
+                            
+                                <h5 class="section-title">الإجراءات المتخذة</h5>
+                                @if (Model.Procedures != null && Model.Procedures.Count > 0)
+                                {
+                                    <div class="table-responsive transaction-table">
+                                        <table class="table table-bordered">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>الإجراء</th>
+                                                    <th>التاريخ</th>
+                                                    <th>من قام بالإجراء</th>
+                                                    <th>الصفة</th>
+                                                    <th>ملاحظات</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @for (int i = 0; i < Model.Procedures.Count; i++)
+                                                {
+                                                    <tr>
+                                                        <td>
+                                                            @if (Model.Procedures[i].ProcedureType == "Approval")
+                                                            {
+                                                                <span class="badge bg-success">اعتماد</span>
+                                                            }
+                                                            else if (Model.Procedures[i].ProcedureType == "Insert")
+                                                            {
+                                                                <span class="badge bg-primary">إدخال</span>
+                                                            }
+                                                            else if (Model.Procedures[i].ProcedureType == "Update")
+                                                            {
+                                                                <span class="badge bg-info">تعديل</span>
+                                                            }
+                                                            else if (Model.Procedures[i].ProcedureType == "Rejection")
+                                                            {
+                                                                <span class="badge bg-danger">رفض</span>
+                                                            }
+                                                            else if (Model.Procedures[i].ProcedureType == "Return")
+                                                            {
+                                                                <span class="badge bg-warning">ترجيع</span>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span class="badge bg-secondary">إغلاق</span>
+                                                            }
+                                                        </td>
+                                                        <td>@Model.Procedures[i].DoneOn</td>
+                                                        <td>@Model.Procedures[i].DonedBy</td>
+                                                        <td>@Model.Procedures[i].DoneAs</td>
+                                                        <td>@Model.Procedures[i].Remarks</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="no-data-message">لا توجد إجراءات مسجلة</div>
+                                }
+                           
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- زر الرجوع للصفحة الرئيسية -->
+    <button type="button" class="btn-back no-print" onclick="goToHome()" title="العودة للصفحة الرئيسية">
+        <i class="fas fa-home"></i>
+    </button>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // دالة لإظهار رسائل التنبيه
+        function showAlert(message, type) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            alertDiv.style.top = '20px';
+            alertDiv.style.left = '50%';
+            alertDiv.style.transform = 'translateX(-50%)';
+            alertDiv.style.zIndex = '9999';
+            alertDiv.style.minWidth = '300px';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            document.body.appendChild(alertDiv);
+
+            setTimeout(() => {
+                alertDiv.remove();
+            }, 5000);
+        }
+
+        // دالة البحث عن تصريح
+        function searchPermit() {
+            const permitNumber = document.getElementById('permitSearch').value.trim();
+            if (permitNumber === '') {
+                showAlert('يرجى إدخال رقم التصريح', 'warning');
+                return;
+            }
+
+            // هنا يمكنك إضافة كود AJAX للبحث عن التصريح في قاعدة البيانات
+            // هذا مثال بسيط للتوضيح
+            window.location.href = `/MatirailPermit/Details/${permitNumber}`;
+        }
+
+        // دالة طباعة التصريح
+        function printPermit() {
+            window.print();
+        }
+
+        // دالة الرجوع للصفحة الرئيسية
+        function goToHome() {
+            window.location.href = '/Home'; // يمكنك تغيير هذا المسار حسب الصفحة الرئيسية الفعلية
+        }
+
+        // دالة إظهار/إخفاء الصف الثاني
+        function toggleSecondPage() {
+            const secondPage = document.getElementById('second-page');
+            const toggleIcon = document.getElementById('toggle-icon');
+            const toggleText = document.getElementById('toggle-text');
+
+            if (secondPage.classList.contains('hidden')) {
+                secondPage.classList.remove('hidden');
+                toggleIcon.className = 'fas fa-chevron-up';
+                toggleText.textContent = 'إخفاء التفاصيل الإضافية';
+            } else {
+                secondPage.classList.add('hidden');
+                toggleIcon.className = 'fas fa-chevron-down';
+                toggleText.textContent = 'إظهار التفاصيل الإضافية';
+            }
+        }
+
+        // دالة اعتماد التصريح
+        function approvePermit() {
+            if (confirm('هل أنت متأكد من اعتماد هذا التصريح؟')) {
+                // هنا يمكنك إضافة كود AJAX لإرسال طلب الاعتماد للخادم
+                showAlert('تم اعتماد التصريح بنجاح', 'success');
+                // تحديث حالة التصريح في الواجهة
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            }
+        }
+
+        // دالة رفض التصريح
+        function rejectPermit() {
+            const reason = prompt('يرجى إدخال سبب الرفض:');
+            if (reason !== null && reason.trim() !== '') {
+                // هنا يمكنك إضافة كود AJAX لإرسال طلب الرفض للخادم
+                showAlert('تم رفض التصريح بنجاح', 'danger');
+                // تحديث حالة التصريح في الواجهة
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } else if (reason !== null) {
+                showAlert('يرجى إدخال سبب الرفض', 'danger');
+            }
+        }
+
+        // دالة ترجيع التصريح
+        function returnPermit() {
+            const reason = prompt('يرجى إدخال سبب الترجيع:');
+            if (reason !== null && reason.trim() !== '') {
+                // هنا يمكنك إضافة كود AJAX لإرسال طلب الترجيع للخادم
+                showAlert('تم ترجيع التصريح بنجاح', 'warning');
+                // تحديث حالة التصريح في الواجهة
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } else if (reason !== null) {
+                showAlert('يرجى إدخال سبب الترجيع', 'danger');
+            }
+        }
+
+        // دالة إغلاق التصريح
+        function closePermit() {
+            if (confirm('هل أنت متأكد من إغلاق هذا التصريح؟')) {
+                // هنا يمكنك إضافة كود AJAX لإرسال طلب الإغلاق للخادم
+                showAlert('تم إغلاق التصريح بنجاح', 'info');
+                // تحديث حالة التصريح في الواجهة
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            }
+        }
+
+        // دالة حذف التصريح
+        function deletePermit() {
+            if (confirm('هل أنت متأكد من حذف هذا التصريح؟ لا يمكن التراجع عن هذه العملية.')) {
+                // هنا يمكنك إضافة كود AJAX لإرسال طلب الحذف للخادم
+                showAlert('تم حذف التصريح بنجاح', 'danger');
+                // الانتقال إلى صفحة القائمة بعد الحذف
+                setTimeout(() => {
+                    window.location.href = '/MatirailPermit/Index';
+                }, 1500);
+            }
+        }
+
+        // البحث بالضغط على زر Enter
+        document.getElementById('permitSearch').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchPermit();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -170,7 +170,9 @@ namespace Services
             var permit = await _unitOfWork.Permits
        .GetQueryable()                
        .Include(p => p.Cars)         
-       .Include(p => p.EquipmentsAndMatirials) 
+       .Include(p => p.EquipmentsAndMatirials)
+       .Include(p => p.Procedures)
+
        .FirstOrDefaultAsync(p => p.Id == PermitId);
 
             return permit;

@@ -1,4 +1,5 @@
 wwwroot\css\login.css
+wwwroot\css\permit-view.css
 wwwroot\css\site.css
 wwwroot\favicon.ico
 wwwroot\images\lisco.png

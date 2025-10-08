@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
 using static Core.Enums.BaseEnums;
-using PermitType = Core.Enums.BaseEnums.PermitType;
+using PermitType = Core.Enums.BaseEnums.EnumPermitType;
 
 public class MatirailPermitController : Controller
 {
@@ -103,6 +103,19 @@ public class MatirailPermitController : Controller
                 orginaization=model.OrgDescription
             }).ToList();
 
+         // إضافة نوع الحركة
+        permit.Procedures = new List<ProcedureMovment>
+{
+    new ProcedureMovment
+    {
+        procedureType =ProcedureType.Insert.ToString() ,
+        donedBy = HttpContext.Session.GetString("FullName"),
+        doneAs = HttpContext.Session.GetString("JobtypeName"),
+        shift="A",
+        doneOn = DateTime.Now
+    }
+};
+
         await _permitService.InsertPermitAsync(permit);
 
         TempData["Success"] = "تم إضافة التصريح بنجاح";
@@ -119,8 +132,7 @@ public class MatirailPermitController : Controller
         {
             return NotFound();
         }
-        BaseEnums x = new BaseEnums();
-       
+        
         // حسب التصنيف نعرض صفحة مختلفة
         switch (permit.classification)
         {
@@ -132,7 +144,6 @@ public class MatirailPermitController : Controller
                     No = permit.no,
                     Classification = permit.classification,
                     Type = (PermitType)Enum.Parse(typeof(PermitType), permit.type),
-                    // Type = permit.type,
                     OrgDescription = permit.OrgDescription,
                     IsTemp = permit.IsTemp,
                     MoveFrom = permit.moveFrom,
@@ -177,18 +188,13 @@ public class MatirailPermitController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> EditMatirialPermint(PermitViewModel model)
     {
-        //if (!ModelState.IsValid)
-        //{
-            // إعادة تحميل الأقسام للـ dropdown
+      
             var responsibilityCode = HttpContext.Session.GetString("ResponsibilityCode");
             model.Departments = await _departmentService.GetDepartmentsByResponsibilityAsync(responsibilityCode);
-           // return View(model);
-       // }
-
+          
         var permit = await _permitService.GetPermitByIdAsync(model.Id);
         if (permit == null) return NotFound();
 
-        // تحديث الحقول
         permit.updatedBy = HttpContext.Session.GetString("UserName");
         permit.updatedOn = DateTime.Now;
         permit.date = model.Date;
@@ -223,10 +229,76 @@ public class MatirailPermitController : Controller
             orginaization = model.OrgDescription
         }).ToList();
 
+        // إضافة نوع الحركة
+        permit.Procedures = new List<ProcedureMovment>
+{
+    new ProcedureMovment
+    {
+        procedureType = ProcedureType.Update.ToString(),
+        donedBy = HttpContext.Session.GetString("FullName"),
+        doneAs = HttpContext.Session.GetString("JobtypeName"),
+        shift="A",
+        doneOn = DateTime.Now
+    }
+};
         await _permitService.UpdatePermitAsync(permit);
 
         return RedirectToAction("PermitIndex", "Permit");
     }
 
+
+    public async Task<IActionResult> Details(Guid Id)
+    {
+        var permit = await _permitService.GetPermitByIdAsync(Id);
+        if (permit == null)
+        {
+            return NotFound();
+        }
+       // Departments = await _departmentService.GetDepartmentsByResponsibilityAsync(responsibilityCode);
+        var viewModel = new PermitViewModel
+        {
+            Id = permit.Id,
+            No = permit.no,
+            Classification = permit.classification,
+            Type = (PermitType)Enum.Parse(typeof(PermitType), permit.type),
+            OrgDescription = permit.OrgDescription,
+            IsTemp = permit.IsTemp,
+            MoveFrom = permit.moveFrom,
+            MoveTo = permit.moveTo,
+            Notes = permit.remarks,
+            RequoidedAs = permit.requoidedAs,
+            PhoneNo = permit.phoneNo,
+            Date = permit.date,
+            HourOfEntry = permit.hourOfEntry,
+            ReqDepartment = permit.reqDepartment, // تعبئة الجهة الطالبة
+
+            Cars = permit.Cars.Select(c => new CarMovmentViewModel
+            {
+                CarType = c.carType,
+                CarNo = c.carNo,
+                DriverName = c.name,
+                DriverOrg = c.orginaization,
+                driverNationality = (Nationality)Enum.Parse(typeof(Nationality), c.nattiunality),
+                licenseNo = c.licenseNo
+            }).ToList(),
+
+            EquipmentsAndMaterials = permit.EquipmentsAndMatirials.Select(e => new EquipMatiMovmentViewModel
+            {
+                ItemName = e.description,
+                Quantity = e.qty,
+                Unit = (UnitType)Enum.Parse(typeof(UnitType), e.unit),
+
+            }).ToList(),
+
+            Procedures = permit.Procedures.Select(p => new ProcedureMovmentViewModel
+            {
+                ProcedureType = p.procedureType,
+                DonedBy = p.donedBy,
+                DoneOn = p.doneOn
+            }).ToList()
+        };
+
+        return View("ViewMatirialPermint", viewModel);
+    }
 
 }

@@ -52,7 +52,7 @@ namespace Core.Enums
             غير_معروف
         }
 
-        public enum PermitType
+        public enum EnumPermitType
         {
             [Description("إستخراج")]
             Export,
@@ -62,6 +62,26 @@ namespace Core.Enums
 
             [Description("إستخراج وإدخال")]
             ExtractAndInsert
+        }
+
+        public enum ProcedureType
+        {
+            [Description("إدخال")]
+            Insert,
+
+            [Description("تعديل")]
+            Update,
+
+            [Description("حدف")]
+            Delete,
+                [Description("إغلاق")]
+            Close,
+
+            [Description("اعتماد")]
+            Approve,
+
+            [Description("ترجيع")]
+            Returen
         }
 
     }
