@@ -362,11 +362,7 @@
                                 <div class="error-message">هذا الحقل مطلوب</div>
                             </div>
 
-                            <!-- حقل الملاحظات الجديد -->
-                            <div class="mb-sm-3">
-                                <label class="form-label fw-bold">ملاحظات</label>
-                                <textarea name="Notes" class="form-control notes-textarea" placeholder="أدخل الملاحظات هنا..."></textarea>
-                            </div>
+                           
                         </div>
 
                         <!-- العمود الثاني: المواد + السيارات (2/3 من العرض) -->
@@ -412,6 +408,13 @@
                                     <tbody id="carsTableBody"></tbody>
                                 </table>
                             </div>
+
+                            <!-- حقل الملاحظات الجديد -->
+                            <div class="mb-sm-3">
+                                <label class="form-label fw-bold">ملاحظات</label>
+                                <textarea name="Notes" class="form-control notes-textarea" placeholder="أدخل الملاحظات هنا..."></textarea>
+                            </div>
+
                         </div>
                     </div>
 
@@ -419,9 +422,9 @@
                         <button type="submit" class="btn btn-orange px-4">
                             <i class="fas fa-save ms-2"></i> حفظ
                         </button>
-                        <a asp-action="Index" class="btn btn-secondary px-4">
+                       @*  <a asp-action="Index" id="CancelButton" class="btn btn-secondary px-4">
                             <i class="fas fa-times ms-2"></i> إلغاء
-                        </a>
+                        </a> *@
                     </div>
 
                 </form>
@@ -432,6 +435,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
    
     <script>
+
+
         $(document).ready(function () {
 
             // ================= دوال مساعدة ===================

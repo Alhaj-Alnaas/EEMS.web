@@ -58,8 +58,8 @@ builder.Services.AddIdentity<User, IdentityRole>(options =>
 // ---------------- Authentication & Authorization ----------------
 builder.Services.ConfigureApplicationCookie(options =>
 {
-    options.LoginPath = "/Login/Login";           
-    options.AccessDeniedPath = "/Login/AccessDenied"; 
+    options.LoginPath = "/Login/Login";
+    options.AccessDeniedPath = "/Login/AccessDenied";
     options.ExpireTimeSpan = TimeSpan.FromMinutes(30);
     options.SlidingExpiration = true;
 });
@@ -126,7 +126,8 @@ app.UseAuthorization();
 
 app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=Login}/{action=Login}/{id?}");
+   // pattern: "{controller=Home}/{action=Index}/{id?}");
+pattern: "{controller=Login}/{action=Login}/{id?}");
 
 app.MapRazorPages();
 

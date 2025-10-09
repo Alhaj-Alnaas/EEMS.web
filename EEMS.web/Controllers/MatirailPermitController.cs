@@ -1,4 +1,5 @@
 ﻿using Core.Entities;
+using Core.Entities.DTOs;
 using Core.Enums;
 using Core.Interfaces.Services;
 using EEMS.web.ViewModels;
@@ -31,7 +32,7 @@ public class MatirailPermitController : Controller
         string responsibilityCode = HttpContext.Session.GetString("ResponsibilityCode"); 
 
         // fill departments
-        var departments = await _departmentService.GetDepartmentsByResponsibilityAsync(responsibilityCode);
+        var departments = await _departmentService.GetDepartmentsByResponsibilityAsync(responsibilityCode) ;
 
         var model = new PermitViewModel
         {
@@ -173,7 +174,7 @@ public class MatirailPermitController : Controller
                         
                     }).ToList(),
 
-                    Departments = await _departmentService.GetDepartmentsByResponsibilityAsync(responsibilityCode)
+                    Departments = await _departmentService.GetDepartmentsByResponsibilityAsync(responsibilityCode) 
                 };
 
                 return View("EditMatirialPermint", viewModel);
@@ -190,7 +191,7 @@ public class MatirailPermitController : Controller
     {
       
             var responsibilityCode = HttpContext.Session.GetString("ResponsibilityCode");
-            model.Departments = await _departmentService.GetDepartmentsByResponsibilityAsync(responsibilityCode);
+            model.Departments = await _departmentService.GetDepartmentsByResponsibilityAsync(responsibilityCode) ;
           
         var permit = await _permitService.GetPermitByIdAsync(model.Id);
         if (permit == null) return NotFound();
@@ -254,7 +255,10 @@ public class MatirailPermitController : Controller
         {
             return NotFound();
         }
-       // Departments = await _departmentService.GetDepartmentsByResponsibilityAsync(responsibilityCode);
+        var department = await _departmentService.GetSingleDepartmentByResponsibilityAsync(permit.reqDepartment) ;
+
+        var departmentName = department?.DepartmentName ?? "غير معروف";
+       
         var viewModel = new PermitViewModel
         {
             Id = permit.Id,
@@ -270,8 +274,8 @@ public class MatirailPermitController : Controller
             PhoneNo = permit.phoneNo,
             Date = permit.date,
             HourOfEntry = permit.hourOfEntry,
-            ReqDepartment = permit.reqDepartment, // تعبئة الجهة الطالبة
-
+            ReqDepartment = departmentName,
+            //ReqDepartment = permit.reqDepartment,
             Cars = permit.Cars.Select(c => new CarMovmentViewModel
             {
                 CarType = c.carType,

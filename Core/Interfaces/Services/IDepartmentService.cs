@@ -9,6 +9,8 @@ namespace Core.Interfaces.Services
 {
     public interface IDepartmentService
     {
-        Task<List<DepartmentDto>> GetDepartmentsByResponsibilityAsync(string responsibilityCode);
+        public  Task<List<DepartmentDto>> GetDepartmentsByResponsibilityAsync(string responsibilityCode);
+
+        public  Task<DepartmentDto?> GetSingleDepartmentByResponsibilityAsync(string responsibilityCode);
     }
 }
