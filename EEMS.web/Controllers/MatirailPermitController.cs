@@ -1,11 +1,8 @@
 ﻿using Core.Entities;
-using Core.Entities.DTOs;
-using Core.Enums;
 using Core.Interfaces.Services;
 using EEMS.web.ViewModels;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using System.Threading.Tasks;
 using static Core.Enums.BaseEnums;
 using PermitType = Core.Enums.BaseEnums.EnumPermitType;
 
@@ -14,12 +11,14 @@ public class MatirailPermitController : Controller
     private readonly IPermit _permitService;
     private readonly IDepartmentService _departmentService;
     private readonly UserManager<User> _userManager;
+    private readonly IGates _gateService;
 
-    public MatirailPermitController(IPermit permitService, IDepartmentService departmentService, UserManager<User> userManager)
+    public MatirailPermitController(IPermit permitService, IDepartmentService departmentService, UserManager<User> userManager , IGates gateServi)
     {
         _permitService = permitService;
         _departmentService = departmentService;
         _userManager = userManager;
+        _gateService = gateServi;
     }
     
 
@@ -299,7 +298,9 @@ public class MatirailPermitController : Controller
                 ProcedureType = p.procedureType,
                 DonedBy = p.donedBy,
                 DoneOn = p.doneOn
-            }).ToList()
+            }).ToList(),
+
+           Gates = await _gateService.GetGatesByPermitTypeAsync(3)
         };
 
         return View("ViewMatirialPermint", viewModel);

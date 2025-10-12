@@ -1,6 +1,7 @@
 ﻿using Core.Entities;
 using Core.Interfaces.Services;
 using EEMS.Core.Interfaces.UnitOfWork;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
 
@@ -77,5 +78,15 @@ namespace Services
             _unitOfWork.Gates.Delete(gate);
             await _unitOfWork.SaveAsync();
         }
+
+        public async Task<List<Gate>> GetGatesByPermitTypeAsync(int permitTypeId)
+        {
+            var gatesList = await _unitOfWork.Gates.GetQueryable()
+             .Include(g => g.PermitTypes)
+             .Where(g => g.PermitTypes.Any(pt => pt.Id == permitTypeId))
+             .ToListAsync(); 
+            return gatesList;
+        }
+
     }
 }

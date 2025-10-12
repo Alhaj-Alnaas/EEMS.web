@@ -1,5 +1,4 @@
-﻿
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="utf-8" />
@@ -50,7 +49,7 @@
 
         /* Bottom Bar Styles */
         .bottom-bar {
-            background-color: #4a4a4a; 
+            background-color: #4a4a4a;
             color: white;
             padding: 10px 0;
             position: fixed;
@@ -80,7 +79,6 @@
             margin-bottom: 50px; /* Space for bottom bar */
         }
 
-        /* لتنسيق القوائم الفرعية */
         .dropdown-submenu {
             position: relative;
         }
@@ -88,16 +86,16 @@
             .dropdown-submenu > .dropdown-menu {
                 display: none;
                 position: absolute;
-                top: 100%; 
-                right: 0; 
+                top: 100%;
+                right: 0;
                 margin-top: 0;
                 border-radius: 0.25rem;
-            } 
+            }
+
             .dropdown-submenu .show {
                 display: block;
             }
 
-        /* زر الرجوع الدائري (Back Button) - تحسينات UX */
         .btn-back {
             position: fixed;
             right: 20px;
@@ -120,28 +118,26 @@
 
             .btn-back:hover,
             .btn-back:focus {
-                /* رفع الزر قليلاً للأعلى (لفت الانتباه) */
                 box-shadow: 0 8px 16px rgba(0, 0, 0, 0.35);
                 transform: translateY(-2px);
                 background-color: #ff9800;
             }
 
-            /* عند الضغط الفعلي */
             .btn-back:active {
-                /* إعطاء إحساس بالضغط للأسفل */
                 box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
                 transform: translateY(1px);
             }
 
     </style>
+    @RenderSection("Styles", required: false)
 </head>
 <body>
-   
+
     <header>
         <nav class="navbar navbar-expand-lg navbar-custom shadow-sm mb-3">
             <div class="container-fluid">
 
-                <a  class="navbar-brand navbar-brand-centered d-flex align-items-center" asp-area="" asp-controller="Home" asp-action="Index">
+                <a class="navbar-brand navbar-brand-centered d-flex align-items-center" asp-area="" asp-controller="Home" asp-action="Index">
                     @* نظام إدارة التصاريح *@
                 </a>
 
@@ -262,11 +258,11 @@
                                 </li>
 
                                 <li>
-                                    <a id="editUser"  class="dropdown-item" asp-controller="UserManagement" asp-action="ViewUser">
+                                    <a id="editUser" class="dropdown-item" asp-controller="UserManagement" asp-action="ViewUser">
                                         <i class="bi bi-list-ul me-1"></i> عرض وتعديل بيانات مستخدم
                                     </a>
                                 </li>
-                                
+
                                 <li>
                                     <a id="changePassword" class="dropdown-item" asp-controller="UserManagement" asp-action="ChangePassword">
                                         <i class="bi bi-key-fill me-1"></i> تغيير كلمة المرور
@@ -290,7 +286,7 @@
                         </div>
                     </form>
 
-                 
+
 
                     <!-- زر تسجيل الخروج مع اسم المستخدم -->
                     <div class="d-flex flex-column align-items-center">
@@ -299,9 +295,9 @@
                                 <i class="bi bi-box-arrow-right"></i> تسجيل الخروج
                             </button>
                         </form>
-                      
+
+                    </div>
                 </div>
-            </div>
         </nav>
     </header>
 
@@ -314,6 +310,7 @@
     <!-- زر الرجوع للصفحة الرئيسية -->
     <button id="ReturnHome" type="button" class="btn-back no-print" onclick="goToHome()" title="العودة للصفحة الرئيسية">
         <i class="fas fa-home"></i>
+
     </button>
 
 
@@ -340,13 +337,13 @@
     <script src="~/js/site.js" asp-append-version="true"></script>
 
 
-   
+
     <script>
-         
+
         document.getElementById("ReturnHome").addEventListener("click", function () {
             window.location.href = "/Permit/PermitIndex";
         });
-    
+
 
         $(document).ready(function() {
             // دالة للتحكم في ظهور العناصر بناءً على نوع المستخدم

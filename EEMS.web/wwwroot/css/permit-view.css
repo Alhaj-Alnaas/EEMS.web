@@ -1,35 +1,10 @@
-﻿
-/*
-==================================================
-        التنسيقات الأساسية والتهيئة العامة
-==================================================
-*/
-/*body {
-    background-color: #fff;*/ /* تم تحديثه ليتوافق مع آخر تعديل */
-    /*direction: rtl;
-    text-align: right;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    font-size: 0.9rem;*/ /* تم تقليل حجم الخط الرئيسي */
-    /*padding: 0;*/ /* تم إزالة الحشو ليقلل المساحة */
-    /*margin: auto;*/ /* لتوسيط الصفحة */
-    /*max-width: 95%;*/ /* لتوسيط الصفحة */
-    /*border: none;
-    box-shadow: none;
-    min-height: calc(100vh);*/ /* تعديل طفيف ليتناسب مع التعديل الأخير لـ body */
-    /*position: relative;
-}*/
-
-.container {
+﻿.container {
     max-width: 1400px !important; /* تم زيادة الحد الأقصى للعرض */
     padding: 0 10px;
     margin: 0 auto;
 }
+/* ================================================== تنسيقات الأجزاء الهيكلية ================================================== */
 
-/*
-==================================================
-            تنسيقات الأجزاء الهيكلية
-==================================================
-*/
 .header-bar {
     background: linear-gradient(45deg, #495057, #343a40);
     color: #fff;
@@ -71,8 +46,8 @@
     border-bottom: 1px solid #dee2e6;
     font-size: 1.15rem !important;
 }
-
 /* تحسين المسافات بين الأعمدة في نظام Grid */
+
 .row {
     margin-right: 0 !important;
     margin-left: 0 !important;
@@ -82,12 +57,8 @@
     padding-right: 5px !important;
     padding-left: 5px !important;
 }
+/* ================================================== تنسيقات حقول الإدخال والنماذج ================================================== */
 
-/*
-==================================================
-        تنسيقات حقول الإدخال والنماذج
-==================================================
-*/
 .form-control, .form-select {
     border-radius: 8px;
     border: 1px solid #ced4da;
@@ -132,8 +103,8 @@
 .mb-sm-3 {
     margin-bottom: 10px !important; /* تم تقليل المسافة */
 }
-
 /* تحسين حقل القراءة فقط */
+
 .form-control[readonly], .form-select[disabled] {
     background-color: #f8f9fa;
     border-color: #ced4da;
@@ -168,12 +139,8 @@
     .dual-field > div {
         flex: 1;
     }
+/* ================================================== تنسيقات الأزرار ================================================== */
 
-/*
-==================================================
-            تنسيقات الأزرار
-==================================================
-*/
 .btn {
     font-weight: 600 !important;
     border-radius: 10px !important; /* تم توحيد تنسيق الحواف */
@@ -260,10 +227,9 @@
         transform: translateY(-2px);
         box-shadow: 0 4px 8px rgba(108, 117, 125, 0.3);
     }
-
 /* تنسيق الأزرار في الأسفل */
-.action-buttons {
 
+.action-buttons {
     display: flex; /* ✅ تفعيل Flexbox */
     flex-wrap: wrap; /* للسماح بتدفق الأزرار إذا ضاقت الشاشة */
     gap: 10px; /* مسافة بين الأزرار */
@@ -271,13 +237,6 @@
     padding: 15px 0 5px;
     border-top: 1px solid #e9ecef;
     margin-top: 15px;
-
-    /*display: flex;
-    justify-content: center;
-    gap: 8px !important;*/ /* تم تقليل المسافة */
-    /*margin-top: 10px;
-    margin-bottom: 15px;*/ /* تم تقليل المسافة */
-    /*flex-wrap: wrap;*/
 }
 
     .action-buttons .btn {
@@ -290,8 +249,8 @@
         position: relative;
         overflow: hidden;
     }
-
         /* تأثير تموج الأزرار */
+
         .action-buttons .btn::after {
             content: '';
             position: absolute;
@@ -322,80 +281,13 @@
     }
 }
 
-
-/* زر الرجوع الدائري (Back Button) - تحسينات UX */
-/*.btn-back {
-    
-    position: fixed;
-    right: 20px; 
-    bottom: 40px;
-    z-index: 1000;
-   
-    width: 60px; 
-    height: 60px; 
-    border-radius: 50%; 
-   
-    background-color: #fd7e14; 
-    color: white;
-    border: none;
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25); 
-    
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.7rem; 
-   
-    cursor: pointer; 
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); 
+.btn-back:hover {
+    background-color: #e96b0c;
+    transform: scale(1.1);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
 }
+/* ================================================== تنسيقات الجداول ================================================== */
 
-    .btn-back:hover,
-    .btn-back:focus {*/
-        /* رفع الزر قليلاً للأعلى (لفت الانتباه) */
-        /*box-shadow: 0 8px 16px rgba(0, 0, 0, 0.35);
-        transform: translateY(-2px);
-        background-color: #ff9800; 
-    }*/
-
-    /* عند الضغط الفعلي */
-    /*.btn-back:active {*/
-        /* إعطاء إحساس بالضغط للأسفل */
-        /*box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
-        transform: translateY(1px);
-    }*/
-
-
-/* زر الرجوع الدائري (Back Button) */
-/*.btn-back {
-    position: fixed;
-    bottom: 15px;*/ /* تم تقليل المسافة */
-    /*right: 15px;*/ /* تم تقليل المسافة */
-    /*width: 70px !important;*/ /* تم تقليل العرض */
-    /*height: 50px !important;*/ /* تم تقليل الارتفاع */
-    /*border-radius: 50%;
-    background-color: #fd7e14;
-    color: white;
-    border: none;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem !important;
-    z-index: 1000;
-    transition: all 0.3s ease;
-}*/
-
-    .btn-back:hover {
-        background-color: #e96b0c;
-        transform: scale(1.1);
-        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
-    }
-
-/*
-==================================================
-            تنسيقات الجداول
-==================================================
-*/
 table th, table td {
     vertical-align: middle;
     text-align: right;
@@ -424,12 +316,8 @@ table th, table td {
 .table-responsive {
     margin-bottom: 0.8rem; /* تم تقليل المسافة */
 }
+/* ================================================== تنسيقات متنوعة ================================================== */
 
-/*
-==================================================
-            تنسيقات متنوعة
-==================================================
-*/
 .section-title {
     font-weight: bold;
     margin-top: 1rem; /* تم تقليل المسافة */
@@ -550,8 +438,27 @@ table th, table td {
     font-size: 0.85rem; /* تم تقليل حجم الخط */
 }
 
-
 .action-buttons .print-button-left {
     margin-inline-start: auto;
-    order: 1; 
+    order: 1;
 }
+
+/* تنسيق زر الطباعة في الأزرار السفلية */
+.print-button-left {
+    background-color: #6f42c1;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 15px;
+    font-weight: 500;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    margin-right: auto; /* دفع الزر إلى اليسار */
+}
+
+    .print-button-left:hover {
+        background-color: #5a32a3;
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(111, 66, 193, 0.3);
+    }

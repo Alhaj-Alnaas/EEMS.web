@@ -27,7 +27,9 @@ namespace EEMS.web.ViewModels
         public List<CarMovmentViewModel> Cars { get; set; } = new();
         public List<ProcedureMovmentViewModel> Procedures { get; set; } = new ();
         public List<DepartmentDto> Departments { get; set; } = new();
+        public List<Gate> Gates { get; set; } = new();
         public string ReqDepartment { get; set; }
+        public string EntryGate { get; set; }
 
     }
 
