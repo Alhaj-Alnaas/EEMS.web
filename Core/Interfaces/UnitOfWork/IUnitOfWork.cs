@@ -11,6 +11,7 @@ namespace EEMS.Core.Interfaces.UnitOfWork
         IGenericRepository<Gate> Gates { get; }
         IGenericRepository<PermitType> PermitTypes { get; }
         IGenericRepository<Permit> Permits { get; }
+        IGenericRepository<ProcedureMovment> ProceduresMovment { get; }
 
         IStoredProcedureRepository StoredProcedures { get; }
 

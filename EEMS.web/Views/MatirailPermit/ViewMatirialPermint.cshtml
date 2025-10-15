@@ -40,6 +40,9 @@
                         <div class="col-md-5">
 
                             <div>
+                                <div id="alert-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999; width: 300px;"></div>
+                                <input type="hidden" id="PermitId" value="@Model.Id" />
+
                                 <div class="dual-field">
                                     <div>
                                         <label class="form-label fw-bold">رقم التصريح</label>
@@ -87,7 +90,7 @@
                                 <div class="dual-field">
                                     <div>
                                         <label asp-for="Type" class="form-label fw-bold">نوع التصريح</label>
-                                        <select asp-for="Type" class="form-select" disabled>
+                                        <select asp-for="Type" class="form-select" disabled text-end>
                                             @foreach (var type in Enum.GetValues(typeof(Core.Enums.BaseEnums.EnumPermitType)).Cast<Core.Enums.BaseEnums.EnumPermitType>())
                                             {
                                                 if (type.ToString() == Model.Type.ToString())
@@ -191,23 +194,23 @@
                     <!-- الأزرار في الأسفل -->
                     <div class="field-container">
                         <div class="action-buttons no-print">
-                            <button type="button" class="btn btn-green" onclick="approvePermit()">
+                            <button type="button" class="btn btn-green" data-action="approve" onclick="handlePermitAction(this)">
                                 <i class="fas fa-check"></i> اعتماد
                             </button>
-                            <button type="button" class="btn btn-red" onclick="rejectPermit()">
+                            <button type="button" class="btn btn-red" data-action="reject" onclick="handlePermitAction(this)">
                                 <i class="fas fa-times"></i> رفض
                             </button>
-                            <button type="button" class="btn btn-orange" onclick="returnPermit()">
+                            <button type="button" class="btn btn-orange" data-action="return" onclick="handlePermitAction(this)">
                                 <i class="fas fa-undo"></i> ترجيع
                             </button>
-                            <button type="button" class="btn btn-blue" onclick="closePermit()">
+                            <button type="button" class="btn btn-blue" data-action="close" onclick="handlePermitAction(this)">
                                 <i class="fas fa-lock"></i> إغلاق
                             </button>
-                            <button type="button" class="btn btn-red" onclick="deletePermit()">
+                            <button type="button" class="btn btn-red" data-action="delete" onclick="handlePermitAction(this)">
                                 <i class="fas fa-trash"></i> حذف
                             </button>
 
-                            <button type="button" class="btn btn-purple print-button-left" onclick="printPermit()">
+                            <button id="btnPrintPermit" type="button" class="btn btn-purple print-button-left" >
                                 <i class="fas fa-print"></i> طباعة
                                 </button>
                         </div>
@@ -286,32 +289,40 @@
                                             {
                                                 <tr>
                                                     <td>
-                                                        @if (Model.Procedures[i].ProcedureType == "Approval")
+                                                        @if (Model.Procedures[i].ProcedureType == "Insert")
                                                         {
-                                                            <span class="badge bg-success">اعتماد</span>
+                                                            <span class="badge bg-success">إدخال</span>
                                                         }
-                                                        else if (Model.Procedures[i].ProcedureType == "Insert")
+                                                        else if (Model.Procedures[i].ProcedureType == "approve")
                                                         {
-                                                            <span class="badge bg-primary">إدخال</span>
+                                                            <span class="badge bg-primary">اعتماد</span>
                                                         }
                                                         else if (Model.Procedures[i].ProcedureType == "Update")
                                                         {
                                                             <span class="badge bg-info">تعديل</span>
                                                         }
-                                                        else if (Model.Procedures[i].ProcedureType == "Rejection")
+                                                        else if (Model.Procedures[i].ProcedureType == "reject")
                                                         {
                                                             <span class="badge bg-danger">رفض</span>
                                                         }
-                                                        else if (Model.Procedures[i].ProcedureType == "Return")
+                                                        else if (Model.Procedures[i].ProcedureType == "return")
                                                         {
                                                             <span class="badge bg-warning">ترجيع</span>
                                                         }
-                                                        else
+                                                        else if (Model.Procedures[i].ProcedureType == "delete")
+                                                        {
+                                                            <span class="badge bg-danger">حدف</span>
+                                                        }
+                                                        else if (Model.Procedures[i].ProcedureType == "close")
                                                         {
                                                             <span class="badge bg-secondary">إغلاق</span>
                                                         }
+                                                        else
+                                                        {
+                                                        <span class="badge bg-secondary">إغلاق</span>
+                                                        }
                                                     </td>
-                                                    <td>@Model.Procedures[i].DoneOn</td>
+                                                    <td>@Model.Procedures[i].DoneOn.Value.ToString("dd/MM/yyyy")</td>
                                                     <td>@Model.Procedures[i].DonedBy</td>
                                                     <td>@Model.Procedures[i].DoneAs</td>
                                                     <td>@Model.Procedures[i].Remarks</td>
@@ -377,71 +388,120 @@
             }
         }
 
-        // دالة اعتماد التصريح
-        function approvePermit() {
-            if (confirm('هل أنت متأكد من اعتماد هذا التصريح؟')) {
-                // هنا يمكنك إضافة كود AJAX لإرسال طلب الاعتماد للخادم
-                showAlert('تم اعتماد التصريح بنجاح', 'success');
-                // تحديث حالة التصريح في الواجهة
-                setTimeout(() => {
-                    location.reload();
-                }, 1500);
-            }
+
+
+       // 🔹 دالة عامة لمعالجة جميع أنواع العمليات على التصريح
+
+                function handlePermitAction(button) {
+                    const actionType = $(button).data('action');
+                    const permitId = $('#PermitId').val();
+                    let reason = null;
+
+                    const actionLabels = {
+                        approve: { title: 'اعتماد التصريح', confirm: 'هل أنت متأكد من اعتماد هذا التصريح؟', icon: 'success' },
+                        reject: { title: 'رفض التصريح', confirm: 'هل أنت متأكد من رفض هذا التصريح؟', icon: 'error' },
+                        return: { title: 'ترجيع التصريح', confirm: 'هل أنت متأكد من ترجيع هذا التصريح؟', icon: 'warning' },
+                        close: { title: 'إغلاق التصريح', confirm: 'هل أنت متأكد من إغلاق هذا التصريح؟', icon: 'info' },
+                        delete: { title: 'حذف التصريح', confirm: 'هل أنت متأكد من حذف هذا التصريح؟ لا يمكن التراجع عن العملية.', icon: 'error' }
+                    };
+
+                    const action = actionLabels[actionType];
+                    if (!action) {
+                        Swal.fire('خطأ', 'نوع الإجراء غير معروف.', 'error');
+                        return;
+                    }
+
+                    // 🔹 أولاً: تأكيد الإجراء
+                    Swal.fire({
+                        title: action.title,
+                        text: action.confirm,
+                        icon: action.icon,
+                        showCancelButton: true,
+                        confirmButtonText: 'نعم',
+                        cancelButtonText: 'لا',
+                        reverseButtons: true,
+                        confirmButtonColor: '#198754', // لون الزر الأخضر
+                        cancelButtonColor: '#dc3545',  // لون الزر الأحمر
+                    }).then((result) => {
+                        if (!result.isConfirmed) return;
+
+                        // 🔸 ثانياً: إذا احتاج سبب (رفض أو ترجيع)
+                        if (actionType === 'reject' || actionType === 'return') {
+                            Swal.fire({
+                                title: 'يرجى إدخال السبب',
+                                input: 'text',
+                                inputPlaceholder: 'اكتب السبب هنا...',
+                                confirmButtonText: 'موافق',
+                                showCancelButton: true,
+                                cancelButtonText: 'إلغاء',
+                                inputValidator: (value) => {
+                                    if (!value) return 'يجب إدخال السبب';
+                                }
+                            }).then((inputResult) => {
+                                if (inputResult.isConfirmed) {
+                                    reason = inputResult.value;
+                                    sendPermitAction(permitId, actionType, reason);
+                                }
+                            });
+                        } else {
+                            sendPermitAction(permitId, actionType, reason);
+                        }
+                    });
+                }
+
+                // 🔹 إرسال الطلب إلى السيرفر
+                function sendPermitAction(permitId, actionType, reason) {
+                    $.ajax({
+                        url: '/Permit/HandlePermitAction',
+                        type: 'POST',
+                        data: { permitId, actionType, reason },
+                        success: function (response) {
+                            if (response.success) {
+                                Swal.fire({
+                                    title: 'تم بنجاح',
+                                    text: response.message,
+                                    icon: 'success',
+                                    confirmButtonText: 'موافق',
+                                    confirmButtonColor: '#198754'
+                                }).then(() => {
+                                    if (actionType === 'delete')
+                                        window.location.href = '/MatirailPermit/Index';
+                                    else
+                                        location.reload();
+                                });
+                            } else {
+                                Swal.fire('خطأ', response.message, 'error');
+                            }
+                        },
+                        error: function () {
+                            Swal.fire('خطأ', 'حدث خطأ أثناء تنفيذ العملية.', 'error');
+                        }
+                    });
+                }
+       
+
+        function showAlert(message, type = 'info') {
+            const alertBox = $(`
+                <div class="alert alert-${type} text-center fw-bold shadow-sm fade show" role="alert">
+                    ${message}
+                </div>
+            `).hide();
+
+            $('#alert-container').append(alertBox);
+            alertBox.fadeIn(400);
+
+            setTimeout(() => {
+                alertBox.fadeOut(500, () => alertBox.remove());
+            }, 2500);
         }
 
-        // دالة رفض التصريح
-        function rejectPermit() {
-            const reason = prompt('يرجى إدخال سبب الرفض:');
-            if (reason !== null && reason.trim() !== '') {
-                // هنا يمكنك إضافة كود AJAX لإرسال طلب الرفض للخادم
-                showAlert('تم رفض التصريح بنجاح', 'danger');
-                // تحديث حالة التصريح في الواجهة
-                setTimeout(() => {
-                    location.reload();
-                }, 1500);
-            } else if (reason !== null) {
-                showAlert('يرجى إدخال سبب الرفض', 'danger');
-            }
-        }
+      
+        $('#btnPrintPermit').on('click', function () {
+            const permitId = $('#PermitId').val();
+             window.open(`/Permit/PrintPermitPdf?permitId=${permitId}`, '_blank');
+        });
+    
 
-        // دالة ترجيع التصريح
-        function returnPermit() {
-            const reason = prompt('يرجى إدخال سبب الترجيع:');
-            if (reason !== null && reason.trim() !== '') {
-                // هنا يمكنك إضافة كود AJAX لإرسال طلب الترجيع للخادم
-                showAlert('تم ترجيع التصريح بنجاح', 'warning');
-                // تحديث حالة التصريح في الواجهة
-                setTimeout(() => {
-                    location.reload();
-                }, 1500);
-            } else if (reason !== null) {
-                showAlert('يرجى إدخال سبب الترجيع', 'danger');
-            }
-        }
-
-        // دالة إغلاق التصريح
-        function closePermit() {
-            if (confirm('هل أنت متأكد من إغلاق هذا التصريح؟')) {
-                // هنا يمكنك إضافة كود AJAX لإرسال طلب الإغلاق للخادم
-                showAlert('تم إغلاق التصريح بنجاح', 'info');
-                // تحديث حالة التصريح في الواجهة
-                setTimeout(() => {
-                    location.reload();
-                }, 1500);
-            }
-        }
-
-        // دالة حذف التصريح
-        function deletePermit() {
-            if (confirm('هل أنت متأكد من حذف هذا التصريح؟ لا يمكن التراجع عن هذه العملية.')) {
-                // هنا يمكنك إضافة كود AJAX لإرسال طلب الحذف للخادم
-                showAlert('تم حذف التصريح بنجاح', 'danger');
-                // الانتقال إلى صفحة القائمة بعد الحذف
-                setTimeout(() => {
-                    window.location.href = '/MatirailPermit/Index';
-                }, 1500);
-            }
-        }
     </script>
 </body>
 </html>

@@ -279,7 +279,6 @@ D:\mvcCourseCodaing\EEMS.web\EEMS.web\obj\Debug\net8.0\EEMS.web.GeneratedMSBuild
 D:\mvcCourseCodaing\EEMS.web\EEMS.web\obj\Debug\net8.0\EEMS.web.AssemblyInfoInputs.cache
 D:\mvcCourseCodaing\EEMS.web\EEMS.web\obj\Debug\net8.0\EEMS.web.AssemblyInfo.cs
 D:\mvcCourseCodaing\EEMS.web\EEMS.web\obj\Debug\net8.0\EEMS.web.csproj.CoreCompileInputs.cache
-D:\mvcCourseCodaing\EEMS.web\EEMS.web\obj\Debug\net8.0\EEMS.web.MvcApplicationPartsAssemblyInfo.cs
 D:\mvcCourseCodaing\EEMS.web\EEMS.web\obj\Debug\net8.0\EEMS.web.MvcApplicationPartsAssemblyInfo.cache
 D:\mvcCourseCodaing\EEMS.web\EEMS.web\obj\Debug\net8.0\EEMS.web.RazorAssemblyInfo.cache
 D:\mvcCourseCodaing\EEMS.web\EEMS.web\obj\Debug\net8.0\EEMS.web.RazorAssemblyInfo.cs
@@ -301,3 +300,12 @@ D:\mvcCourseCodaing\EEMS.web\EEMS.web\obj\Debug\net8.0\refint\EEMS.web.dll
 D:\mvcCourseCodaing\EEMS.web\EEMS.web\obj\Debug\net8.0\EEMS.web.pdb
 D:\mvcCourseCodaing\EEMS.web\EEMS.web\obj\Debug\net8.0\EEMS.web.genruntimeconfig.cache
 D:\mvcCourseCodaing\EEMS.web\EEMS.web\obj\Debug\net8.0\ref\EEMS.web.dll
+D:\mvcCourseCodaing\EEMS.web\EEMS.web\obj\Debug\net8.0\EEMS.web.MvcApplicationPartsAssemblyInfo.cs
+D:\mvcCourseCodaing\EEMS.web\EEMS.web\bin\Debug\net8.0\BouncyCastle.Cryptography.dll
+D:\mvcCourseCodaing\EEMS.web\EEMS.web\bin\Debug\net8.0\iTextSharp.LGPLv2.Core.dll
+D:\mvcCourseCodaing\EEMS.web\EEMS.web\bin\Debug\net8.0\SkiaSharp.dll
+D:\mvcCourseCodaing\EEMS.web\EEMS.web\bin\Debug\net8.0\runtimes\osx\native\libSkiaSharp.dylib
+D:\mvcCourseCodaing\EEMS.web\EEMS.web\bin\Debug\net8.0\runtimes\win-arm64\native\libSkiaSharp.dll
+D:\mvcCourseCodaing\EEMS.web\EEMS.web\bin\Debug\net8.0\runtimes\win-x64\native\libSkiaSharp.dll
+D:\mvcCourseCodaing\EEMS.web\EEMS.web\bin\Debug\net8.0\runtimes\win-x86\native\libSkiaSharp.dll
+D:\mvcCourseCodaing\EEMS.web\EEMS.web\bin\Debug\net8.0\QRCoder.dll

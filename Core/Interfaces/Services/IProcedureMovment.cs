@@ -8,12 +8,14 @@ using System.Threading.Tasks;
 
 namespace Core.Interfaces.Services
 {
-    public interface IProcedureMovment<T> where T : class
+    public interface IProcedureMovment
     {
-        void InsertProcedureMovment(ProcedureMovment procedureMovment);
-        void UpdateProcedureMovment(ProcedureMovment procedureMovment);
-        void DeleteProcedureMovment(ProcedureMovment procedureMovment);
-        List<string> SearchByProcedureMovment(ProcedureMovment procedureMovment);
-        List<string> GetProcedureMovment(ProcedureMovment procedureMovment);
+         Task InsertProcedureMovment(ProcedureMovment procedureMovment);
+        Task<List<ProcedureMovment>> GetByPermitIdAsync(Guid permitId);
+
+        //void UpdateProcedureMovment(ProcedureMovment procedureMovment);
+        //void DeleteProcedureMovment(ProcedureMovment procedureMovment);
+        //List<string> SearchByProcedureMovment(ProcedureMovment procedureMovment);
+        //List<string> GetProcedureMovment(ProcedureMovment procedureMovment);
     }
 }

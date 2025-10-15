@@ -2,7 +2,8 @@ wwwroot\css\login.css
 wwwroot\css\permit-view.css
 wwwroot\css\site.css
 wwwroot\favicon.ico
-wwwroot\images\lisco.png
+wwwroot\fonts\OFL.txt
+wwwroot\images\company-logo.png
 wwwroot\images\liscoLogo1.png
 wwwroot\images\unnamed.png
 wwwroot\js\login.js

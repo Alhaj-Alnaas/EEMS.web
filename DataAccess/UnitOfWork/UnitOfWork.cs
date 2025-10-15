@@ -1,15 +1,9 @@
 ﻿using Core.Entities;
-using Core.Entities.DTOs;
 using Core.Interfaces.Repositories;
-using Core.Interfaces.Services;
 using DataAccess.Repositories;
 using EEMS.Core.Interfaces.Repositories;
 using EEMS.Core.Interfaces.UnitOfWork;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+
 
 namespace DataAccess.UnitOfWork
 {
@@ -20,6 +14,7 @@ namespace DataAccess.UnitOfWork
         private IGenericRepository<Gate> _gates;
         private IGenericRepository<PermitType> _permitTypes;
         private IGenericRepository<Permit> _permits;
+        IGenericRepository<ProcedureMovment> _proceduresMovment;
         private IStoredProcedureRepository _storedProcedures;
         
         public UnitOfWork(DataContext context)
@@ -31,6 +26,8 @@ namespace DataAccess.UnitOfWork
         public IGenericRepository<Gate> Gates => _gates ??= new GenericRepository<Gate>(_context);
         public IGenericRepository<PermitType> PermitTypes => _permitTypes ??= new GenericRepository<PermitType>(_context);
         public IGenericRepository<Permit> Permits => _permits ??= new GenericRepository<Permit>(_context);
+
+        public IGenericRepository<ProcedureMovment> ProceduresMovment => _proceduresMovment ??= new GenericRepository<ProcedureMovment>(_context);
 
         public IStoredProcedureRepository StoredProcedures
         => _storedProcedures ??= new StoredProcedureRepository(_context);

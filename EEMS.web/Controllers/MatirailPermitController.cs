@@ -297,7 +297,9 @@ public class MatirailPermitController : Controller
             {
                 ProcedureType = p.procedureType,
                 DonedBy = p.donedBy,
-                DoneOn = p.doneOn
+                DoneOn = p.doneOn,
+                DoneAs=p.doneAs,
+                Remarks = p.remarks,    
             }).ToList(),
 
            Gates = await _gateService.GetGatesByPermitTypeAsync(3)

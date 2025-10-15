@@ -82,6 +82,7 @@ builder.Services.AddTransient<IGates, GateServices>();
 builder.Services.AddTransient<IPermitType, PermitTypeServices>();
 builder.Services.AddScoped<IPermit, PermitServices>();
 builder.Services.AddScoped<IDepartmentService,DepartmentService>();
+builder.Services.AddScoped<IProcedureMovment, ProcedureMovmentService>();
 
 
 // ---------------- MVC with global authorization ----------------
