@@ -42,6 +42,8 @@ namespace EEMS.web.Controllers
         {
             var permit = await _permitService.GetPermitByIdAsync(id);
             if (permit == null) return NotFound();
+
+
             return View(permit);
         }
 
@@ -58,8 +60,8 @@ namespace EEMS.web.Controllers
         {
             try
             {
-                var userName = HttpContext.Session.GetString("UserName");
-                var user = await _userManager.FindByNameAsync(userName);
+               // var userName = HttpContext.Session.GetString("UserName");
+                var user = await _userManager.FindByNameAsync(HttpContext.Session.GetString("UserName"));
 
                 var CurrentPermit = await _permitService.GetPermitByIdAsync(permitId);
                 if (CurrentPermit == null)
@@ -146,7 +148,7 @@ namespace EEMS.web.Controllers
             var writer = PdfWriter.GetInstance(document, stream);
             document.Open();
 
-            // 🏗️ إعداد الخط العربي
+            // font setting
             string fontPath = Path.Combine(_hostingEnvironment.WebRootPath, "fonts", "Amiri-Regular.ttf");
             if (!System.IO.File.Exists(fontPath))
                 fontPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Fonts), "arial.ttf");
@@ -156,14 +158,14 @@ namespace EEMS.web.Controllers
             var boldFont = new Font(baseFont, 13, Font.BOLD);
             var sectionTitleFont = new Font(baseFont, 16, Font.BOLD);
 
-            // 🖼️ رسم الإطار العام للصفحة
+           
             PdfContentByte cb = writer.DirectContent;
             cb.SetColorStroke(BaseColor.Black);
             cb.Rectangle(30, 30, document.PageSize.Width - 60, document.PageSize.Height - 60);
             cb.Stroke();
 
-            // 🏢 شعار الشركة في الأعلى يمين الصفحة
-            string logoPath = Path.Combine(_hostingEnvironment.WebRootPath, "images", "company-logo.png"); // ضع شعارك هنا
+          
+            string logoPath = Path.Combine(_hostingEnvironment.WebRootPath, "images", "company-logo.png"); 
             if (System.IO.File.Exists(logoPath))
             {
                 Image logo = Image.GetInstance(logoPath);
@@ -172,7 +174,7 @@ namespace EEMS.web.Controllers
                 document.Add(logo);
             }
 
-            // 🧾 كتابة اسم الشركة أسفل الشعار في ثلاثة أسطر
+           
             float textStartX = document.PageSize.Width - 50;
             float textStartY = document.PageSize.Height - 85;
 
@@ -198,7 +200,7 @@ namespace EEMS.web.Controllers
                 textStartY -= 16; // المسافة بين الأسطر
             }
 
-            // 🧾 QR Code في الزاوية اليسرى العليا
+            //  QR Code 
             string qrText = $"Permit No: {permit.no}";
             using (var qrGen = new QRCoder.QRCodeGenerator())
             {
@@ -217,7 +219,7 @@ namespace EEMS.web.Controllers
                 }
             }
 
-            // 🧾 العنوان الرئيسي للنموذج
+            // form hader
             ColumnText.ShowTextAligned(
                 cb,
                 Element.ALIGN_CENTER,
@@ -231,22 +233,7 @@ namespace EEMS.web.Controllers
 
             document.Add(new Paragraph("\n\n\n"));
 
-            // ✅ عنوان قسم البيانات الأساسية
-            //ColumnText.ShowTextAligned(
-            //    cb,
-            //    Element.ALIGN_CENTER,
-            //    new Phrase("البيانات الأساسية", sectionTitleFont),
-            //    document.PageSize.Width / 2,
-            //    document.PageSize.Height - 160,
-            //    // writer.GetVerticalPosition(false) - 10,
-            //    0,
-            //    PdfWriter.RUN_DIRECTION_RTL,
-            //    0
-            //);
-
-            //document.Add(new Paragraph("\n\n"));
-
-            // ✅ جدول البيانات الأساسية
+            // permint main data
             PdfPTable baseTable = new PdfPTable(2)
             {
                 RunDirection = PdfWriter.RUN_DIRECTION_RTL,
@@ -275,17 +262,17 @@ namespace EEMS.web.Controllers
                 baseTable.AddCell(labelCell);
                 baseTable.AddCell(valueCell);
             }
-
-            AddRow("رقم التصريح:", permit.no?.ToString());
-            AddRow("نوع التصريح:", permit.type?.ToString());
-            AddRow("الجهة:", permit.OrgDescription);
-            AddRow("القسم الطالِب:", permit.reqDepartment);
-            AddRow("تاريخ الطلب:", permit.date.ToString("yyyy/MM/dd"));
-            AddRow("الحالة:", permit.status.ToString());
-            AddRow("مقدم الطلب:", permit.requoidedAs);
+            var department = await _departmentService.GetSingleDepartmentByResponsibilityAsync(permit.reqDepartment);
+            AddRow("رقم التصريح :", permit.no?.ToString());
+            AddRow("نوع التصريح :",_permitService.MappingAsync(permit.type?.ToString()));
+            AddRow("تصنيف التصريح :", _permitService.MappingAsync(permit.classification?.ToString()));
+            AddRow("الجهة المُعدة للتصريح:", department.DepartmentName);
+            AddRow("الجهة المصرح لها:", permit.OrgDescription);
+            AddRow("تاريخ الطلب :", permit.date.ToString("yyyy/MM/dd"));
+            AddRow("حالة التصريح :", _permitService.MappingAsync(permit.status.ToString()));
             AddRow("ملاحظات:", permit.remarks);
 
-            // ✅ إحاطة قسم البيانات الأساسية بإطار خفيف
+            // main data
             PdfPCell baseContainerCell = new PdfPCell(baseTable)
             {
                 BorderColor = BaseColor.Gray,
@@ -301,22 +288,22 @@ namespace EEMS.web.Controllers
             baseContainer.AddCell(baseContainerCell);
 
             document.Add(baseContainer);
-            document.Add(new Paragraph("\n"));
+            document.Add(new Paragraph("\n\n"));
 
-            // 🔹 جدول المواد
+            // matirails
             if (permit.EquipmentsAndMatirials?.Any() == true)
             {
                 ColumnText.ShowTextAligned(
                     cb,
                     Element.ALIGN_CENTER,
-                    new Phrase("جدول المواد", sectionTitleFont),
+                    new Phrase("قائمة المواد / المعدات", sectionTitleFont),
                     document.PageSize.Width / 2,
                     writer.GetVerticalPosition(false) - 10,
                     0,
                     PdfWriter.RUN_DIRECTION_RTL,
                     0
                 );
-                document.Add(new Paragraph("\n\n"));
+                document.Add(new Paragraph("\n"));
 
                 PdfPTable matTable = new PdfPTable(4)
                 {
@@ -345,32 +332,32 @@ namespace EEMS.web.Controllers
                 }
 
                 document.Add(matTable);
-                document.Add(new Paragraph("\n"));
+                document.Add(new Paragraph("\n\n"));
             }
 
-            // 🔹 جدول السيارات
+            // Cars
             if (permit.Cars?.Any() == true)
             {
                 ColumnText.ShowTextAligned(
                     cb,
                     Element.ALIGN_CENTER,
-                    new Phrase("جدول السيارات", sectionTitleFont),
+                    new Phrase("المركبات الناقلة", sectionTitleFont),
                     document.PageSize.Width / 2,
                     writer.GetVerticalPosition(false) - 10,
                     0,
                     PdfWriter.RUN_DIRECTION_RTL,
                     0
                 );
-                document.Add(new Paragraph("\n\n"));
+                document.Add(new Paragraph("\n"));
 
-                PdfPTable carTable = new PdfPTable(3)
+                PdfPTable carTable = new PdfPTable(5)
                 {
                     RunDirection = PdfWriter.RUN_DIRECTION_RTL,
                     WidthPercentage = 100
                 };
-                carTable.SetWidths(new float[] { 2f, 2f, 2f });
+                carTable.SetWidths(new float[] { 2f, 1f, 2f, 1f, 1f });
 
-                string[] carHeaders = { "رقم اللوحة", "اسم السائق", "رقم الرخصة" };
+                string[] carHeaders = { "نوع المركبة", "رقم اللوحة", "اسم السائق", "جنسيته", "رقم الرخصة" };
                 foreach (var h in carHeaders)
                 {
                     carTable.AddCell(new PdfPCell(new Phrase(h, boldFont))
@@ -383,61 +370,64 @@ namespace EEMS.web.Controllers
 
                 foreach (var v in permit.Cars)
                 {
+                    carTable.AddCell(new Phrase(v.carType ?? "-", normalFont));
                     carTable.AddCell(new Phrase(v.carNo ?? "-", normalFont));
                     carTable.AddCell(new Phrase(v.name ?? "-", normalFont));
+                    carTable.AddCell(new Phrase(v.nattiunality ?? "-", normalFont));
                     carTable.AddCell(new Phrase(v.licenseNo ?? "-", normalFont));
                 }
 
                 document.Add(carTable);
-                document.Add(new Paragraph("\n"));
+                document.Add(new Paragraph("\n\n\n\n"));
             }
 
-            // 🔹 سجل الحركات
+            // Procedures
             if (permit.Procedures?.Any() == true)
             {
                 ColumnText.ShowTextAligned(
                     cb,
                     Element.ALIGN_CENTER,
-                    new Phrase("سجل الحركات", sectionTitleFont),
+                    new Phrase("الإجراءات المتخذة", sectionTitleFont),
                     document.PageSize.Width / 2,
                     writer.GetVerticalPosition(false) - 10,
                     0,
                     PdfWriter.RUN_DIRECTION_RTL,
                     0
                 );
-                document.Add(new Paragraph("\n\n"));
+                document.Add(new Paragraph("\n"));
 
-                PdfPTable procTable = new PdfPTable(4)
+                PdfPTable procTable = new PdfPTable(5)
                 {
                     RunDirection = PdfWriter.RUN_DIRECTION_RTL,
                     WidthPercentage = 100
                 };
-                procTable.SetWidths(new float[] { 2f, 2f, 2f, 3f });
+                procTable.SetWidths(new float[] { 1.5f, 2f, 2f, 2f, 1.5f });
 
-                string[] procHeaders = { "نوع العملية", "تمت بواسطة", "الوظيفة", "التاريخ والوقت" };
+                string[] procHeaders = { "الإجراء المُتخذ", "تمت بواسطة", "الصفة", "تاريخ الإجراء", "التوقيع" };
                 foreach (var h in procHeaders)
                 {
                     procTable.AddCell(new PdfPCell(new Phrase(h, boldFont))
                     {
                         HorizontalAlignment = Element.ALIGN_CENTER,
-                        Padding = 6,
+                        Padding = 8,
                         BorderWidth = 1
                     });
                 }
 
                 foreach (var p in permit.Procedures.OrderBy(p => p.doneOn))
                 {
-                    procTable.AddCell(new Phrase(p.procedureType ?? "-", normalFont));
+                    procTable.AddCell(new Phrase(_permitService.MappingAsync(p.procedureType ?? "-"), normalFont));
                     procTable.AddCell(new Phrase(p.donedBy ?? "-", normalFont));
                     procTable.AddCell(new Phrase(p.doneAs ?? "-", normalFont));
                     procTable.AddCell(new Phrase(p.doneOn?.ToString("yyyy/MM/dd HH:mm") ?? "-", normalFont));
+                    procTable.AddCell(new Phrase( "......................", normalFont));
                 }
 
                 document.Add(procTable);
             }
 
-            // 🕓 التذييل
-            document.Add(new Paragraph("\n"));
+            // fortter
+            document.Add(new Paragraph("\n\n\n"));
             var footer = new Paragraph($"Printed on: {DateTime.Now:yyyy/MM/dd HH:mm}", normalFont)
             {
                 Alignment = Element.ALIGN_CENTER
@@ -447,9 +437,8 @@ namespace EEMS.web.Controllers
             document.Close();
             writer.Close();
 
-            return File(stream.ToArray(), "application/pdf", $"Permit_{permit.no}.pdf");
+            return File(stream.ToArray(), "application/pdf");
         }
-
 
     }
 }

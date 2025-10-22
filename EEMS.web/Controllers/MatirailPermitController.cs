@@ -249,12 +249,49 @@ public class MatirailPermitController : Controller
 
     public async Task<IActionResult> Details(Guid Id)
     {
+        var user = await _userManager.FindByNameAsync(HttpContext.Session.GetString("UserName"));
         var permit = await _permitService.GetPermitByIdAsync(Id);
         if (permit == null)
         {
             return NotFound();
         }
         var department = await _departmentService.GetSingleDepartmentByResponsibilityAsync(permit.reqDepartment) ;
+
+        // تحديد وصف الحالة واللون
+        string statusCode = permit.status.ToString() ?? "";
+        string statusText;
+        string statusClass;
+
+        switch (statusCode)
+        {
+            case "I":
+                statusText = "قيد الاعتماد";
+                statusClass = "status-pending";
+                break;
+            case "A":
+                statusText = "معتمد";
+                statusClass = "status-approved";
+                break;
+            case "J":
+                statusText = "مرفوض";
+                statusClass = "status-rejected";
+                break;
+            case "R":
+                statusText = "مرجع";
+                statusClass = "status-returned";
+                break;
+            case "C":
+                statusText = "مغلق";
+                statusClass = "status-closed";
+                break;
+            default:
+                statusText = "غير معروف";
+                statusClass = "status-unknown";
+                break;
+        }
+
+        ViewData["DisplayStatus"] = statusText;
+        ViewData["StatusClass"] = statusClass;
 
         var departmentName = department?.DepartmentName ?? "غير معروف";
        
@@ -304,6 +341,10 @@ public class MatirailPermitController : Controller
 
            Gates = await _gateService.GetGatesByPermitTypeAsync(3)
         };
+
+        var visibility = _permitService.GetVisibility(user,permit);
+
+        ViewData["ActionsVisibility"] = visibility;
 
         return View("ViewMatirialPermint", viewModel);
     }

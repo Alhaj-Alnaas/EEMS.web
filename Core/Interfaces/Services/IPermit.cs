@@ -1,11 +1,13 @@
-﻿using System;
+﻿using Core.Entities;
+using Core.Entities.DTOs;
+using EEMS.web.ViewModels;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection.Metadata;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
-using Core.Entities;
 
 namespace Core.Interfaces.Services
 {
@@ -22,6 +24,9 @@ namespace Core.Interfaces.Services
         Task<List<Permit>> GetAllPermitAsync(User user);
         Task<List<Permit>> SearchByAsync(List<Parameter> parameters);
          Task<string> GeneratePermitSerialNumberAsync( string permitType);
-        
+
+        string MappingAsync(string wordToMapp);
+        public PermitActionsVisibility GetVisibility(User currentUser, Permit permit);
+
     }
 }

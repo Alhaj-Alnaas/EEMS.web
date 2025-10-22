@@ -300,7 +300,6 @@ D:\mvcCourseCodaing\EEMS.web\EEMS.web\obj\Debug\net8.0\refint\EEMS.web.dll
 D:\mvcCourseCodaing\EEMS.web\EEMS.web\obj\Debug\net8.0\EEMS.web.pdb
 D:\mvcCourseCodaing\EEMS.web\EEMS.web\obj\Debug\net8.0\EEMS.web.genruntimeconfig.cache
 D:\mvcCourseCodaing\EEMS.web\EEMS.web\obj\Debug\net8.0\ref\EEMS.web.dll
-D:\mvcCourseCodaing\EEMS.web\EEMS.web\obj\Debug\net8.0\EEMS.web.MvcApplicationPartsAssemblyInfo.cs
 D:\mvcCourseCodaing\EEMS.web\EEMS.web\bin\Debug\net8.0\BouncyCastle.Cryptography.dll
 D:\mvcCourseCodaing\EEMS.web\EEMS.web\bin\Debug\net8.0\iTextSharp.LGPLv2.Core.dll
 D:\mvcCourseCodaing\EEMS.web\EEMS.web\bin\Debug\net8.0\SkiaSharp.dll

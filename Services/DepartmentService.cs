@@ -30,36 +30,5 @@ namespace Services
             return departments.FirstOrDefault(d => d.RespCode == responsibilityCode);
         }
 
-        //public async Task<object> GetDepartmentsByResponsibilityAsync(string responsibilityCode, bool single = false)
-        //{
-        //    string storedProcedure = "EXEC sp_show_Req_dep {0}";
-
-        //    var departments = await _unitOfWork.StoredProcedures
-        //        .ExecuteStoredProcedureAsync<DepartmentDto>(storedProcedure, responsibilityCode);
-
-        //    if (single)
-        //    {
-        //        // نرجع إدارة واحدة فقط (أول نتيجة)
-        //        return departments.FirstOrDefault(d => d.RespCode == responsibilityCode);
-        //    }
-
-        //    // نرجع كل الإدارات (افتراضي)
-        //    return departments;
-        //}
-
-        //Task<List<DepartmentDto>> GetDepartmentsByResponsibilityAsync(string responsibilityCode, bool single)
-        //{
-        //    throw new NotImplementedException();
-        //}
-
-        //public async Task<List<DepartmentDto>> GetDepartmentsByResponsibilityAsync(string responsibilityCode)
-        //{
-        //    // لاحظ أننا نستخدم الـ Repository الخاص بالـ SP من خلال الـ UnitOfWork
-        //    string storedProcedure = "EXEC sp_show_Req_dep {0}";
-        //    var departments = await _unitOfWork.StoredProcedures
-        //        .ExecuteStoredProcedureAsync<DepartmentDto>(storedProcedure, responsibilityCode);
-
-        //    return departments;
-        //}
     }
 }

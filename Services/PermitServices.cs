@@ -9,6 +9,7 @@ using System.Data;
 using System.Reflection.Metadata;
 using System.Text.RegularExpressions;
 using EEMS.web.ViewModels;
+using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 namespace Services
 {
     public class PermitServices : IPermit
@@ -212,187 +213,284 @@ namespace Services
                 .ToListAsync();
         }
 
-
-
         Task<List<Permit>> IPermit.SearchByAsync(List<Parameter> parameters)
         {
             throw new NotImplementedException();
         }
 
+        public string MappingAsync(string wordToMapp)
+        {
+            return wordToMapp switch
+            {
+                // نوع التصريح
+                "Export" => "استخراج",
+                "Import" => "استيراد",
+                "ExtractAndInsert" => "استيراد",
 
-        //public async Task<Permit> GetPermitByIdAsync(string permitId)
-        //{
-        //    if (string.IsNullOrEmpty(permitId))
-        //    {
-        //        throw new ArgumentException("Permit ID cannot be null or empty", nameof(permitId));
-        //    }
+                // تصنيف التصريح
+                "Materials" => "تصرح مواد",
+                "Visitors" => "تصريح زوار",
+                "Cars" => "سيارات",
 
-        //    return await _unitOfWork.Permits.GetByIdAsync(
-        //        filter: p => p.no == permitId,
-        //        include: q => q.Include(p => p.Procedures)
-        //                      .Include(p => p.Cars)
-        //                      .Include(p => p.Humans)
-        //                      .Include(p => p.EquipmentsAndMatirials));
-        //}
+                // حالة التصريح
+                "A" => "معتمد",
+                "J" => "مرفوض",
+                "R" => "مرجع",
+                "C" => "مغلق/ تم التنفيد",
+                "D" => "محدوف",
+                "I" => "قيد الاعتماد",
 
-        //public async Task<Permit> GetPermitByTypeAsync(string permitType)
-        //{
-        //    if (string.IsNullOrEmpty(permitType))
-        //    {
-        //        throw new ArgumentException("Permit type cannot be null or empty", nameof(permitType));
-        //    }
+                // الاجراء المتخد
+                "Insert" => "إدخال",
+                "Update" => "تعديل",
+                "approve" => "اعتماد",
+                "reject" => "رفض",
+                "return" => "ترجيع",
+                "close" => "تنفيذ",
 
-        //    return await _unitOfWork.Permits.GetAllAsync(
-        //        filter: p => p.type == permitType,
-        //        include: q => q.Include(p => p.Procedures)
-        //                      .Include(p => p.Cars)
-        //                      .Include(p => p.Humans)
-        //                      .Include(p => p.EquipmentsAndMatirials));
-        //}
+                _ => "غير معروف",
+            };
+        }
 
-        //public async Task<List<Permit>> GetUnApprovedPermitAsync(string userId)
-        //{
-        //    if (string.IsNullOrEmpty(userId))
-        //    {
-        //        throw new ArgumentException("User ID cannot be null or empty", nameof(userId));
-        //    }
+        public PermitActionsVisibility GetVisibility(User currentUser,Permit permit)
+        {
+            
 
-        //    return await _unitOfWork.Permits.GetAllAsync(
-        //        filter: p => !p.reqDepApproval && !p.secuDepApproval && p.reqDepartment == userId,
-        //        include: q => q.Include(p => p.Procedures)
-        //                      .Include(p => p.Cars)
-        //                      .Include(p => p.Humans)
-        //                      .Include(p => p.EquipmentsAndMatirials));
-        //}
+            var visibility = new PermitActionsVisibility();
+            string permitStatus= permit.status.ToString(); 
 
-        //public async Task<List<Permit>> GetPendingPermitAsync(string userId, string respCode)
-        //{
-        //    if (string.IsNullOrEmpty(userId))
-        //    {
-        //        throw new ArgumentException("User ID cannot be null or empty", nameof(userId));
-        //    }
+            switch (permitStatus)
+            {
+                case "I": // قيد الاعتماد
+                    // حالات تفعيل زر الاعتماد والترجيع والرفض
+                    if (currentUser.JobStatus == "AE" &&
+                        (currentUser.JobCatId == 1 && currentUser.ResponsibilityCode.Substring(0, 3) == permit.reqDepartment.Substring(0, 3)) ||
+                        (currentUser.JobCatId == 1 && currentUser.ResponsibilityCode == "45012" && permit.reqDepApproval == true) ||
+                        (currentUser.JobCatId == 1 && currentUser.ResponsibilityCode == "45011" && permit.reqDepApproval == true && permit.secuSectionApproval == true)
+                        )
+                    {
+                        visibility.CanApprove = true;
+                        visibility.CanReturn = true;
+                        visibility.CanReject = true;
+                    }
 
-        //    if (string.IsNullOrEmpty(respCode))
-        //    {
-        //        throw new ArgumentException("Response code cannot be null or empty", nameof(respCode));
-        //    }
+                    // حالة الحدف
+                    if (currentUser.UserName == permit.createdBy && (permit.status == 'I' || permit.status == 'J'))
+                    { visibility.CanDelete = true; }
+                    break;
 
-        //    return await _unitOfWork.Permits.GetAllAsync(
-        //        filter: p => (p.reqDepApproval || p.secuDepApproval) &&
-        //                   (p.reqDepartment == userId || p.reqDepartment == respCode),
-        //        include: q => q.Include(p => p.Procedures)
-        //                      .Include(p => p.Cars)
-        //                      .Include(p => p.Humans)
-        //                      .Include(p => p.EquipmentsAndMatirials));
-        //}
+                case "A": // معتمد
+                    if (permit.status == 'A' && currentUser.Discriminator == "Security" && permit.gateId == 1)
+                    { visibility.CanClose = true; }
+                    break;
 
-        //public async Task<List<Permit>> GetClosedPermitAsync(string userId)
-        //{
-        //if (string.IsNullOrEmpty(userId))
-        //{
-        //    throw new ArgumentException("User ID cannot be null or empty", nameof(userId));
-        //}
+                case "R": // مرجع
+                    if (currentUser.JobStatus == "AE" &&
+                       (currentUser.JobCatId == 1 && currentUser.ResponsibilityCode.Substring(0, 3) == permit.reqDepartment.Substring(0, 3)) ||
+                       (currentUser.JobCatId == 1 && currentUser.ResponsibilityCode == "45012" && permit.reqDepApproval == true) ||
+                       (currentUser.JobCatId == 1 && currentUser.ResponsibilityCode == "45011" && permit.reqDepApproval == true && permit.secuSectionApproval == true)
+                       )
+                    {
+                        visibility.CanApprove = true;
+                        visibility.CanReturn = true;
+                        visibility.CanReject = true;
+                    }
+                    break;
 
-        //return await _unitOfWork.Permits.GetAllAsync(
-        //    filter: p => p.isClosed && p.reqDepartment == userId,
-        //    include: q => q.Include(p => p.Procedures)
-        //                  .Include(p => p.Cars)
-        //                  .Include(p => p.Humans)
-        //                  .Include(p => p.EquipmentsAndMatirials));
-        //}
+                case "J": // مرفوض
+                    if  (currentUser.JobStatus == "AE" &&
+                        (currentUser.JobCatId == 1 && currentUser.ResponsibilityCode.Substring(0, 3) == permit.reqDepartment.Substring(0, 3)) ||
+                        (currentUser.JobCatId == 1 && currentUser.ResponsibilityCode == "45012" && permit.reqDepApproval == true) ||
+                        (currentUser.JobCatId == 1 && currentUser.ResponsibilityCode == "45011" && permit.reqDepApproval == true && permit.secuSectionApproval == true)
+                        )
+                    { 
+                        visibility.CanApprove = true;
+                        visibility.CanReturn = true;
+                        visibility.CanReject = true;
+                    }
+                    break;
 
-        //public async Task<List<Permit>> GetAllPermitAsync(string userId)
-        //{
-        //    if (string.IsNullOrEmpty(userId))
-        //    {
-        //        throw new ArgumentException("User ID cannot be null or empty", nameof(userId));
-        //    }
+                default:
+                    break;
+            }
 
-        //    return await _unitOfWork.Permits.GetAllAsync(
-        //        filter: p => p.reqDepartment == userId,
-        //        include: q => q.Include(p => p.Procedures)
-        //                      .Include(p => p.Cars)
-        //                      .Include(p => p.Humans)
-        //                      .Include(p => p.EquipmentsAndMatirials));
-        //}
-
-        //public async Task<List<Permit>> SearchByAsync(List<Parameter> parameters)
-        //{
-        //    if (parameters == null || !parameters.Any())
-        //    {
-        //        return new List<Permit>();
-        //    }
-
-        //    // بناء استعلام ديناميكي بناءً على المعلمات الممررة
-        //    var query = _unitOfWork.Permits.GetQueryable(
-        //        include: q => q.Include(p => p.Procedures)
-        //                      .Include(p => p.Cars)
-        //                      .Include(p => p.Humans)
-        //                      .Include(p => p.EquipmentsAndMatirials));
-
-        //foreach (var param in parameters)
-        //{
-        //    switch (param.Name.ToLower())
-        //    {
-        //        case "department":
-        //            query = query.Where(p => p.reqDepartment.Contains(param.Value));
-        //            break;
-        //        case "classification":
-        //            query = query.Where(p => p.classification.Contains(param.Value));
-        //            break;
-        //        case "type":
-        //            query = query.Where(p => p.type.Contains(param.Value));
-        //            break;
-        //        case "status":
-        //            if (param.Value.Length == 1)
-        //                query = query.Where(p => p.status == param.Value[0]);
-        //            break;
-        //        case "date":
-        //            if (DateTime.TryParse(param.Value, out DateTime date))
-        //                query = query.Where(p => DbFunctions.TruncateTime(p.date) == date.Date);
-        //            break;
-        //        case "movefrom":
-        //            query = query.Where(p => p.moveFrom.Contains(param.Value));
-        //            break;
-        //        case "moveto":
-        //            query = query.Where(p => p.moveTo.Contains(param.Value));
-        //            break;
-        //            // يمكنك إضافة المزيد من الحقول حسب الحاجة
-        //    }
-        //}
-
-        //    return await query.ToListAsync();
-        //}
-
-        //public async Task<string> GeneratePermitSerialNumberAsync(string permitType)
-        //{
-        //    if (string.IsNullOrEmpty(permitType))
-        //    {
-        //        throw new ArgumentException("Permit type cannot be null or empty", nameof(permitType));
-        //    }
-
-        //    // الحصول على آخر رقم تسلسلي لنوع التصريح المحدد
-        //    var lastPermit = await _unitOfWork.Permits.GetAllAsync(
-        //        filter: p => p.type == permitType,
-        //        orderBy: q => q.OrderByDescending(p => p.no));
-
-        //    int lastNumber = 0;
-        //    if (lastPermit != null)
-        //    {
-        //        // استخراج الرقم الرقمي من آخر تصريح
-        //        string numericPart = new string(lastPermit.no.Where(char.IsDigit).ToArray());
-        //        int.TryParse(numericPart, out lastNumber);
-        //    }
-
-        //    // زيادة الرقم بمقدار 1
-        //    lastNumber++;
-
-        //    // إنشاء الرقم التسلسلي الجديد (يمكن تعديل التنسيق حسب المتطلبات)
-        //    string newSerialNumber = $"{permitType}-{DateTime.Now:yyyyMMdd}-{lastNumber.ToString("D4")}";
-
-        //    return newSerialNumber;
-        //}
+            return visibility;
+        }
     }
+
+    //public async Task<Permit> GetPermitByIdAsync(string permitId)
+    //{
+    //    if (string.IsNullOrEmpty(permitId))
+    //    {
+    //        throw new ArgumentException("Permit ID cannot be null or empty", nameof(permitId));
+    //    }
+
+    //    return await _unitOfWork.Permits.GetByIdAsync(
+    //        filter: p => p.no == permitId,
+    //        include: q => q.Include(p => p.Procedures)
+    //                      .Include(p => p.Cars)
+    //                      .Include(p => p.Humans)
+    //                      .Include(p => p.EquipmentsAndMatirials));
+    //}
+
+    //public async Task<Permit> GetPermitByTypeAsync(string permitType)
+    //{
+    //    if (string.IsNullOrEmpty(permitType))
+    //    {
+    //        throw new ArgumentException("Permit type cannot be null or empty", nameof(permitType));
+    //    }
+
+    //    return await _unitOfWork.Permits.GetAllAsync(
+    //        filter: p => p.type == permitType,
+    //        include: q => q.Include(p => p.Procedures)
+    //                      .Include(p => p.Cars)
+    //                      .Include(p => p.Humans)
+    //                      .Include(p => p.EquipmentsAndMatirials));
+    //}
+
+    //public async Task<List<Permit>> GetUnApprovedPermitAsync(string userId)
+    //{
+    //    if (string.IsNullOrEmpty(userId))
+    //    {
+    //        throw new ArgumentException("User ID cannot be null or empty", nameof(userId));
+    //    }
+
+    //    return await _unitOfWork.Permits.GetAllAsync(
+    //        filter: p => !p.reqDepApproval && !p.secuDepApproval && p.reqDepartment == userId,
+    //        include: q => q.Include(p => p.Procedures)
+    //                      .Include(p => p.Cars)
+    //                      .Include(p => p.Humans)
+    //                      .Include(p => p.EquipmentsAndMatirials));
+    //}
+
+    //public async Task<List<Permit>> GetPendingPermitAsync(string userId, string respCode)
+    //{
+    //    if (string.IsNullOrEmpty(userId))
+    //    {
+    //        throw new ArgumentException("User ID cannot be null or empty", nameof(userId));
+    //    }
+
+    //    if (string.IsNullOrEmpty(respCode))
+    //    {
+    //        throw new ArgumentException("Response code cannot be null or empty", nameof(respCode));
+    //    }
+
+    //    return await _unitOfWork.Permits.GetAllAsync(
+    //        filter: p => (p.reqDepApproval || p.secuDepApproval) &&
+    //                   (p.reqDepartment == userId || p.reqDepartment == respCode),
+    //        include: q => q.Include(p => p.Procedures)
+    //                      .Include(p => p.Cars)
+    //                      .Include(p => p.Humans)
+    //                      .Include(p => p.EquipmentsAndMatirials));
+    //}
+
+    //public async Task<List<Permit>> GetClosedPermitAsync(string userId)
+    //{
+    //if (string.IsNullOrEmpty(userId))
+    //{
+    //    throw new ArgumentException("User ID cannot be null or empty", nameof(userId));
+    //}
+
+    //return await _unitOfWork.Permits.GetAllAsync(
+    //    filter: p => p.isClosed && p.reqDepartment == userId,
+    //    include: q => q.Include(p => p.Procedures)
+    //                  .Include(p => p.Cars)
+    //                  .Include(p => p.Humans)
+    //                  .Include(p => p.EquipmentsAndMatirials));
+    //}
+
+    //public async Task<List<Permit>> GetAllPermitAsync(string userId)
+    //{
+    //    if (string.IsNullOrEmpty(userId))
+    //    {
+    //        throw new ArgumentException("User ID cannot be null or empty", nameof(userId));
+    //    }
+
+    //    return await _unitOfWork.Permits.GetAllAsync(
+    //        filter: p => p.reqDepartment == userId,
+    //        include: q => q.Include(p => p.Procedures)
+    //                      .Include(p => p.Cars)
+    //                      .Include(p => p.Humans)
+    //                      .Include(p => p.EquipmentsAndMatirials));
+    //}
+
+    //public async Task<List<Permit>> SearchByAsync(List<Parameter> parameters)
+    //{
+    //    if (parameters == null || !parameters.Any())
+    //    {
+    //        return new List<Permit>();
+    //    }
+
+    //    // بناء استعلام ديناميكي بناءً على المعلمات الممررة
+    //    var query = _unitOfWork.Permits.GetQueryable(
+    //        include: q => q.Include(p => p.Procedures)
+    //                      .Include(p => p.Cars)
+    //                      .Include(p => p.Humans)
+    //                      .Include(p => p.EquipmentsAndMatirials));
+
+    //foreach (var param in parameters)
+    //{
+    //    switch (param.Name.ToLower())
+    //    {
+    //        case "department":
+    //            query = query.Where(p => p.reqDepartment.Contains(param.Value));
+    //            break;
+    //        case "classification":
+    //            query = query.Where(p => p.classification.Contains(param.Value));
+    //            break;
+    //        case "type":
+    //            query = query.Where(p => p.type.Contains(param.Value));
+    //            break;
+    //        case "status":
+    //            if (param.Value.Length == 1)
+    //                query = query.Where(p => p.status == param.Value[0]);
+    //            break;
+    //        case "date":
+    //            if (DateTime.TryParse(param.Value, out DateTime date))
+    //                query = query.Where(p => DbFunctions.TruncateTime(p.date) == date.Date);
+    //            break;
+    //        case "movefrom":
+    //            query = query.Where(p => p.moveFrom.Contains(param.Value));
+    //            break;
+    //        case "moveto":
+    //            query = query.Where(p => p.moveTo.Contains(param.Value));
+    //            break;
+    //            // يمكنك إضافة المزيد من الحقول حسب الحاجة
+    //    }
+    //}
+
+    //    return await query.ToListAsync();
+    //}
+
+    //public async Task<string> GeneratePermitSerialNumberAsync(string permitType)
+    //{
+    //    if (string.IsNullOrEmpty(permitType))
+    //    {
+    //        throw new ArgumentException("Permit type cannot be null or empty", nameof(permitType));
+    //    }
+
+    //    // الحصول على آخر رقم تسلسلي لنوع التصريح المحدد
+    //    var lastPermit = await _unitOfWork.Permits.GetAllAsync(
+    //        filter: p => p.type == permitType,
+    //        orderBy: q => q.OrderByDescending(p => p.no));
+
+    //    int lastNumber = 0;
+    //    if (lastPermit != null)
+    //    {
+    //        // استخراج الرقم الرقمي من آخر تصريح
+    //        string numericPart = new string(lastPermit.no.Where(char.IsDigit).ToArray());
+    //        int.TryParse(numericPart, out lastNumber);
+    //    }
+
+    //    // زيادة الرقم بمقدار 1
+    //    lastNumber++;
+
+    //    // إنشاء الرقم التسلسلي الجديد (يمكن تعديل التنسيق حسب المتطلبات)
+    //    string newSerialNumber = $"{permitType}-{DateTime.Now:yyyyMMdd}-{lastNumber.ToString("D4")}";
+
+    //    return newSerialNumber;
+    //}
 }
+
 
 

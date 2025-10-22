@@ -2,6 +2,7 @@
 @using static Core.Enums.BaseEnums
 @model EEMS.web.ViewModels.PermitViewModel
 @using Core.Extensions
+@using EEMS.web.ViewModels
 
 
 @* @{
@@ -52,22 +53,9 @@
                                     <div class="permit-status-container">
                                         <div class="status-label">حالة التصريح</div>
                                         <div>
-                                            @if (Model.status == 'I')
-                                            {
-                                                <span class="permit-status status-pending">قيد الاعتماد</span>
-                                            }
-                                            else if (Model.status == 'A')
-                                            {
-                                                <span class="permit-status status-approved">معتمد</span>
-                                            }
-                                            else if (Model.status == 'D')
-                                            {
-                                                <span class="permit-status status-rejected">مرفوض</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="permit-status status-closed">مغلق</span>
-                                            }
+                                            <span class="permit-status @(ViewData["StatusClass"])">
+                                                @(ViewData["DisplayStatus"])
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
@@ -192,8 +180,45 @@
                     </div>
 
                     <!-- الأزرار في الأسفل -->
+                    @{
+                        var visibility = ViewData["ActionsVisibility"] as PermitActionsVisibility;
+                    }
                     <div class="field-container">
-                        <div class="action-buttons no-print">
+                        @if (visibility?.CanApprove == true)
+                        {
+                            <button type="button" class="btn btn-green" data-action="approve" onclick="handlePermitAction(this)">
+                                <i class="fas fa-check"></i> اعتماد
+                            </button>
+                        }
+
+                        @if (visibility?.CanReject == true)
+                        {
+                            <button type="button" class="btn btn-red" data-action="reject" onclick="handlePermitAction(this)">
+                                <i class="fas fa-times"></i> رفض
+                            </button>
+                        }
+
+                        @if (visibility?.CanReturn == true)
+                        {
+                            <button type="button" class="btn btn-orange" data-action="return" onclick="handlePermitAction(this)">
+                                <i class="fas fa-undo"></i> ترجيع
+                            </button>
+                        }
+
+                        @if (visibility?.CanClose == true)
+                        {
+                            <button type="button" class="btn btn-blue" data-action="close" onclick="handlePermitAction(this)">
+                                <i class="fas fa-lock"></i> إغلاق
+                            </button>
+                        }
+
+                        @if (visibility?.CanDelete == true)
+                        {
+                            <button type="button" class="btn btn-red" data-action="delete" onclick="handlePermitAction(this)">
+                                <i class="fas fa-trash"></i> حذف
+                            </button>
+                        }
+                        @* <div class="action-buttons no-print">
                             <button type="button" class="btn btn-green" data-action="approve" onclick="handlePermitAction(this)">
                                 <i class="fas fa-check"></i> اعتماد
                             </button>
@@ -208,7 +233,7 @@
                             </button>
                             <button type="button" class="btn btn-red" data-action="delete" onclick="handlePermitAction(this)">
                                 <i class="fas fa-trash"></i> حذف
-                            </button>
+                            </button> *@
 
                             <button id="btnPrintPermit" type="button" class="btn btn-purple print-button-left" >
                                 <i class="fas fa-print"></i> طباعة
