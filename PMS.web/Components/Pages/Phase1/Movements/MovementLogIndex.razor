@@ -1,0 +1,151 @@
+@page "/movements"
+@rendermode InteractiveServer
+@inject IServiceScopeFactory ScopeFactory
+@implements IDisposable
+
+<PageTitle>سجل الحركة - PMS</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h3 class="mb-0"><i class="bi bi-arrow-left-right text-warning"></i> سجل حركة الدخول والخروج</h3>
+    <div class="d-flex gap-2 flex-wrap">
+        <button class="btn btn-warning btn-sm" @onclick="RequestAttLogAsync" disabled="@busy">
+            <i class="bi bi-cloud-download"></i> مزامنة سجل الحركة
+        </button>
+        <button class="btn btn-outline-secondary btn-sm" @onclick="() => LoadAsync()" disabled="@loading">
+            <i class="bi bi-arrow-clockwise"></i> تحديث
+        </button>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(message))
+{
+    <div class="alert @(messageOk ? "alert-success" : "alert-info") alert-dismissible fade show py-2 small">
+        @message
+        <button type="button" class="btn-close" @onclick="() => message = null"></button>
+    </div>
+}
+
+@if (loading)
+{
+    <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+}
+else if (logs.Count == 0)
+{
+    <div class="pms-placeholder">
+        <i class="bi bi-journal-text"></i>
+        <h5>لا توجد حركات مسجلة بعد</h5>
+        <p>اضغط «مزامنة سجل الحركة» لجلب الحركات من القارئات، أو انتظر المزامنة الدورية.</p>
+    </div>
+}
+else
+{
+    <div class="card">
+        <div class="card-header small text-muted">@logs.Count حركة (آخر @takeCount)</div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0 table-sm">
+                <thead>
+                    <tr>
+                        <th>الوقت</th>
+                        <th>PIN / موظف</th>
+                        <th>القارئة</th>
+                        <th>البوابة</th>
+                        <th>الاتجاه</th>
+                        <th>المصدر</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var log in logs)
+                    {
+                        <tr>
+                            <td>@log.EventTime.ToString("yyyy/MM/dd HH:mm:ss")</td>
+                            <td>
+                                @if (log.Employee != null)
+                                {
+                                    <span>@log.Employee.FullName</span>
+                                    <div class="text-muted small">@log.DevicePin</div>
+                                }
+                                else
+                                {
+                                    <code>@(log.DevicePin ?? "-")</code>
+                                }
+                            </td>
+                            <td><code>@(log.Reader?.DeviceSerial ?? "-")</code></td>
+                            <td>@(log.Gate?.no ?? "-")</td>
+                            <td>
+                                <span class="badge @(log.Direction == MovementDirection.In ? "status-approved" : "bg-secondary")">
+                                    @(log.Direction == MovementDirection.In ? "دخول" : "خروج")
+                                </span>
+                            </td>
+                            <td class="small">@log.Source</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    private const int takeCount = 200;
+    private bool loading = true;
+    private bool busy;
+    private bool messageOk;
+    private string? message;
+    private List<MovementLog> logs = new();
+    private readonly SemaphoreSlim _loadLock = new(1, 1);
+    private System.Threading.Timer? _timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+        _timer = new System.Threading.Timer(async _ =>
+        {
+            await InvokeAsync(async () =>
+            {
+                await LoadAsync(silent: true);
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(15));
+    }
+
+    private async Task LoadAsync(bool silent = false)
+    {
+        await _loadLock.WaitAsync();
+        try
+        {
+            if (!silent) loading = true;
+            using var scope = ScopeFactory.CreateScope();
+            var movementService = scope.ServiceProvider.GetRequiredService<IMovementLogService>();
+            logs = await movementService.GetRecentAsync(takeCount);
+        }
+        finally
+        {
+            if (!silent) loading = false;
+            _loadLock.Release();
+        }
+    }
+
+    private async Task RequestAttLogAsync()
+    {
+        busy = true;
+        message = null;
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var statsService = scope.ServiceProvider.GetRequiredService<IReaderDeviceStatsService>();
+            await statsService.EnqueueCommandsAllAsync(DeviceCommandType.QueryAttLog);
+            messageOk = true;
+            message = "تم إرسال أمر جلب سجل الحركة لجميع القارئات. ستُحدَّث القائمة تلقائياً عند استجابة القارئات.";
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
+        _loadLock.Dispose();
+    }
+}

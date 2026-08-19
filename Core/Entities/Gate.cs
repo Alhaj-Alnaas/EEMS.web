@@ -1,18 +1,14 @@
-﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Security.Cryptography.X509Certificates;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Core.Entities
 {
-    public class Gate:Base
+    public class Gate : Base
     {
-        public string no { get; set; }
-        public string description  { get; set; }
-        public bool  isActive   { get; set; }
-        public ICollection<PermitType> PermitTypes { get; set; } = new List<PermitType>();
+        public string no { get; set; } = "";
+        public string description { get; set; } = "";
+        public bool isActive { get; set; }
 
+        public ICollection<PermitType> PermitTypes { get; set; } = new List<PermitType>();
+        public ICollection<Reader> Readers { get; set; } = new List<Reader>();
     }
 }

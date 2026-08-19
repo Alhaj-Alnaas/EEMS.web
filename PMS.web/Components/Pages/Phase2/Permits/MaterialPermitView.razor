@@ -1,0 +1,239 @@
+@page "/permits/materials/view/{Id:guid}"
+@rendermode InteractiveServer
+@inject IPermit PermitService
+@inject IProcedureMovment ProcedureMovmentService
+@inject IDepartmentService DepartmentService
+@inject UserManager<User> UserManager
+@inject AuthenticationStateProvider AuthProvider
+@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.Identity
+@using Core.Extensions
+@using static Core.Enums.BaseEnums
+
+<PageTitle>عرض تصريح - PMS</PageTitle>
+
+@if (loading)
+{
+    <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+}
+else if (permit == null)
+{
+    <div class="alert alert-danger">لم يتم العثور على التصريح.</div>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h3><i class="bi bi-eye-fill text-warning"></i> تصريح رقم: @permit.no</h3>
+        <div class="d-flex gap-2 flex-wrap">
+            <a class="btn btn-outline-secondary" href="/legacy/Permit/PrintPermitPdf?permitId=@permit.Id" target="_blank">
+                <i class="bi bi-printer"></i> طباعة PDF
+            </a>
+            @if (visibility.CanApprove)
+            {
+                <button class="btn btn-success" @onclick='() => DoActionAsync("approve")'><i class="bi bi-check-circle"></i> اعتماد</button>
+            }
+            @if (visibility.CanReturn)
+            {
+                <button class="btn btn-secondary" @onclick='() => DoActionAsync("return")'><i class="bi bi-arrow-counterclockwise"></i> ترجيع</button>
+            }
+            @if (visibility.CanReject)
+            {
+                <button class="btn btn-danger" @onclick='() => DoActionAsync("reject")'><i class="bi bi-x-circle"></i> رفض</button>
+            }
+            @if (visibility.CanClose)
+            {
+                <button class="btn btn-dark" @onclick='() => DoActionAsync("close")'><i class="bi bi-lock"></i> إغلاق</button>
+            }
+            @if (visibility.CanDelete)
+            {
+                <button class="btn btn-outline-danger" @onclick='() => DoActionAsync("delete")'><i class="bi bi-trash"></i> حذف</button>
+            }
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(actionMessage))
+    {
+        <div class="alert alert-info">@actionMessage</div>
+    }
+
+    <div class="row g-3">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header pms-header">البيانات الأساسية</div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-6">التصنيف</dt><dd class="col-6">@PermitService.MappingAsync(permit.classification ?? "")</dd>
+                        <dt class="col-6">النوع</dt><dd class="col-6">@(permit.type?.ToEnumDescription<EnumPermitType>())</dd>
+                        <dt class="col-6">الجهة الطالبة</dt><dd class="col-6">@departmentName</dd>
+                        <dt class="col-6">الجهة المصرح لها</dt><dd class="col-6">@permit.OrgDescription</dd>
+                        <dt class="col-6">تصريح مؤقت</dt><dd class="col-6">@(permit.IsTemp ? "نعم" : "لا")</dd>
+                        <dt class="col-6">التاريخ</dt><dd class="col-6">@permit.date.ToString("yyyy/MM/dd")</dd>
+                        <dt class="col-6">الوقت</dt><dd class="col-6">@permit.hourOfEntry</dd>
+                        <dt class="col-6">قادم من</dt><dd class="col-6">@permit.moveFrom</dd>
+                        <dt class="col-6">ذاهب إلى</dt><dd class="col-6">@permit.moveTo</dd>
+                        <dt class="col-6">الهاتف</dt><dd class="col-6">@permit.phoneNo</dd>
+                        <dt class="col-6">الحالة</dt><dd class="col-6">@PermitService.MappingAsync(permit.status.ToString())</dd>
+                        <dt class="col-6">ملاحظات</dt><dd class="col-6">@permit.remarks</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="card mb-3">
+                <div class="card-header pms-header">المواد والمعدات</div>
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead><tr><th>البيان</th><th>الكمية</th><th>الوحدة</th></tr></thead>
+                        <tbody>
+                            @foreach (var e in permit.EquipmentsAndMatirials)
+                            {
+                                <tr><td>@e.description</td><td>@e.qty</td><td>@e.unit</td></tr>
+                            }
+                            @if (!permit.EquipmentsAndMatirials.Any())
+                            {
+                                <tr><td colspan="3" class="text-center text-muted">لا توجد مواد</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header pms-header">المركبات</div>
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead><tr><th>النوع</th><th>رقم اللوحة</th><th>السائق</th><th>الجنسية</th><th>الرخصة</th></tr></thead>
+                        <tbody>
+                            @foreach (var c in permit.Cars)
+                            {
+                                <tr><td>@c.carType</td><td>@c.carNo</td><td>@c.name</td><td>@c.nattiunality</td><td>@c.licenseNo</td></tr>
+                            }
+                            @if (!permit.Cars.Any())
+                            {
+                                <tr><td colspan="5" class="text-center text-muted">لا توجد مركبات</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header pms-header">الإجراءات المتخذة</div>
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead><tr><th>الإجراء</th><th>بواسطة</th><th>الصفة</th><th>التاريخ</th></tr></thead>
+                        <tbody>
+                            @foreach (var p in permit.Procedures.OrderBy(p => p.doneOn))
+                            {
+                                <tr>
+                                    <td>@PermitService.MappingAsync(p.procedureType ?? "")</td>
+                                    <td>@p.donedBy</td>
+                                    <td>@p.doneAs</td>
+                                    <td>@p.doneOn?.ToString("yyyy/MM/dd HH:mm")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private bool loading = true;
+    private Permit? permit;
+    private PermitActionsVisibility visibility = new();
+    private User? currentUser;
+    private string departmentName = "غير معروف";
+    private string? actionMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var userName = authState.User.Identity?.Name;
+        currentUser = userName != null ? await UserManager.FindByNameAsync(userName) : null;
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        permit = await PermitService.GetPermitByIdAsync(Id);
+        if (permit != null)
+        {
+            var dept = await DepartmentService.GetSingleDepartmentByResponsibilityAsync(permit.reqDepartment ?? "");
+            departmentName = dept?.DepartmentName ?? "غير معروف";
+
+            if (currentUser != null)
+            {
+                visibility = PermitService.GetVisibility(currentUser, permit);
+            }
+        }
+        loading = false;
+    }
+
+    private async Task DoActionAsync(string actionType)
+    {
+        if (permit == null || currentUser == null) return;
+
+        var movement = new ProcedureMovment
+        {
+            permitId = permit.Id,
+            permit = permit,
+            donedBy = currentUser.FullName,
+            doneAs = currentUser.JobtypeName,
+            shift = "A",
+            doneOn = DateTime.Now,
+            procedureType = actionType
+        };
+
+        await ProcedureMovmentService.InsertProcedureMovment(movement);
+
+        switch (actionType)
+        {
+            case "approve":
+                if (currentUser.ResponsibilityCode == "45011") permit.PermintsSectionApproval = true;
+                else if (currentUser.ResponsibilityCode == "45012") permit.secuSectionApproval = true;
+                else permit.reqDepApproval = true;
+
+                if (permit.reqDepApproval && permit.secuSectionApproval)
+                    permit.status = 'A';
+                break;
+            case "reject":
+                permit.status = 'J';
+                break;
+            case "return":
+                permit.status = 'R';
+                break;
+            case "close":
+                permit.status = 'C';
+                permit.isClosed = true;
+                permit.closeOn = DateTime.Now;
+                break;
+            case "delete":
+                permit.status = 'D';
+                permit.isDeleted = true;
+                permit.deletedBy = currentUser.FullName;
+                permit.deletedOn = DateTime.Now;
+                break;
+        }
+
+        await PermitService.UpdatePermitAsync(permit);
+
+        actionMessage = actionType switch
+        {
+            "approve" => "تم اعتماد التصريح بنجاح.",
+            "reject" => "تم رفض التصريح.",
+            "return" => "تم ترجيع التصريح.",
+            "close" => "تم إغلاق التصريح.",
+            "delete" => "تم حذف التصريح.",
+            _ => "تم تنفيذ العملية."
+        };
+
+        await LoadAsync();
+    }
+}

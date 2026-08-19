@@ -1,0 +1,192 @@
+@page "/devices/readers/edit/{Id:guid}"
+@rendermode InteractiveServer
+@inject IReaderService ReaderService
+@inject IGates GateService
+@inject AuthenticationStateProvider AuthProvider
+@inject NavigationManager Navigation
+
+<PageTitle>@(IsNew ? "إضافة قارئة" : "تعديل قارئة") - PMS</PageTitle>
+
+<h3 class="mb-4">
+    <i class="bi bi-hdd-network-fill text-warning"></i>
+    @(IsNew ? "إضافة قارئة جديدة" : "تعديل بيانات القارئة")
+</h3>
+
+@if (!string.IsNullOrEmpty(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+
+@if (loading)
+{
+    <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+}
+else
+{
+    <div class="card">
+        <div class="card-body">
+            <EditForm Model="model" OnValidSubmit="SaveAsync">
+                <DataAnnotationsValidator />
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">اسم القارئة <span class="text-danger">*</span></label>
+                        <InputText class="form-control" @bind-Value="model.Name" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">الرقم التسلسلي (SN) <span class="text-danger">*</span></label>
+                        <InputText class="form-control" @bind-Value="model.DeviceSerial" placeholder="رقم ZKTeco التسلسلي" />
+                        <div class="form-text">يجب أن يطابق إعدادات الجهاز لإتمام Push Protocol.</div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">البوابة <span class="text-danger">*</span></label>
+                        <InputSelect class="form-select" @bind-Value="model.GateId">
+                            <option value="@Guid.Empty">— اختر البوابة —</option>
+                            @foreach (var g in gates)
+                            {
+                                <option value="@g.Id">@g.no — @g.description</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">الموديل</label>
+                        <InputText class="form-control" @bind-Value="model.Model" placeholder="مثال: SpeedFace-V5L" />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">عنوان IP</label>
+                        <InputText class="form-control" @bind-Value="model.IpAddress" placeholder="10.10.x.x" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">المنفذ</label>
+                        <InputNumber class="form-control" @bind-Value="model.Port" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">الحالة الحالية</label>
+                        <input class="form-control" value="@StatusLabel(model.Status)" disabled />
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check form-switch mt-4">
+                            <InputCheckbox class="form-check-input" @bind-Value="model.IsActive" id="isActive" />
+                            <label class="form-check-label" for="isActive">قارئة نشطة</label>
+                        </div>
+                    </div>
+
+                    <div class="col-md-12">
+                        <label class="form-label">ملاحظات</label>
+                        <InputTextArea class="form-control" @bind-Value="model.remarks" rows="2" />
+                    </div>
+                </div>
+
+                <div class="alert alert-info mt-3 mb-0 small">
+                    <i class="bi bi-info-circle"></i>
+                    لربط الجهاز عبر <strong>Push Protocol</strong>: عيّن في قائمة Cloud/ADMS على الجهاز عنوان الخادم
+                    <code>@pushBaseUrl</code> والمنفذ المناسب. بعد التسجيل سيظهر الاتصال في «حالة الأجهزة».
+                </div>
+
+                <div class="mt-4 d-flex gap-2">
+                    <button type="submit" class="btn btn-warning" disabled="@saving">
+                        <i class="bi bi-save"></i> @(saving ? "جاري الحفظ..." : "حفظ")
+                    </button>
+                    <a href="/devices/readers" class="btn btn-outline-secondary">إلغاء</a>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private bool IsNew => Id == Guid.Empty;
+    private bool loading = true;
+    private bool saving;
+    private string? error;
+    private string pushBaseUrl = "";
+    private Reader model = new() { Name = "", DeviceSerial = "", Port = 80, IsActive = true };
+    private List<Gate> gates = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        pushBaseUrl = Navigation.BaseUri.TrimEnd('/') + "/iclock";
+        gates = (await GateService.GetAllAsync()).Where(g => !g.isDeleted).OrderBy(g => g.no).ToList();
+
+        if (!IsNew)
+        {
+            var existing = await ReaderService.GetByIdAsync(Id);
+            if (existing != null)
+                model = existing;
+            else
+                error = "القارئة غير موجودة.";
+        }
+
+        loading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        error = null;
+        if (string.IsNullOrWhiteSpace(model.Name))
+        {
+            error = "اسم القارئة مطلوب.";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(model.DeviceSerial))
+        {
+            error = "الرقم التسلسلي مطلوب.";
+            return;
+        }
+        if (model.GateId == Guid.Empty)
+        {
+            error = "يجب اختيار البوابة.";
+            return;
+        }
+
+        var duplicate = await ReaderService.GetBySerialAsync(model.DeviceSerial.Trim());
+        if (duplicate != null && duplicate.Id != model.Id)
+        {
+            error = "يوجد قارئة أخرى بنفس الرقم التسلسلي.";
+            return;
+        }
+
+        saving = true;
+        try
+        {
+            var authState = await AuthProvider.GetAuthenticationStateAsync();
+            var userName = authState.User.Identity?.Name;
+
+            if (IsNew)
+            {
+                model.Id = Guid.NewGuid();
+                model.createdOn = DateTime.Now;
+                model.createdBy = userName;
+                model.Status = ReaderStatus.Offline;
+                await ReaderService.InsertAsync(model);
+            }
+            else
+            {
+                model.updatedOn = DateTime.Now;
+                model.updatedBy = userName;
+                await ReaderService.UpdateAsync(model);
+            }
+
+            Navigation.NavigateTo("/devices/readers");
+        }
+        catch (Exception ex)
+        {
+            error = ex.InnerException?.Message ?? ex.Message;
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private static string StatusLabel(ReaderStatus s) => s switch
+    {
+        ReaderStatus.Online => "متصل",
+        ReaderStatus.Faulty => "معطل / خطأ",
+        _ => "غير متصل"
+    };
+}

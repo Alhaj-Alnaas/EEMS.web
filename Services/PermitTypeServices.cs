@@ -1,6 +1,6 @@
-﻿using Core.Entities;
+using Core.Entities;
 using Core.Interfaces.Services;
-using EEMS.Core.Interfaces.UnitOfWork;
+using Core.Interfaces.UnitOfWork;
 using System;
 using System.Collections.Generic;
 using System.Linq;

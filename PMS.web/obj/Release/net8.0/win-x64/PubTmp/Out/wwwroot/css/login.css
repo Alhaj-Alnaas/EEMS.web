@@ -1,0 +1,153 @@
+﻿:root {
+    --primary-color: #ff8c00;
+    --primary-hover: #e67e00;
+    --header-color: #495057; /* لون رمادي غامق */
+    --bg-light: #f8f9fa;
+    --text-dark: #333;
+    --card-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    direction: rtl;
+    text-align: center;
+    padding: 20px;
+}
+
+.login-container {
+    width: 100%;
+    max-width: 420px;
+}
+
+.login-card {
+    background: white;
+    border-radius: 15px;
+    box-shadow: var(--card-shadow);
+    overflow: hidden;
+    transition: transform 0.3s ease;
+}
+
+    .login-card:hover {
+        transform: translateY(-5px);
+    }
+
+.card-header {
+    background: var(--header-color);
+    color: white;
+    padding: 20px;
+    border-bottom: none;
+}
+
+    .card-header h3 {
+        margin: 0;
+        font-weight: 600;
+    }
+
+.card-body {
+    padding: 30px;
+}
+
+.form-control, .form-select {
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    padding: 12px 15px;
+    text-align: center;
+    font-size: 16px;
+    transition: all 0.3s;
+}
+
+    .form-control:focus, .form-select:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.25rem rgba(255, 140, 0, 0.25);
+    }
+
+.form-label {
+    font-weight: 500;
+    margin-bottom: 8px;
+    color: var(--text-dark);
+}
+
+.btn-login {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 12px;
+    font-weight: 600;
+    font-size: 16px;
+    width: 100%;
+    transition: all 0.3s;
+}
+
+    .btn-login:hover {
+        background: var(--primary-hover);
+        transform: translateY(-2px);
+    }
+
+.alert-container {
+    margin-bottom: 20px;
+}
+
+.alert {
+    border-radius: 8px;
+    padding: 12px 15px;
+    font-size: 15px;
+    text-align: center;
+    border: none;
+    animation: fadeIn 0.5s;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.alert-danger {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.alert-success {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.form-group {
+    margin-bottom: 20px;
+    text-align: right;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.loading-spinner {
+    display: none;
+    margin-left: 10px;
+}
+
+@media (max-width: 480px) {
+    .login-container {
+        max-width: 100%;
+    }
+
+    .card-body {
+        padding: 20px;
+    }
+}

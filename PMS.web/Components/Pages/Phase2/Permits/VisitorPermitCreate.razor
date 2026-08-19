@@ -1,0 +1,56 @@
+@page "/permits/visitors/create"
+@rendermode InteractiveServer
+
+<PageTitle>تصريح زوار جديد - PMS</PageTitle>
+
+<h3 class="mb-4"><i class="bi bi-person-badge text-warning"></i> إضافة تصريح زوار جديد</h3>
+
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i>
+    نموذج تصريح الزوار الكامل قيد التطوير — المرحلة الثانية. الحقول أدناه تعرض التصميم المبدئي.
+</div>
+
+<div class="card">
+    <div class="card-header pms-header">بيانات الزائر</div>
+    <div class="card-body">
+        <EditForm Model="model">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">اسم الزائر</label>
+                    <InputText class="form-control" @bind-Value="model.VisitorName" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">رقم الهوية</label>
+                    <InputText class="form-control" @bind-Value="model.IdNumber" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">الجنسية</label>
+                    <InputText class="form-control" @bind-Value="model.Nationality" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">رقم الهاتف</label>
+                    <InputText class="form-control" @bind-Value="model.Phone" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">الجهة/الشخص المضيف</label>
+                    <InputText class="form-control" placeholder="اسم الموظف المضيف" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">الغرض من الزيارة</label>
+                    <InputText class="form-control" @bind-Value="model.Purpose" />
+                </div>
+            </div>
+
+            <div class="mt-4 text-center">
+                <button type="button" class="btn btn-warning px-4" disabled title="سيتم تفعيله عند اكتمال مسار الاعتماد">
+                    <i class="bi bi-save"></i> حفظ (قيد التطوير)
+                </button>
+                <a href="/permits" class="btn btn-outline-secondary px-4">رجوع</a>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private VisitorPermitDetail model = new();
+}

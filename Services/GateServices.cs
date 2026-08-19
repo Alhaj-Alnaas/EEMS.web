@@ -1,6 +1,6 @@
-﻿using Core.Entities;
+using Core.Entities;
 using Core.Interfaces.Services;
-using EEMS.Core.Interfaces.UnitOfWork;
+using Core.Interfaces.UnitOfWork;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
@@ -33,7 +33,7 @@ namespace Services
             return await _unitOfWork.Gates.GetByIdAsync(id);
         }
 
-        public async Task InsertAsync(Gate gate, List<int> selectedPermitTypeIds)
+        public async Task InsertAsync(Gate gate, List<Guid> selectedPermitTypeIds)
         {
    
             var permitTypes = (await _unitOfWork.PermitTypes.GetAllAsync())
@@ -46,10 +46,10 @@ namespace Services
             await _unitOfWork.SaveAsync();
         }
 
-        public async Task UpdateAsync(Gate gate, List<int> selectedPermitTypeIds)
+        public async Task UpdateAsync(Gate gate, List<Guid> selectedPermitTypeIds)
         {
             var existingGate = await _unitOfWork.Gates.GetByIdAsync(gate.Id);
-            if (existingGate == null) throw new Exception("البوابة غير موجودة");
+            if (existingGate == null) throw new Exception("??????? ??? ??????");
 
             existingGate.no = gate.no;
             existingGate.description = gate.description;
@@ -58,7 +58,7 @@ namespace Services
             existingGate.updatedOn = DateTime.Now;
             existingGate.updatedBy = gate.updatedBy;
 
-            // تحديث Many-to-Many PermitTypes
+            // ????? Many-to-Many PermitTypes
             var permitTypes = (await _unitOfWork.PermitTypes.GetAllAsync())
                 .Where(p => selectedPermitTypeIds.Contains(p.Id))
                 .ToList();
@@ -79,7 +79,7 @@ namespace Services
             await _unitOfWork.SaveAsync();
         }
 
-        public async Task<List<Gate>> GetGatesByPermitTypeAsync(int permitTypeId)
+        public async Task<List<Gate>> GetGatesByPermitTypeAsync(Guid permitTypeId)
         {
             var gatesList = await _unitOfWork.Gates.GetQueryable()
              .Include(g => g.PermitTypes)

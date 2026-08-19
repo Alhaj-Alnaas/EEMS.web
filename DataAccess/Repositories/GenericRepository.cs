@@ -1,6 +1,6 @@
-﻿using Core.Entities;
+using Core.Entities;
 using Core.Interfaces.Services;
-using EEMS.Core.Interfaces.Repositories;
+using Core.Interfaces.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using System;

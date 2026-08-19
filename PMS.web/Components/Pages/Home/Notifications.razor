@@ -1,0 +1,170 @@
+@page "/notifications"
+@rendermode InteractiveServer
+@inject INotificationService NotificationService
+@inject IReaderDowntimeService DowntimeService
+@inject AuthenticationStateProvider AuthProvider
+@inject IConfiguration Configuration
+@inject NavigationManager Navigation
+
+<PageTitle>الإشعارات - PMS</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h3 class="mb-0"><i class="bi bi-bell-fill text-warning"></i> الإشعارات</h3>
+    <div class="d-flex gap-2">
+        @if (!string.IsNullOrEmpty(currentUserId))
+        {
+            <button class="btn btn-outline-secondary btn-sm" @onclick="MarkAllReadAsync" disabled="@loading">
+                <i class="bi bi-check2-all"></i> تعليم الكل كمقروء
+            </button>
+        }
+        <button class="btn btn-outline-secondary btn-sm" @onclick="LoadAsync" disabled="@loading">
+            <i class="bi bi-arrow-clockwise"></i> تحديث
+        </button>
+    </div>
+</div>
+
+@if (loading)
+{
+    <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+}
+else
+{
+    <div class="row g-3">
+        <div class="col-lg-7">
+            <div class="card">
+                <div class="card-header fw-semibold">قائمة التنبيهات</div>
+                @if (notifications.Count == 0)
+                {
+                    <div class="pms-placeholder py-4">
+                        <i class="bi bi-bell"></i>
+                        <h5>لا توجد إشعارات حالياً</h5>
+                    </div>
+                }
+                else
+                {
+                    <ul class="list-group list-group-flush">
+                        @foreach (var n in notifications)
+                        {
+                            <li class="list-group-item @(n.IsRead ? "" : "list-group-item-warning")">
+                                <div class="d-flex justify-content-between gap-2 align-items-start">
+                                    <div>
+                                        <div class="fw-semibold">@n.Title</div>
+                                        <div class="small text-muted mb-1">@n.createdOn.ToString("yyyy/MM/dd HH:mm")</div>
+                                        <pre class="mb-0 small" style="white-space:pre-wrap;font-family:inherit;">@n.Body</pre>
+                                        @if (n.RelatedReaderId.HasValue)
+                                        {
+                                            <a class="btn btn-link btn-sm px-0" href="/devices/monitor">عرض حالة الأجهزة</a>
+                                        }
+                                    </div>
+                                    @if (!n.IsRead)
+                                    {
+                                        <button class="btn btn-sm btn-outline-primary text-nowrap"
+                                                @onclick="() => MarkReadAsync(n.Id)">
+                                            مقروء
+                                        </button>
+                                    }
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="card">
+                <div class="card-header fw-semibold">سجل توقف القارئات (من → إلى)</div>
+                @if (downtimes.Count == 0)
+                {
+                    <div class="card-body text-muted small">لا توجد فترات توقف مسجّلة بعد.</div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>القارئة</th>
+                                    <th>من</th>
+                                    <th>إلى</th>
+                                    <th>المدة</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var d in downtimes)
+                                {
+                                    <tr>
+                                        <td>
+                                            <div class="fw-semibold">@(d.Reader?.Name ?? d.Reader?.DeviceSerial ?? "-")</div>
+                                            <div class="small text-muted">@(d.Reason ?? "")</div>
+                                        </td>
+                                        <td class="small">@d.StartedAt.ToString("yyyy/MM/dd HH:mm")</td>
+                                        <td class="small">
+                                            @(d.EndedAt?.ToString("yyyy/MM/dd HH:mm") ?? "مستمر")
+                                        </td>
+                                        <td class="small">@FormatDuration(d)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool loading = true;
+    private string? currentUserId;
+    private bool designMode;
+    private List<Notification> notifications = new();
+    private List<ReaderDowntime> downtimes = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        designMode = Configuration.GetValue("DesignMode:DisableAuthentication", false);
+        var auth = await AuthProvider.GetAuthenticationStateAsync();
+        currentUserId = auth.User.Identity?.IsAuthenticated == true
+            ? auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            : null;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        if (!string.IsNullOrEmpty(currentUserId))
+            notifications = await NotificationService.GetForUserAsync(currentUserId);
+        else
+            notifications = await NotificationService.GetRecentAsync(50);
+
+        downtimes = await DowntimeService.GetRecentAsync(30);
+        loading = false;
+    }
+
+    private async Task MarkReadAsync(Guid id)
+    {
+        await NotificationService.MarkAsReadAsync(id);
+        await LoadAsync();
+    }
+
+    private async Task MarkAllReadAsync()
+    {
+        if (string.IsNullOrEmpty(currentUserId)) return;
+        await NotificationService.MarkAllAsReadAsync(currentUserId);
+        await LoadAsync();
+    }
+
+    private static string FormatDuration(ReaderDowntime d)
+    {
+        var end = d.EndedAt ?? DateTime.Now;
+        var span = end - d.StartedAt;
+        if (span < TimeSpan.Zero) span = TimeSpan.Zero;
+        if (span.TotalDays >= 1)
+            return $"{(int)span.TotalDays}ي {span.Hours}س {span.Minutes}د";
+        if (span.TotalHours >= 1)
+            return $"{(int)span.TotalHours}س {span.Minutes}د";
+        return $"{Math.Max(0, (int)span.TotalMinutes)}د";
+    }
+}

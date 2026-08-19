@@ -1,0 +1,138 @@
+@page "/admin/users/create"
+@rendermode InteractiveServer
+@inject UserManager<User> UserManager
+@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.Identity
+
+<PageTitle>إضافة مستخدم - PMS</PageTitle>
+
+<h3 class="mb-4"><i class="bi bi-person-plus-fill text-warning"></i> إضافة مستخدم جديد</h3>
+
+<div class="card">
+    <div class="card-body">
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="alert alert-success">@successMessage</div>
+        }
+        @if (errors.Count > 0)
+        {
+            <div class="alert alert-danger">
+                <ul class="mb-0">
+                    @foreach (var err in errors)
+                    {
+                        <li>@err</li>
+                    }
+                </ul>
+            </div>
+        }
+
+        <EditForm Model="model" OnValidSubmit="CreateUserAsync">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">الرقم الوظيفي</label>
+                    <InputText class="form-control" @bind-Value="model.EmpFileNo" />
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label">الاسم الكامل</label>
+                    <InputText class="form-control" @bind-Value="model.EmpName" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">الإدارة</label>
+                    <InputText class="form-control" @bind-Value="model.Department" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">البريد الإلكتروني</label>
+                    <InputText class="form-control" @bind-Value="model.EmpEmail" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">الهاتف</label>
+                    <InputText class="form-control" @bind-Value="model.EmpPhone" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">الحالة الوظيفية</label>
+                    <InputText class="form-control" @bind-Value="model.JobStatus" placeholder="AE" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">نوع الوظيفة</label>
+                    <InputText class="form-control" @bind-Value="model.JobTypeName" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">تصنيف المستخدم</label>
+                    <InputSelect class="form-select" @bind-Value="model.UserType">
+                        <option value="">-- اختر --</option>
+                        <option value="BaseUser">مستخدم عادي</option>
+                        <option value="SaftyUser">ضابط أمن (بوابة)</option>
+                        <option value="ApplicationUser">مستخدم تطبيق</option>
+                        <option value="Admin">مدير نظام</option>
+                    </InputSelect>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">كلمة المرور</label>
+                    <InputText type="password" class="form-control" @bind-Value="model.Password" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">تأكيد كلمة المرور</label>
+                    <InputText type="password" class="form-control" @bind-Value="model.ConfirmPassword" />
+                </div>
+            </div>
+
+            <div class="mt-4 d-flex gap-2">
+                <button type="submit" class="btn btn-warning"><i class="bi bi-save"></i> حفظ</button>
+                <a href="/admin/users" class="btn btn-outline-secondary">إلغاء</a>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private CreateUserViewModel model = new();
+    private List<string> errors = new();
+    private string? successMessage;
+
+    private async Task CreateUserAsync()
+    {
+        errors.Clear();
+        successMessage = null;
+
+        if (string.IsNullOrWhiteSpace(model.UserType))
+        {
+            errors.Add("يجب اختيار تصنيف المستخدم");
+            return;
+        }
+
+        var user = new User
+        {
+            UserName = model.EmpFileNo,
+            NormalizedUserName = model.EmpEmail?.ToUpper(),
+            Email = model.EmpEmail,
+            NormalizedEmail = model.EmpEmail?.ToUpper(),
+            PhoneNumber = model.EmpPhone,
+            FileNumber = model.EmpFileNo,
+            FullName = model.EmpName,
+            ResponsibilityCode = model.EmpResponsibilityCode,
+            Department = model.Department,
+            RespCodeId = model.RespCodeId ?? 0,
+            JobCatId = model.JobCatId ?? 0,
+            JobStatus = model.JobStatus,
+            DesignationId = model.DesignationId ?? 0,
+            JobtypeName = model.JobTypeName,
+            Discriminator = model.UserType,
+            UserType = model.UserType
+        };
+
+        var result = await UserManager.CreateAsync(user, model.Password);
+
+        if (result.Succeeded)
+        {
+            successMessage = "تم إضافة المستخدم بنجاح!";
+            model = new CreateUserViewModel();
+        }
+        else
+        {
+            errors = result.Errors.Select(e => e.Description).ToList();
+        }
+    }
+}

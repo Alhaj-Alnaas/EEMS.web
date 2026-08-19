@@ -22,6 +22,62 @@ namespace DataAccess.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("Core.Entities.BiometricTemplate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ApprovedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsApproved")
+                        .HasColumnType("bit");
+
+                    b.Property<byte[]>("TemplateData")
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<string>("TemplateType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("createdBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("createdOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("deletedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("deletedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("isDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("updatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("updatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.ToTable("BiometricTemplates");
+                });
+
             modelBuilder.Entity("Core.Entities.CarMovment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -37,26 +93,16 @@ namespace DataAccess.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("createdBy")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("createdOn")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("deletedBy")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("deletedOn")
+                    b.Property<DateTime?>("deletedOn")
                         .HasColumnType("datetime2");
-
-                    b.Property<string>("driverNationality")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("driverOrg")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("idNumber")
                         .IsRequired()
@@ -88,14 +134,12 @@ namespace DataAccess.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("remarks")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("updatedBy")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("updatedOn")
+                    b.Property<DateTime?>("updatedOn")
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
@@ -115,7 +159,248 @@ namespace DataAccess.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.ToTable("DepartmentsDto");
+                    b.ToTable((string)null);
+
+                    b.ToView(null, (string)null);
+                });
+
+            modelBuilder.Entity("Core.Entities.Department", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("NameEn")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("createdBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("createdOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("deletedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("deletedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("isDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("updatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("updatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Departments");
+                });
+
+            modelBuilder.Entity("Core.Entities.DeviceCommand", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CommandType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("CompletedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastError")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Payload")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("ProtocolCommandId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("ReaderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("RetryCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ScheduledOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("SentOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("createdBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("createdOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("deletedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("deletedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("isDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("updatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("updatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReaderId");
+
+                    b.ToTable("DeviceCommands");
+                });
+
+            modelBuilder.Entity("Core.Entities.Employee", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("DepartmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("FileNumber")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("HostCapable")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("JobStatus")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Nationality")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("createdBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("createdOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("deletedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("deletedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("isDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("updatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("updatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.ToTable("Employees");
+                });
+
+            modelBuilder.Entity("Core.Entities.EmployeePermission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("GateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<TimeSpan?>("TimeWindowEnd")
+                        .HasColumnType("time");
+
+                    b.Property<TimeSpan?>("TimeWindowStart")
+                        .HasColumnType("time");
+
+                    b.Property<DateTime?>("ValidFrom")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ValidTo")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("createdBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("createdOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("deletedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("deletedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("isDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("updatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("updatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.HasIndex("GateId");
+
+                    b.ToTable("EmployeePermissions");
                 });
 
             modelBuilder.Entity("Core.Entities.EquipMatiMovment", b =>
@@ -125,17 +410,15 @@ namespace DataAccess.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("createdBy")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("createdOn")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("deletedBy")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("deletedOn")
+                    b.Property<DateTime?>("deletedOn")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("description")
@@ -148,12 +431,10 @@ namespace DataAccess.Migrations
                     b.Property<Guid>("permitId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("qty")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<int>("qty")
+                        .HasColumnType("int");
 
                     b.Property<string>("remarks")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("unit")
@@ -161,10 +442,9 @@ namespace DataAccess.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("updatedBy")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("updatedOn")
+                    b.Property<DateTime?>("updatedOn")
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
@@ -174,6 +454,58 @@ namespace DataAccess.Migrations
                     b.ToTable("EquipsMatisMovment");
                 });
 
+            modelBuilder.Entity("Core.Entities.EquipmentPermitDetail", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("PermitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Qty")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("createdBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("createdOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("deletedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("deletedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("isDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("updatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("updatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PermitId")
+                        .IsUnique();
+
+                    b.ToTable("EquipmentPermitDetails");
+                });
+
             modelBuilder.Entity("Core.Entities.Gate", b =>
                 {
                     b.Property<Guid>("Id")
@@ -181,17 +513,15 @@ namespace DataAccess.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("createdBy")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("createdOn")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("deletedBy")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("deletedOn")
+                    b.Property<DateTime?>("deletedOn")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("description")
@@ -209,14 +539,12 @@ namespace DataAccess.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("remarks")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("updatedBy")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("updatedOn")
+                    b.Property<DateTime?>("updatedOn")
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
@@ -224,88 +552,143 @@ namespace DataAccess.Migrations
                     b.ToTable("Gates");
                 });
 
-            modelBuilder.Entity("Core.Entities.HumanMovment", b =>
+            modelBuilder.Entity("Core.Entities.MovementLog", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("PermitId")
+                    b.Property<string>("DevicePin")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Direction")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("EmployeeId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("createdBy")
+                    b.Property<DateTime>("EventTime")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("GateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ManualReason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("PermitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ReaderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RecordedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Source")
                         .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("createdBy")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("createdOn")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("deletedBy")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("deletedOn")
+                    b.Property<DateTime?>("deletedOn")
                         .HasColumnType("datetime2");
-
-                    b.Property<string>("idNumber")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("isDeleted")
                         .HasColumnType("bit");
 
-                    b.Property<string>("name")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("nattiunality")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("orgToVisit")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("orginaization")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<Guid>("permitId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("permitId1")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("personToVist")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("phoneNo")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("purposeOfVisit")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("remarks")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("updatedBy")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("updatedOn")
+                    b.Property<DateTime?>("updatedOn")
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("EmployeeId");
+
+                    b.HasIndex("GateId");
+
                     b.HasIndex("PermitId");
 
-                    b.HasIndex("permitId1");
+                    b.HasIndex("ReaderId");
 
-                    b.ToTable("HumansMovment");
+                    b.ToTable("MovementLogs", t =>
+                        {
+                            t.HasCheckConstraint("CK_MovementLog_EmployeeOrPermit", "[EmployeeId] IS NOT NULL OR [PermitId] IS NOT NULL OR ([DevicePin] IS NOT NULL AND [DevicePin] <> '')");
+                        });
+                });
+
+            modelBuilder.Entity("Core.Entities.Notification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid?>("RelatedPermitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("RelatedReaderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("createdBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("createdOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("deletedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("deletedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("isDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("updatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("updatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RelatedPermitId");
+
+                    b.HasIndex("RelatedReaderId");
+
+                    b.ToTable("Notifications");
                 });
 
             modelBuilder.Entity("Core.Entities.Permit", b =>
@@ -314,25 +697,43 @@ namespace DataAccess.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("GateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("HostEmployeeId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<bool>("IsTemp")
                         .HasColumnType("bit");
 
                     b.Property<string>("OrgDescription")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("PermintsSectionApproval")
                         .HasColumnType("bit");
 
-                    b.Property<string>("classification")
-                        .IsRequired()
+                    b.Property<Guid?>("RequesterEmployeeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("UnifiedStatus")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("closeOn")
+                    b.Property<DateTime?>("ValidFrom")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ValidTo")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("WorkflowDefinitionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("classification")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("closeOn")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("createdBy")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("createdOn")
@@ -342,17 +743,12 @@ namespace DataAccess.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("deletedBy")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("deletedOn")
+                    b.Property<DateTime?>("deletedOn")
                         .HasColumnType("datetime2");
 
-                    b.Property<int>("gateId")
-                        .HasColumnType("int");
-
                     b.Property<string>("hourOfEntry")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("isClosed")
@@ -362,11 +758,9 @@ namespace DataAccess.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("moveFrom")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("moveTo")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("no")
@@ -374,22 +768,18 @@ namespace DataAccess.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("phoneNo")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("remarks")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("reqDepApproval")
                         .HasColumnType("bit");
 
                     b.Property<string>("reqDepartment")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("requoidedAs")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("secuSectionApproval")
@@ -400,63 +790,121 @@ namespace DataAccess.Migrations
                         .HasColumnType("nvarchar(1)");
 
                     b.Property<string>("statusDescription")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("type")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("updatedBy")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("updatedOn")
+                    b.Property<DateTime?>("updatedOn")
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("GateId");
+
+                    b.HasIndex("HostEmployeeId");
+
+                    b.HasIndex("RequesterEmployeeId");
+
+                    b.HasIndex("WorkflowDefinitionId");
+
                     b.ToTable("Permits");
                 });
 
-            modelBuilder.Entity("Core.Entities.PermitType", b =>
+            modelBuilder.Entity("Core.Entities.PermitApproval", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("uniqueidentifier");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Name")
+                    b.Property<string>("ApproverUserId")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("createdBy")
+                    b.Property<string>("Comment")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("DecidedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Decision")
                         .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("PermitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("WorkflowStepId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("createdBy")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("createdOn")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("deletedBy")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("deletedOn")
+                    b.Property<DateTime?>("deletedOn")
                         .HasColumnType("datetime2");
 
                     b.Property<bool>("isDeleted")
                         .HasColumnType("bit");
 
                     b.Property<string>("remarks")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("updatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("updatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PermitId");
+
+                    b.HasIndex("WorkflowStepId");
+
+                    b.ToTable("PermitApprovals");
+                });
+
+            modelBuilder.Entity("Core.Entities.PermitType", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("updatedOn")
+                    b.Property<string>("createdBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("createdOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("deletedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("deletedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("isDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("updatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("updatedOn")
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
@@ -471,28 +919,24 @@ namespace DataAccess.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("createdBy")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("createdOn")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("deletedBy")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("deletedOn")
+                    b.Property<DateTime?>("deletedOn")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("doneAs")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("doneOn")
+                    b.Property<DateTime?>("doneOn")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("donedBy")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("isDeleted")
@@ -502,22 +946,18 @@ namespace DataAccess.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("procedureType")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(1)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("remarks")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("shift")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("updatedBy")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("updatedOn")
+                    b.Property<DateTime?>("updatedOn")
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
@@ -525,6 +965,210 @@ namespace DataAccess.Migrations
                     b.HasIndex("permitId");
 
                     b.ToTable("ProceduresMovment");
+                });
+
+            modelBuilder.Entity("Core.Entities.Reader", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("ConsecutiveFailures")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DeviceSerial")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("GateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(45)
+                        .HasColumnType("nvarchar(45)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastHeartbeat")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("LastSyncAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Model")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("Port")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("createdBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("createdOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("deletedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("deletedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("isDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("updatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("updatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DeviceSerial")
+                        .IsUnique()
+                        .HasFilter("[isDeleted] = 0");
+
+                    b.HasIndex("GateId");
+
+                    b.ToTable("Readers");
+                });
+
+            modelBuilder.Entity("Core.Entities.ReaderDeviceStats", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AttLogCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CardCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DeviceSerial")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("FaceCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("FetchedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FingerprintCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FirmwareVersion")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("ReaderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("UserCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("createdBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("createdOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("deletedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("deletedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("isDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("updatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("updatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReaderId", "isDeleted")
+                        .HasFilter("[isDeleted] = 0");
+
+                    b.ToTable("ReaderDeviceStats");
+                });
+
+            modelBuilder.Entity("Core.Entities.ReaderDowntime", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("AlertSent")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("EndedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("ReaderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("StatusDuringOutage")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("createdBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("createdOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("deletedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("deletedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("isDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("updatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("updatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReaderId", "EndedAt");
+
+                    b.ToTable("ReaderDowntimes");
                 });
 
             modelBuilder.Entity("Core.Entities.User", b =>
@@ -633,13 +1277,234 @@ namespace DataAccess.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
+            modelBuilder.Entity("Core.Entities.VehiclePermitDetail", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("DriverName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("LicenseNo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("PermitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PlateNumber")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("VehicleType")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("createdBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("createdOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("deletedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("deletedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("isDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("updatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("updatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PermitId")
+                        .IsUnique();
+
+                    b.ToTable("VehiclePermitDetails");
+                });
+
+            modelBuilder.Entity("Core.Entities.VisitorPermitDetail", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("HostEmployeeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("IdNumber")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Nationality")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("PermitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Phone")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Purpose")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("VisitorName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("createdBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("createdOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("deletedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("deletedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("isDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("updatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("updatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HostEmployeeId");
+
+                    b.HasIndex("PermitId")
+                        .IsUnique();
+
+                    b.ToTable("VisitorPermitDetails");
+                });
+
+            modelBuilder.Entity("Core.Entities.WorkflowDefinition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PermitClassification")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("int");
+
+                    b.Property<string>("createdBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("createdOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("deletedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("deletedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("isDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("updatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("updatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("WorkflowDefinitions");
+                });
+
+            modelBuilder.Entity("Core.Entities.WorkflowStep", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsRequired")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("RoleName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("SlaHours")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StepOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StepType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("WorkflowDefinitionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("createdBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("createdOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("deletedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("deletedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("isDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("updatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("updatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkflowDefinitionId");
+
+                    b.ToTable("WorkflowSteps");
+                });
+
             modelBuilder.Entity("GatePermitType", b =>
                 {
                     b.Property<Guid>("GatesId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<int>("PermitTypesId")
-                        .HasColumnType("int");
+                    b.Property<Guid>("PermitTypesId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("GatesId", "PermitTypesId");
 
@@ -781,6 +1646,17 @@ namespace DataAccess.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("Core.Entities.BiometricTemplate", b =>
+                {
+                    b.HasOne("Core.Entities.Employee", "Employee")
+                        .WithMany("BiometricTemplates")
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Employee");
+                });
+
             modelBuilder.Entity("Core.Entities.CarMovment", b =>
                 {
                     b.HasOne("Core.Entities.Permit", "permit")
@@ -790,6 +1666,46 @@ namespace DataAccess.Migrations
                         .IsRequired();
 
                     b.Navigation("permit");
+                });
+
+            modelBuilder.Entity("Core.Entities.DeviceCommand", b =>
+                {
+                    b.HasOne("Core.Entities.Reader", "Reader")
+                        .WithMany()
+                        .HasForeignKey("ReaderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Reader");
+                });
+
+            modelBuilder.Entity("Core.Entities.Employee", b =>
+                {
+                    b.HasOne("Core.Entities.Department", "Department")
+                        .WithMany("Employees")
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Department");
+                });
+
+            modelBuilder.Entity("Core.Entities.EmployeePermission", b =>
+                {
+                    b.HasOne("Core.Entities.Employee", "Employee")
+                        .WithMany("Permissions")
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Core.Entities.Gate", "Gate")
+                        .WithMany()
+                        .HasForeignKey("GateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Employee");
+
+                    b.Navigation("Gate");
                 });
 
             modelBuilder.Entity("Core.Entities.EquipMatiMovment", b =>
@@ -803,23 +1719,113 @@ namespace DataAccess.Migrations
                     b.Navigation("permit");
                 });
 
-            modelBuilder.Entity("Core.Entities.HumanMovment", b =>
+            modelBuilder.Entity("Core.Entities.EquipmentPermitDetail", b =>
                 {
                     b.HasOne("Core.Entities.Permit", "Permit")
-                        .WithMany("Humans")
-                        .HasForeignKey("PermitId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Core.Entities.Permit", "permit")
-                        .WithMany()
-                        .HasForeignKey("permitId1")
+                        .WithOne("EquipmentDetail")
+                        .HasForeignKey("Core.Entities.EquipmentPermitDetail", "PermitId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Permit");
+                });
 
-                    b.Navigation("permit");
+            modelBuilder.Entity("Core.Entities.MovementLog", b =>
+                {
+                    b.HasOne("Core.Entities.Employee", "Employee")
+                        .WithMany("MovementLogs")
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Core.Entities.Gate", "Gate")
+                        .WithMany()
+                        .HasForeignKey("GateId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Core.Entities.Permit", "Permit")
+                        .WithMany("MovementLogs")
+                        .HasForeignKey("PermitId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Core.Entities.Reader", "Reader")
+                        .WithMany()
+                        .HasForeignKey("ReaderId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Employee");
+
+                    b.Navigation("Gate");
+
+                    b.Navigation("Permit");
+
+                    b.Navigation("Reader");
+                });
+
+            modelBuilder.Entity("Core.Entities.Notification", b =>
+                {
+                    b.HasOne("Core.Entities.Permit", "RelatedPermit")
+                        .WithMany()
+                        .HasForeignKey("RelatedPermitId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Core.Entities.Reader", "RelatedReader")
+                        .WithMany()
+                        .HasForeignKey("RelatedReaderId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("RelatedPermit");
+
+                    b.Navigation("RelatedReader");
+                });
+
+            modelBuilder.Entity("Core.Entities.Permit", b =>
+                {
+                    b.HasOne("Core.Entities.Gate", "Gate")
+                        .WithMany()
+                        .HasForeignKey("GateId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("Core.Entities.Employee", "HostEmployee")
+                        .WithMany()
+                        .HasForeignKey("HostEmployeeId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("Core.Entities.Employee", "RequesterEmployee")
+                        .WithMany()
+                        .HasForeignKey("RequesterEmployeeId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("Core.Entities.WorkflowDefinition", "WorkflowDefinition")
+                        .WithMany()
+                        .HasForeignKey("WorkflowDefinitionId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Gate");
+
+                    b.Navigation("HostEmployee");
+
+                    b.Navigation("RequesterEmployee");
+
+                    b.Navigation("WorkflowDefinition");
+                });
+
+            modelBuilder.Entity("Core.Entities.PermitApproval", b =>
+                {
+                    b.HasOne("Core.Entities.Permit", "Permit")
+                        .WithMany("Approvals")
+                        .HasForeignKey("PermitId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Core.Entities.WorkflowStep", "WorkflowStep")
+                        .WithMany()
+                        .HasForeignKey("WorkflowStepId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Permit");
+
+                    b.Navigation("WorkflowStep");
                 });
 
             modelBuilder.Entity("Core.Entities.ProcedureMovment", b =>
@@ -831,6 +1837,79 @@ namespace DataAccess.Migrations
                         .IsRequired();
 
                     b.Navigation("permit");
+                });
+
+            modelBuilder.Entity("Core.Entities.Reader", b =>
+                {
+                    b.HasOne("Core.Entities.Gate", "Gate")
+                        .WithMany("Readers")
+                        .HasForeignKey("GateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Gate");
+                });
+
+            modelBuilder.Entity("Core.Entities.ReaderDeviceStats", b =>
+                {
+                    b.HasOne("Core.Entities.Reader", "Reader")
+                        .WithMany()
+                        .HasForeignKey("ReaderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Reader");
+                });
+
+            modelBuilder.Entity("Core.Entities.ReaderDowntime", b =>
+                {
+                    b.HasOne("Core.Entities.Reader", "Reader")
+                        .WithMany()
+                        .HasForeignKey("ReaderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Reader");
+                });
+
+            modelBuilder.Entity("Core.Entities.VehiclePermitDetail", b =>
+                {
+                    b.HasOne("Core.Entities.Permit", "Permit")
+                        .WithOne("VehicleDetail")
+                        .HasForeignKey("Core.Entities.VehiclePermitDetail", "PermitId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Permit");
+                });
+
+            modelBuilder.Entity("Core.Entities.VisitorPermitDetail", b =>
+                {
+                    b.HasOne("Core.Entities.Employee", "HostEmployee")
+                        .WithMany()
+                        .HasForeignKey("HostEmployeeId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("Core.Entities.Permit", "Permit")
+                        .WithOne("VisitorDetail")
+                        .HasForeignKey("Core.Entities.VisitorPermitDetail", "PermitId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("HostEmployee");
+
+                    b.Navigation("Permit");
+                });
+
+            modelBuilder.Entity("Core.Entities.WorkflowStep", b =>
+                {
+                    b.HasOne("Core.Entities.WorkflowDefinition", "WorkflowDefinition")
+                        .WithMany("Steps")
+                        .HasForeignKey("WorkflowDefinitionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("WorkflowDefinition");
                 });
 
             modelBuilder.Entity("GatePermitType", b =>
@@ -899,15 +1978,47 @@ namespace DataAccess.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Core.Entities.Department", b =>
+                {
+                    b.Navigation("Employees");
+                });
+
+            modelBuilder.Entity("Core.Entities.Employee", b =>
+                {
+                    b.Navigation("BiometricTemplates");
+
+                    b.Navigation("MovementLogs");
+
+                    b.Navigation("Permissions");
+                });
+
+            modelBuilder.Entity("Core.Entities.Gate", b =>
+                {
+                    b.Navigation("Readers");
+                });
+
             modelBuilder.Entity("Core.Entities.Permit", b =>
                 {
+                    b.Navigation("Approvals");
+
                     b.Navigation("Cars");
+
+                    b.Navigation("EquipmentDetail");
 
                     b.Navigation("EquipmentsAndMatirials");
 
-                    b.Navigation("Humans");
+                    b.Navigation("MovementLogs");
 
                     b.Navigation("Procedures");
+
+                    b.Navigation("VehicleDetail");
+
+                    b.Navigation("VisitorDetail");
+                });
+
+            modelBuilder.Entity("Core.Entities.WorkflowDefinition", b =>
+                {
+                    b.Navigation("Steps");
                 });
 #pragma warning restore 612, 618
         }

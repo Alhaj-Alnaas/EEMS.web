@@ -1,0 +1,19 @@
+.navbar-custom {
+    background-color: #fd7e14;
+}
+
+.navbar-custom .nav-link,
+.navbar-custom .navbar-brand {
+    color: #fff;
+    font-weight: 500;
+}
+
+.navbar-custom .nav-link:hover,
+.navbar-custom .dropdown-item:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-radius: 5px;
+}
+
+.navbar-custom .dropdown-menu {
+    text-align: right;
+}

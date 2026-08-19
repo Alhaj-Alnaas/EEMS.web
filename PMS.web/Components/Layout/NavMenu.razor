@@ -1,0 +1,88 @@
+@using Microsoft.AspNetCore.Components.Authorization
+
+<nav class="navbar navbar-expand-lg navbar-custom shadow-sm mb-3">
+    <div class="container-fluid">
+        <a class="navbar-brand d-flex align-items-center" href="/dashboard">
+            <i class="bi bi-shield-lock-fill me-2"></i>
+            نظام إدارة التصاريح الموحد
+        </a>
+
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="mainNavbar">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item">
+                    <a class="nav-link" href="/dashboard">
+                        <i class="bi bi-house-door-fill me-1"></i> الرئيسية
+                    </a>
+                </li>
+
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-fingerprint me-1"></i> المرحلة الأولى - الدخول البيومتري
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="/employees"><i class="bi bi-people me-1"></i> الموظفون</a></li>
+                        <li><a class="dropdown-item" href="/devices/readers"><i class="bi bi-hdd-network me-1"></i> أجهزة القراءة</a></li>
+                        <li><a class="dropdown-item" href="/devices/monitor"><i class="bi bi-display me-1"></i> مراقبة الأجهزة</a></li>
+                        <li><a class="dropdown-item" href="/access/permissions"><i class="bi bi-key me-1"></i> صلاحيات الدخول</a></li>
+                        <li><a class="dropdown-item" href="/movements"><i class="bi bi-arrow-left-right me-1"></i> سجل الحركة</a></li>
+                    </ul>
+                </li>
+
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-file-earmark-text-fill me-1"></i> المرحلة الثانية - التصاريح
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="/permits"><i class="bi bi-list-check me-1"></i> عرض التصاريح</a></li>
+                        <li><hr class="dropdown-divider" /></li>
+                        <li><a class="dropdown-item" href="/permits/materials/create"><i class="bi bi-box-arrow-in-down-right me-1"></i> تصريح مواد جديد</a></li>
+                        <li><a class="dropdown-item" href="/permits/visitors/create"><i class="bi bi-person-badge me-1"></i> تصريح زوار جديد</a></li>
+                        <li><a class="dropdown-item" href="/permits/vehicles/create"><i class="bi bi-truck me-1"></i> تصريح سيارات جديد</a></li>
+                        <li><hr class="dropdown-divider" /></li>
+                        <li><a class="dropdown-item" href="/gate-officer"><i class="bi bi-qr-code-scan me-1"></i> نقطة تفتيش البوابة</a></li>
+                        <li><a class="dropdown-item" href="/admin/workflows"><i class="bi bi-diagram-3 me-1"></i> مسارات الاعتماد</a></li>
+                    </ul>
+                </li>
+
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-gear-fill me-1"></i> الإدارة
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="/admin/gates"><i class="bi bi-door-open-fill me-1"></i> البوابات</a></li>
+                        <li><a class="dropdown-item" href="/admin/users"><i class="bi bi-person-lines-fill me-1"></i> المستخدمون</a></li>
+                        <li><a class="dropdown-item" href="/admin/users/create"><i class="bi bi-person-plus-fill me-1"></i> إضافة مستخدم</a></li>
+                    </ul>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link" href="/reports">
+                        <i class="bi bi-bar-chart-fill me-1"></i> التقارير
+                    </a>
+                </li>
+            </ul>
+
+            <AuthorizeView>
+                <Authorized>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="text-white small d-none d-lg-inline">
+                            <i class="bi bi-person-fill"></i> @context.User.Identity?.Name
+                        </span>
+                        <a class="btn btn-outline-light btn-sm" href="/logout">
+                            <i class="bi bi-box-arrow-right"></i> تسجيل الخروج
+                        </a>
+                    </div>
+                </Authorized>
+                <NotAuthorized>
+                    <a class="btn btn-outline-light btn-sm" href="/login">
+                        <i class="bi bi-box-arrow-in-left"></i> تسجيل الدخول
+                    </a>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
+    </div>
+</nav>

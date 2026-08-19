@@ -1,0 +1,148 @@
+@page "/login"
+@layout PMS.web.Components.Layout.EmptyLayout
+@attribute [AllowAnonymous]
+@using Microsoft.AspNetCore.Identity
+@using Core.Models
+@inject SignInManager<User> SignInManager
+@inject UserManager<User> UserManager
+@inject IGates GateService
+@inject NavigationManager Navigation
+@inject IConfiguration Configuration
+
+<PageTitle>تسجيل الدخول - PMS</PageTitle>
+
+@if (DesignMode)
+{
+    <div class="pms-login-card">
+        <div class="pms-login-header">
+            <i class="fas fa-id-card"></i>
+            <h4 class="mb-0">وضع التصميم مفعّل</h4>
+            <small>تسجيل الدخول معطّل مؤقتاً</small>
+        </div>
+        <div class="pms-login-body text-center">
+            <p class="text-muted mb-3">يمكنك استكشاف الواجهة مباشرة بدون مصادقة.</p>
+            <a class="btn btn-dark w-100" href="/dashboard">الدخول للوحة الرئيسية</a>
+        </div>
+    </div>
+}
+else
+{
+    <div class="pms-login-card">
+        <div class="pms-login-header">
+            <i class="bi bi-shield-lock-fill"></i>
+            <h4 class="mb-0">نظام إدارة التصاريح الموحد</h4>
+            <small>Unified Permit Management System</small>
+        </div>
+        <div class="pms-login-body">
+            @if (!string.IsNullOrEmpty(ErrorMessage))
+            {
+                <div class="alert alert-danger py-2">@ErrorMessage</div>
+            }
+
+            <EditForm Model="Input" method="post" OnValidSubmit="LoginUserAsync" FormName="login">
+                <DataAnnotationsValidator />
+
+                <div class="mb-3">
+                    <label class="form-label">رقم الملف</label>
+                    <InputText class="form-control" @bind-Value="Input.Username" placeholder="رقم الملف الوظيفي" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">كلمة المرور</label>
+                    <InputText type="password" class="form-control" @bind-Value="Input.Password" placeholder="••••••••" />
+                </div>
+
+                @if (Gates.Count > 0)
+                {
+                    <div class="mb-3">
+                        <label class="form-label">البوابة <small class="text-muted">(لموظفي الأمن فقط)</small></label>
+                        <InputSelect class="form-select" @bind-Value="Input.SelectedGate">
+                            <option value="">-- اختر البوابة --</option>
+                            @foreach (var g in Gates)
+                            {
+                                <option value="@g.Id">@g.no - @g.description</option>
+                            }
+                        </InputSelect>
+                    </div>
+                }
+
+                <button type="submit" class="btn btn-dark w-100 mt-2">
+                    <i class="bi bi-box-arrow-in-left"></i> دخول
+                </button>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    private bool DesignMode;
+
+    [SupplyParameterFromForm]
+    private LoginViewModel Input { get; set; } = new();
+
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+
+    private string? ErrorMessage;
+    private List<Gate> Gates = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        DesignMode = Configuration.GetValue("DesignMode:DisableAuthentication", false);
+        if (DesignMode)
+        {
+            Navigation.NavigateTo("/dashboard", replace: true);
+            return;
+        }
+
+        if (HttpContext?.User?.Identity?.IsAuthenticated == true)
+        {
+            Navigation.NavigateTo(ReturnUrl ?? "/dashboard", forceLoad: true);
+            return;
+        }
+
+        Gates = (await GateService.GetAllAsync()).Where(g => g.isActive).ToList();
+    }
+
+    private async Task LoginUserAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Input.Username) || string.IsNullOrWhiteSpace(Input.Password))
+        {
+            ErrorMessage = "الرجاء إدخال رقم الملف وكلمة المرور.";
+            return;
+        }
+
+        var user = await UserManager.FindByNameAsync(Input.Username);
+        if (user == null)
+        {
+            ErrorMessage = "اسم المستخدم غير موجود.";
+            return;
+        }
+
+        if (!string.Equals(user.JobStatus?.Trim(), "AE", StringComparison.OrdinalIgnoreCase))
+        {
+            ErrorMessage = "الحالة الوظيفية غير فعالة، لا يمكن الدخول.";
+            return;
+        }
+
+        if (user.UserType == "SaftyUser" && string.IsNullOrEmpty(Input.SelectedGate))
+        {
+            ErrorMessage = "يرجى اختيار البوابة.";
+            return;
+        }
+
+        var result = await SignInManager.PasswordSignInAsync(
+            Input.Username, Input.Password, isPersistent: false, lockoutOnFailure: false);
+
+        if (!result.Succeeded)
+        {
+            ErrorMessage = "اسم المستخدم أو كلمة المرور غير صحيحة.";
+            return;
+        }
+
+        Navigation.NavigateTo(ReturnUrl ?? "/dashboard", forceLoad: true);
+    }
+}

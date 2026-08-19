@@ -1,0 +1,48 @@
+@page "/permits/vehicles/create"
+@rendermode InteractiveServer
+
+<PageTitle>تصريح سيارات جديد - PMS</PageTitle>
+
+<h3 class="mb-4"><i class="bi bi-truck text-warning"></i> إضافة تصريح سيارات جديد</h3>
+
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i>
+    نموذج تصريح السيارات المستقل قيد التطوير — المرحلة الثانية. لتصاريح المواد المصحوبة بسيارات استخدم تصريح المواد.
+</div>
+
+<div class="card">
+    <div class="card-header pms-header">بيانات السيارة</div>
+    <div class="card-body">
+        <EditForm Model="model">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">رقم اللوحة</label>
+                    <InputText class="form-control" @bind-Value="model.PlateNumber" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">نوع المركبة</label>
+                    <InputText class="form-control" @bind-Value="model.VehicleType" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">اسم السائق</label>
+                    <InputText class="form-control" @bind-Value="model.DriverName" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">رقم رخصة القيادة</label>
+                    <InputText class="form-control" @bind-Value="model.LicenseNo" />
+                </div>
+            </div>
+
+            <div class="mt-4 text-center">
+                <button type="button" class="btn btn-warning px-4" disabled title="سيتم تفعيله عند اكتمال مسار الاعتماد">
+                    <i class="bi bi-save"></i> حفظ (قيد التطوير)
+                </button>
+                <a href="/permits" class="btn btn-outline-secondary px-4">رجوع</a>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private VehiclePermitDetail model = new();
+}

@@ -1,0 +1,189 @@
+@page "/devices/monitor"
+@rendermode InteractiveServer
+@inject IServiceScopeFactory ScopeFactory
+@implements IDisposable
+
+<PageTitle>حالة الأجهزة - PMS</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h3 class="mb-0"><i class="bi bi-display-fill text-warning"></i> حالة الأجهزة</h3>
+    <div class="d-flex gap-2 flex-wrap">
+        <div class="form-check form-switch align-self-center">
+            <input class="form-check-input" type="checkbox" id="autoRefresh" @bind="autoRefresh" />
+            <label class="form-check-label small" for="autoRefresh">تحديث تلقائي</label>
+        </div>
+        <button class="btn btn-outline-secondary btn-sm" @onclick="() => LoadAsync()" disabled="@loading">
+            <i class="bi bi-arrow-clockwise"></i> تحديث
+        </button>
+    </div>
+</div>
+
+@if (loading)
+{
+    <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+}
+else
+{
+    <div class="row g-3 mb-4">
+        <div class="col-md-3 col-6">
+            <div class="card text-center p-3 border-success">
+                <div class="fs-3 text-success fw-bold">@readers.Count(r => r.Status == ReaderStatus.Online)</div>
+                <div class="text-muted small">متصل</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card text-center p-3">
+                <div class="fs-3 fw-bold">@readers.Count(r => r.Status == ReaderStatus.Offline)</div>
+                <div class="text-muted small">غير متصل</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card text-center p-3 border-danger">
+                <div class="fs-3 text-danger fw-bold">@readers.Count(r => r.Status == ReaderStatus.Faulty)</div>
+                <div class="text-muted small">معطل</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card text-center p-3 border-warning">
+                <div class="fs-3 text-warning fw-bold">@pendingCount</div>
+                <div class="text-muted small">أوامر معلّقة</div>
+            </div>
+        </div>
+    </div>
+
+    @if (readers.Count == 0)
+    {
+        <div class="pms-placeholder">
+            <i class="bi bi-broadcast"></i>
+            <h5>لا توجد أجهزة لعرض حالتها حالياً</h5>
+            <a href="/devices/readers" class="btn btn-warning btn-sm mt-2">إدارة القارئات</a>
+        </div>
+    }
+    else
+    {
+        <div class="row g-3">
+            @foreach (var r in readers)
+            {
+                <div class="col-lg-4 col-md-6">
+                    <div class="card h-100">
+                        <div class="card-body d-flex flex-column">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">@(string.IsNullOrWhiteSpace(r.Name) ? r.DeviceSerial : r.Name)</h6>
+                                    <div class="text-muted small">بوابة @(r.Gate?.no ?? "-") · <code>@r.DeviceSerial</code></div>
+                                </div>
+                                <i class="bi bi-hdd-network fs-3 @IconClass(r.Status)"></i>
+                            </div>
+                            <div class="mt-3">
+                                <span class="badge @BadgeClass(r.Status)">@Label(r.Status)</span>
+                                @if (!r.IsActive)
+                                {
+                                    <span class="badge bg-secondary ms-1">موقوفة</span>
+                                }
+                                @if (r.ConsecutiveFailures > 0)
+                                {
+                                    <span class="badge bg-secondary ms-1">فشل × @r.ConsecutiveFailures</span>
+                                }
+                            </div>
+                            @{var st = readerStats.GetValueOrDefault(r.Id);}
+                            <div class="small text-muted mt-2">
+                                @(r.IpAddress ?? "-")@(r.Port.HasValue ? $":{r.Port}" : "")
+                            </div>
+                            @if (st != null)
+                            {
+                                <div class="small mt-1">
+                                    <span title="موظفون">👤 @st.UserCount</span>
+                                    <span class="ms-2" title="وجوه">🪪 @st.FaceCount</span>
+                                    <span class="ms-2" title="بصمات">🖐 @st.FingerprintCount</span>
+                                </div>
+                            }
+                            <a class="btn btn-outline-warning btn-sm mt-auto" href="/devices/monitor/@r.Id">
+                                <i class="bi bi-info-circle"></i> التفاصيل
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    private bool loading = true;
+    private bool autoRefresh = true;
+    private List<Reader> readers = new();
+    private Dictionary<Guid, ReaderDeviceStats> readerStats = new();
+    private int pendingCount;
+    private System.Threading.Timer? _timer;
+    private readonly SemaphoreSlim _loadLock = new(1, 1);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+        _timer = new System.Threading.Timer(async _ =>
+        {
+            if (!autoRefresh) return;
+            await InvokeAsync(async () =>
+            {
+                await LoadAsync(silent: true);
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
+    }
+
+    private async Task LoadAsync(bool silent = false)
+    {
+        await _loadLock.WaitAsync();
+        try
+        {
+            if (!silent) loading = true;
+            using var scope = ScopeFactory.CreateScope();
+            var readerService = scope.ServiceProvider.GetRequiredService<IReaderService>();
+            var commandService = scope.ServiceProvider.GetRequiredService<IDeviceCommandService>();
+
+            readers = await readerService.GetAllAsync();
+            pendingCount = (await commandService.GetPendingAsync(200)).Count;
+
+            var statsService = scope.ServiceProvider.GetRequiredService<IReaderDeviceStatsService>();
+            var statsDict = new Dictionary<Guid, ReaderDeviceStats>();
+            foreach (var r in readers)
+            {
+                var s = await statsService.GetByReaderAsync(r.Id);
+                if (s != null) statsDict[r.Id] = s;
+            }
+            readerStats = statsDict;
+        }
+        finally
+        {
+            if (!silent) loading = false;
+            _loadLock.Release();
+        }
+    }
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
+        _loadLock.Dispose();
+    }
+
+    private static string Label(ReaderStatus s) => s switch
+    {
+        ReaderStatus.Online => "متصل",
+        ReaderStatus.Faulty => "معطل / خطأ",
+        _ => "غير متصل"
+    };
+
+    private static string BadgeClass(ReaderStatus s) => s switch
+    {
+        ReaderStatus.Online => "status-approved",
+        ReaderStatus.Faulty => "bg-danger",
+        _ => "status-rejected"
+    };
+
+    private static string IconClass(ReaderStatus s) => s switch
+    {
+        ReaderStatus.Online => "text-success",
+        ReaderStatus.Faulty => "text-danger",
+        _ => "text-secondary"
+    };
+}

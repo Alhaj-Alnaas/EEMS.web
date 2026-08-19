@@ -1,0 +1,84 @@
+@page "/admin/users"
+@rendermode InteractiveServer
+@inject UserManager<User> UserManager
+@using Microsoft.AspNetCore.Identity
+
+<PageTitle>المستخدمون - PMS</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3><i class="bi bi-person-lines-fill text-warning"></i> إدارة المستخدمين</h3>
+    <a class="btn btn-warning" href="/admin/users/create"><i class="bi bi-person-plus-fill"></i> إضافة مستخدم</a>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <div class="input-group">
+            <input class="form-control" placeholder="ابحث برقم الملف..." @bind="searchTerm" @bind:event="oninput" />
+            <button class="btn btn-outline-warning" @onclick="LoadAsync"><i class="bi bi-search"></i> بحث</button>
+        </div>
+    </div>
+</div>
+
+@if (loading)
+{
+    <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+}
+else if (users.Count == 0)
+{
+    <div class="pms-placeholder">
+        <i class="bi bi-people"></i>
+        <h5>لا يوجد مستخدمون مطابقون</h5>
+    </div>
+}
+else
+{
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>الرقم الوظيفي</th>
+                        <th>الاسم الكامل</th>
+                        <th>الإدارة</th>
+                        <th>نوع الوظيفة</th>
+                        <th>نوع المستخدم</th>
+                        <th>الحالة الوظيفية</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var u in users)
+                    {
+                        <tr>
+                            <td>@u.FileNumber</td>
+                            <td>@u.FullName</td>
+                            <td>@u.Department</td>
+                            <td>@u.JobtypeName</td>
+                            <td>@u.UserType</td>
+                            <td>@u.JobStatus</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    private bool loading = true;
+    private string searchTerm = "";
+    private List<User> users = new();
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        var query = UserManager.Users.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            query = query.Where(u => u.FileNumber.Contains(searchTerm));
+        }
+        users = query.OrderBy(u => u.FullName).Take(200).ToList();
+        loading = false;
+    }
+}

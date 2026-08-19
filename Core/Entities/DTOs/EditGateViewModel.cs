@@ -28,5 +28,5 @@ public class EditGateViewModel
     // قائمة الـ IDs المحددة من قبل المستخدم (Many-to-Many)
     [Required(ErrorMessage = "يجب اختيار نوع واحد على الأقل من التصاريح")]
     [Display(Name = "أنواع التصاريح المسموح بها")]
-    public List<int> SelectedPermitTypeIds { get; set; } = new List<int>();
+    public List<Guid> SelectedPermitTypeIds { get; set; } = new List<Guid>();
 }

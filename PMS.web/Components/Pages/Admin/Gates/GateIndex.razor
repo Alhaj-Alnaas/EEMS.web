@@ -1,0 +1,87 @@
+@page "/admin/gates"
+@rendermode InteractiveServer
+@inject IGates GateService
+@inject NavigationManager Navigation
+
+<PageTitle>البوابات - PMS</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3><i class="bi bi-door-open-fill text-warning"></i> إدارة البوابات</h3>
+    <a class="btn btn-warning" href="/admin/gates/edit/@Guid.Empty"><i class="bi bi-plus-circle"></i> إضافة بوابة</a>
+</div>
+
+@if (loading)
+{
+    <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+}
+else if (gates.Count == 0)
+{
+    <div class="pms-placeholder">
+        <i class="bi bi-door-closed"></i>
+        <h5>لا توجد بوابات مسجلة بعد</h5>
+    </div>
+}
+else
+{
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>رقم البوابة</th>
+                        <th>الوصف</th>
+                        <th>نشطة</th>
+                        <th>ملاحظات</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var g in gates)
+                    {
+                        <tr>
+                            <td class="fw-bold">@g.no</td>
+                            <td>@g.description</td>
+                            <td>
+                                @if (g.isActive)
+                                {
+                                    <span class="badge status-approved">نشطة</span>
+                                }
+                                else
+                                {
+                                    <span class="badge status-rejected">غير نشطة</span>
+                                }
+                            </td>
+                            <td>@g.remarks</td>
+                            <td>
+                                <a class="btn btn-sm btn-outline-secondary" href="/admin/gates/edit/@g.Id"><i class="bi bi-pencil"></i> تعديل</a>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(g.Id)"><i class="bi bi-trash"></i> حذف</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    private bool loading = true;
+    private List<Gate> gates = new();
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        gates = (await GateService.GetAllAsync()).ToList();
+        loading = false;
+    }
+
+    private async Task DeleteAsync(Guid id)
+    {
+        var gate = await GateService.GetByIdAsync(id, false);
+        if (gate == null) return;
+        await GateService.DeleteAsync(gate);
+        await LoadAsync();
+    }
+}

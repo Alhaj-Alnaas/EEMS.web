@@ -1,12 +1,12 @@
 ﻿using Core.Entities;
 using System.ComponentModel.DataAnnotations;
 
-namespace EEMS.web.ViewModels
+namespace PMS.web.ViewModels
 {
     public class CreateGateViewModel
     {
         [Required(ErrorMessage = "يجب اختيار نوع تصريح واحد على الأقل")]
-        public List<int> SelectedPermitTypeIds { get; set; } = new();
+        public List<Guid> SelectedPermitTypeIds { get; set; } = new();
 
         public List<PermitType> PermitTypes { get; set; } = new();
 

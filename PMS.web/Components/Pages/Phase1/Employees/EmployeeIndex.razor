@@ -1,0 +1,145 @@
+@page "/employees"
+@rendermode InteractiveServer
+@inject IEmployeeService EmployeeService
+@inject IServiceScopeFactory ScopeFactory
+@inject NavigationManager Navigation
+
+<PageTitle>الموظفون - PMS</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h3 class="mb-0"><i class="bi bi-people-fill text-warning"></i> الموظفون (المرحلة الأولى)</h3>
+    <div class="d-flex gap-2 flex-wrap">
+        <button class="btn btn-outline-secondary btn-sm" @onclick="SyncFromReadersAsync" disabled="@syncing">
+            <i class="bi bi-arrow-repeat@(syncing ? " spin" : "")"></i> مزامنة من القارئات
+        </button>
+        <a class="btn btn-warning" href="/employees/@Guid.Empty">
+            <i class="bi bi-plus-circle"></i> إضافة موظف
+        </a>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(syncMessage))
+{
+    <div class="alert @(syncOk ? "alert-success" : "alert-info") alert-dismissible fade show py-2 small">
+        @syncMessage
+        <button type="button" class="btn-close" @onclick="() => syncMessage = null"></button>
+    </div>
+}
+
+@if (loading)
+{
+    <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+}
+else if (employees.Count == 0)
+{
+    <div class="pms-placeholder">
+        <i class="bi bi-people"></i>
+        <h5>لا يوجد موظفون مسجلون بعد</h5>
+        <p>قم بإضافة أول موظف أو اضغط «مزامنة من القارئات» لجلب الموظفين من أجهزة البصمة.</p>
+    </div>
+}
+else
+{
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>الرقم الوظيفي</th>
+                        <th>الاسم الكامل</th>
+                        <th>الإدارة</th>
+                        <th>الحالة الوظيفية</th>
+                        <th>الجنسية</th>
+                        <th>مضيف زوار</th>
+                        <th>نشط</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var e in employees)
+                    {
+                        <tr>
+                            <td>@(string.IsNullOrWhiteSpace(e.FileNumber) ? "-" : e.FileNumber)</td>
+                            <td>@(string.IsNullOrWhiteSpace(e.FullName) ? "-" : e.FullName)</td>
+                            <td>@(e.Department?.NameAr ?? "-")</td>
+                            <td>@e.JobStatus</td>
+                            <td>@e.Nationality</td>
+                            <td>@(e.HostCapable ? "نعم" : "لا")</td>
+                            <td>
+                                @if (e.IsActive)
+                                {
+                                    <span class="badge status-approved">نشط</span>
+                                }
+                                else
+                                {
+                                    <span class="badge status-rejected">غير نشط</span>
+                                }
+                            </td>
+                            <td class="text-nowrap">
+                                <a class="btn btn-sm btn-outline-secondary" href="/employees/@e.Id">
+                                    <i class="bi bi-pencil"></i> تعديل
+                                </a>
+                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(e)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+<style>
+    .spin { animation: spin 1s linear infinite; display: inline-block; }
+    @@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+</style>
+
+@code {
+    private List<Employee> employees = new();
+    private bool loading = true;
+    private bool syncing;
+    private bool syncOk;
+    private string? syncMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        employees = await EmployeeService.GetAllAsync();
+        loading = false;
+    }
+
+    private async Task SyncFromReadersAsync()
+    {
+        syncing = true;
+        syncMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var statsService = scope.ServiceProvider.GetRequiredService<IReaderDeviceStatsService>();
+            await statsService.EnqueueCommandsAllAsync(
+                DeviceCommandType.QueryUserInfo);
+
+            syncOk = true;
+            syncMessage = "تم إرسال أمر جلب الموظفين لجميع القارئات. ستُحدَّث القائمة عند استجابة القارئات — أعد تحميل الصفحة بعد ثوانٍ.";
+        }
+        catch (Exception ex)
+        {
+            syncOk = false;
+            syncMessage = $"خطأ: {ex.Message}";
+        }
+        finally
+        {
+            syncing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DeleteAsync(Employee employee)
+    {
+        await EmployeeService.DeleteAsync(employee.Id);
+        employees.Remove(employee);
+    }
+}

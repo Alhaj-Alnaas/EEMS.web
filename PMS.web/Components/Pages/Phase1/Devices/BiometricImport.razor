@@ -1,0 +1,410 @@
+@page "/devices/biometrics"
+@rendermode InteractiveServer
+@inject IServiceScopeFactory ScopeFactory
+@inject IDevicePushLogService PushLog
+@inject IReaderSyncStateService SyncState
+@inject IReaderConnectionLogService ConnectionLog
+@implements IDisposable
+
+<PageTitle>استيراد البصمات - PMS</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h3 class="mb-0"><i class="bi bi-fingerprint text-warning"></i> استيراد بصمات الموظفين من القارئة</h3>
+    <div class="d-flex gap-2 flex-wrap">
+        <button class="btn btn-warning btn-sm" @onclick="SyncAllAsync" disabled="@busy">
+            <i class="bi bi-arrow-repeat"></i> سحب كامل من القارئة
+        </button>
+        <button class="btn btn-outline-warning btn-sm" @onclick="RequestUsersAsync" disabled="@busy">
+            <i class="bi bi-people"></i> طلب المستخدمين
+        </button>
+        <button class="btn btn-outline-warning btn-sm" @onclick="RequestFingerprintsAsync" disabled="@busy">
+            <i class="bi bi-fingerprint"></i> طلب قوالب البصمات
+        </button>
+        <button class="btn btn-outline-secondary btn-sm" @onclick="() => LoadAsync()" disabled="@loading">
+            <i class="bi bi-arrow-clockwise"></i> تحديث
+        </button>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(message))
+{
+    <div class="alert @(messageOk ? "alert-success" : "alert-info") alert-dismissible fade show py-2 small">
+        @message
+        <button type="button" class="btn-close" @onclick="() => message = null"></button>
+    </div>
+}
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label small mb-1">رقم PIN على القارئة (اختياري)</label>
+                <input class="form-control form-control-sm" @bind="pinFilter" placeholder="اتركه فارغاً لطلب الجميع (*)" />
+            </div>
+            <div class="col-md-8 small text-muted">
+                عند تحديد PIN يُرسل الأمر لهذا المستخدم فقط، وهو الأسلوب الأكثر توافقاً مع بعض إصدارات الفيرموير.
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (pendingCount > 0 && !hasPollHits)
+{
+    <div class="alert alert-warning small mb-3">
+        <strong>كل الأوامر Pending؟</strong> هذا يعني أن القارئة <em>لم تستعلم عن الأوامر بعد</em>.
+        يجب أن يظهر في <a href="/devices/monitor">حالة الأجهزة</a> طلب من IP القارئة (<code>10.205.0.49</code>)
+        إلى <code>/iclock/getrequest</code> أو <code>/iclock/ping</code>.
+        إذا ظهر فقط <code>/iclock/cdata</code> أو <code>/iclock/registry</code> بدون ping/getrequest — الأوامر لن تُنفَّذ.
+        <div class="mt-1">بعد إعادة تشغيل التطبيق، انتظر 30–60 ثانية ثم اضغط «سحب كامل» مرة أخرى.</div>
+    </div>
+}
+
+<div class="alert alert-info small mb-3">
+    <strong>آلية العمل:</strong> النظام لا يسحب البيانات من القارئة مباشرة. يضع أمراً في الطابور،
+    والقارئة تستلمه عند استعلامها الدوري (<code>/iclock/getrequest</code> أو <code>/iclock/ping</code>) ثم ترفع البيانات
+    إلى <code>/iclock/cdata</code>، وعندها يستوردها النظام.
+    <ol class="mb-0 mt-1">
+        <li>اضغط <strong>سحب كامل من القارئة</strong> — يُصفّر الطوابع ويرسل INFO + USERINFO + FINGERTMP + BIODATA.</li>
+        <li>انتظر 30–90 ثانية (القارئة تستعلم كل ~30 ثانية)، ثم اضغط <strong>تحديث</strong>.</li>
+        <li>قارن <strong>أعداد القارئة</strong> (من INFO) مع <strong>أعداد قاعدة البيانات</strong> أدناه.</li>
+    </ol>
+</div>
+
+@if (readers.Count > 0)
+{
+    <div class="card mb-3">
+        <div class="card-header small fw-semibold">مقارنة الأعداد</div>
+        <div class="card-body py-2">
+            @foreach (var r in readers)
+            {
+                var snap = SyncState.GetSnapshot(r.DeviceSerial);
+                <div class="row g-2 small mb-2 pb-2 border-bottom">
+                    <div class="col-md-4">
+                        <span class="badge @(r.Status == ReaderStatus.Online ? "status-approved" : "status-rejected")">
+                            @(string.IsNullOrWhiteSpace(r.Name) ? r.DeviceSerial : r.Name)
+                        </span>
+                        <div class="text-muted">@r.DeviceSerial · @r.Status</div>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>على القارئة</strong> (INFO)
+                        @if (snap == null || (snap.UserCount == null && snap.FingerprintCount == null && snap.FaceCount == null))
+                        {
+                            <div class="text-muted">بانتظار أعداد المستخدمين من الجهاز</div>
+                        }
+                        else
+                        {
+                            <div>مستخدمون: <strong>@(snap.UserCount?.ToString() ?? "—")</strong></div>
+                            <div>بصمات: <strong>@(snap.FingerprintCount?.ToString() ?? "—")</strong></div>
+                            <div>وجوه: <strong>@(snap.FaceCount?.ToString() ?? "—")</strong></div>
+                            <div class="text-muted">آخر تحديث: @snap.UpdatedAt.ToString("HH:mm:ss")</div>
+                        }
+                    </div>
+                    <div class="col-md-4">
+                        <strong>في قاعدة البيانات</strong>
+                        <div>موظفون: <strong>@employeeCount</strong></div>
+                        <div>قوالب بصمة: <strong>@templateCount</strong></div>
+                        <div class="text-muted">أوامر معلّقة: @pendingCount</div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    @if (recentCommands.Count > 0)
+    {
+        <div class="card mb-3">
+            <div class="card-header small fw-semibold">آخر الأوامر المرسلة للقارئة</div>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr>
+                            <th>الوقت</th>
+                            <th>النوع</th>
+                            <th>الحالة</th>
+                            <th>ملاحظة</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var c in recentCommands)
+                        {
+                            <tr>
+                                <td class="small">@c.createdOn.ToString("HH:mm:ss")</td>
+                                <td><code>@c.CommandType</code></td>
+                                <td>@c.Status</td>
+                                <td class="small text-muted">@(c.LastError ?? c.Payload ?? "-")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+@if (loading)
+{
+    <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+}
+else
+{
+    @if (templates.Count == 0)
+    {
+        <div class="pms-placeholder mb-3">
+            <i class="bi bi-fingerprint"></i>
+            <h5>لا توجد بصمات مستوردة بعد</h5>
+            <p>اضغط «مزامنة كاملة» وانتظر رفع القارئة للبيانات، ثم راجع سجل الرفع أدناه.</p>
+        </div>
+    }
+    else
+    {
+        <div class="card mb-3">
+            <div class="card-header small text-muted">آخر @templates.Count قالب بصمة</div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 table-sm">
+                    <thead>
+                        <tr>
+                            <th>الرقم الوظيفي (PIN)</th>
+                            <th>اسم الموظف</th>
+                            <th>النوع</th>
+                            <th>حجم البيانات</th>
+                            <th>معتمد</th>
+                            <th>المصدر</th>
+                            <th>تاريخ الاستيراد</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var t in templates)
+                        {
+                            <tr>
+                                <td><code>@(t.Employee?.FileNumber ?? "-")</code></td>
+                                <td>@(t.Employee?.FullName ?? "-")</td>
+                                <td>@t.TemplateType</td>
+                                <td>@(t.TemplateData?.Length ?? 0) بايت</td>
+                                <td>
+                                    @if (t.IsApproved)
+                                    {
+                                        <span class="badge status-approved">نعم</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge status-rejected">لا</span>
+                                    }
+                                </td>
+                                <td class="small">@(t.remarks ?? t.ApprovedBy ?? "-")</td>
+                                <td class="small">@t.createdOn.ToString("yyyy/MM/dd HH:mm")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    <div class="card">
+        <div class="card-header fw-semibold d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span><i class="bi bi-upload text-warning"></i> سجل بيانات الرفع من القارئة @(pushes.Count == 0 ? "(فارغ)" : $"(آخر {pushes.Count})")</span>
+            <span class="small text-muted">يُمسح عند إعادة تشغيل التطبيق</span>
+        </div>
+        @if (pushes.Count == 0)
+        {
+            <div class="card-body small text-muted">
+                لم ترفع القارئة أي بيانات بعد. إذا كان الاتصال يعمل (طلبات <code>/iclock</code> ظاهرة في سجل الأجهزة)
+                لكن لا يوجد رفع، فالجهاز لا يرى بيانات جديدة — استخدم «مزامنة كاملة (CHECK)».
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>الوقت</th>
+                            <th>SN</th>
+                            <th>الجدول</th>
+                            <th>الأسطر</th>
+                            <th>النتيجة</th>
+                            <th>معاينة البيانات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in pushes)
+                        {
+                            <tr>
+                                <td class="small">@p.ReceivedAt.ToString("HH:mm:ss")</td>
+                                <td><code>@p.DeviceSerial</code></td>
+                                <td><span class="badge bg-secondary">@p.Table</span></td>
+                                <td class="small">@p.LineCount (@p.ByteCount بايت)</td>
+                                <td class="small">@p.Outcome</td>
+                                <td><code class="small d-block text-break">@p.Preview</code></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private bool loading = true;
+    private bool busy;
+    private bool messageOk;
+    private string? message;
+    private string? pinFilter;
+    private List<Reader> readers = new();
+    private List<BiometricTemplate> templates = new();
+    private List<DevicePushEvent> pushes = new();
+    private List<DeviceCommand> recentCommands = new();
+    private int employeeCount;
+    private int templateCount;
+    private int pendingCount;
+    private bool hasPollHits;
+    private System.Threading.Timer? _timer;
+    private readonly SemaphoreSlim _loadLock = new(1, 1);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+        _timer = new System.Threading.Timer(async _ =>
+        {
+            if (busy) return;
+            await InvokeAsync(async () =>
+            {
+                await LoadAsync(silent: true);
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(15));
+    }
+
+    private async Task LoadAsync(bool silent = false)
+    {
+        await _loadLock.WaitAsync();
+        try
+        {
+            if (!silent) loading = true;
+            using var scope = ScopeFactory.CreateScope();
+            var readerService = scope.ServiceProvider.GetRequiredService<IReaderService>();
+            var bioService = scope.ServiceProvider.GetRequiredService<IBiometricTemplateService>();
+            var employees = scope.ServiceProvider.GetRequiredService<IEmployeeService>();
+            var commands = scope.ServiceProvider.GetRequiredService<IDeviceCommandService>();
+
+            readers = await readerService.GetAllAsync();
+            templates = await bioService.GetRecentAsync(200);
+            employeeCount = (await employees.GetAllAsync()).Count;
+            templateCount = templates.Count;
+            pendingCount = (await commands.GetPendingAsync(200)).Count;
+            pushes = PushLog.GetRecent(30).ToList();
+            hasPollHits = ConnectionLog.GetRecent(100)
+                .Any(e => e.Endpoint.Contains("getrequest", StringComparison.OrdinalIgnoreCase)
+                    || e.Endpoint.Contains("/iclock/ping", StringComparison.OrdinalIgnoreCase));
+
+            recentCommands = new List<DeviceCommand>();
+            foreach (var r in readers)
+            {
+                var list = await commands.GetByReaderAsync(r.Id);
+                recentCommands.AddRange(list.Take(8));
+            }
+            recentCommands = recentCommands.OrderByDescending(c => c.createdOn).Take(20).ToList();
+        }
+        finally
+        {
+            if (!silent) loading = false;
+            _loadLock.Release();
+        }
+    }
+
+    private async Task SyncAllAsync()
+    {
+        busy = true;
+        message = null;
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var readersSvc = scope.ServiceProvider.GetRequiredService<IReaderService>();
+            var push = scope.ServiceProvider.GetRequiredService<IZkTecoPushService>();
+            var list = await readersSvc.GetAllAsync();
+            var reader = list.FirstOrDefault(r => r.Status == ReaderStatus.Online) ?? list.FirstOrDefault();
+            if (reader == null)
+            {
+                messageOk = false;
+                message = "لا توجد قارئة مسجّلة.";
+                return;
+            }
+
+            var pin = string.IsNullOrWhiteSpace(pinFilter) ? null : pinFilter.Trim();
+            await push.EnqueueBiometricPullAsync(reader.Id, pin);
+            messageOk = true;
+            message = $"تم إدراج سلسلة السحب (INFO + USERINFO + FINGERTMP + BIODATA). القارئة: {reader.DeviceSerial}. انتظر 30–90 ثانية ثم حدّث.";
+            await LoadAsync(silent: true);
+        }
+        catch (Exception ex)
+        {
+            messageOk = false;
+            message = $"خطأ: {ex.Message}";
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private Task RequestUsersAsync() => EnqueueAsync(
+        DeviceCommandType.QueryUserInfo,
+        pinFilter,
+        "تم إدراج أمر طلب USERINFO. عند الرفع تُنشأ/تُحدَّث سجلات الموظفين (PIN = الرقم الوظيفي).");
+
+    private async Task RequestFingerprintsAsync()
+    {
+        await EnqueueAsync(DeviceCommandType.QueryFingerTmp, pinFilter,
+            "تم إدراج أمر FINGERTMP.");
+        await EnqueueAsync(DeviceCommandType.QueryBioData, pinFilter,
+            "تم إدراج أمر BIODATA (فيرموير حديث).", silent: true);
+    }
+
+    private async Task EnqueueAsync(DeviceCommandType type, string? payload, string okMessage, bool silent = false)
+    {
+        if (!silent) busy = true;
+        if (!silent) message = null;
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var readersSvc = scope.ServiceProvider.GetRequiredService<IReaderService>();
+            var commands = scope.ServiceProvider.GetRequiredService<IDeviceCommandService>();
+            var list = await readersSvc.GetAllAsync();
+            var reader = list.FirstOrDefault(r => r.Status == ReaderStatus.Online) ?? list.FirstOrDefault();
+            if (reader == null)
+            {
+                messageOk = false;
+                message = "لا توجد قارئة مسجّلة.";
+                return;
+            }
+
+            var trimmed = string.IsNullOrWhiteSpace(payload) ? null : payload.Trim();
+            await commands.EnqueueAsync(reader.Id, type, trimmed);
+            if (!silent)
+            {
+                messageOk = true;
+                message = $"{okMessage} القارئة: {reader.DeviceSerial}";
+            }
+            await LoadAsync(silent: true);
+        }
+        catch (Exception ex)
+        {
+            if (!silent)
+            {
+                messageOk = false;
+                message = $"خطأ: {ex.Message}";
+            }
+        }
+        finally
+        {
+            if (!silent) busy = false;
+        }
+    }
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
+        _loadLock.Dispose();
+    }
+}

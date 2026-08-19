@@ -1,0 +1,99 @@
+@page "/reports"
+@rendermode InteractiveServer
+@inject IUnitOfWork UnitOfWork
+@using Core.Interfaces.UnitOfWork
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>التقارير - PMS</PageTitle>
+
+<h3 class="mb-4"><i class="bi bi-bar-chart-fill text-warning"></i> التقارير</h3>
+
+@if (loading)
+{
+    <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+}
+else
+{
+    <div class="row g-3 mb-4">
+        <div class="col-md-3 col-6">
+            <div class="card text-center p-3">
+                <i class="bi bi-file-earmark-text text-warning fs-1"></i>
+                <h4 class="mt-2">@totalPermits</h4>
+                <div class="text-muted">إجمالي التصاريح</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card text-center p-3">
+                <i class="bi bi-people text-primary fs-1"></i>
+                <h4 class="mt-2">@totalEmployees</h4>
+                <div class="text-muted">الموظفون المسجلون</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card text-center p-3">
+                <i class="bi bi-door-open text-secondary fs-1"></i>
+                <h4 class="mt-2">@totalGates</h4>
+                <div class="text-muted">البوابات</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card text-center p-3">
+                <i class="bi bi-arrow-left-right text-success fs-1"></i>
+                <h4 class="mt-2">@totalMovements</h4>
+                <div class="text-muted">حركات مسجلة</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header pms-header">التصاريح حسب التصنيف</div>
+        <div class="card-body">
+            @if (byClassification.Count == 0)
+            {
+                <div class="text-muted text-center py-3">لا توجد بيانات كافية بعد.</div>
+            }
+            else
+            {
+                <table class="table mb-0">
+                    <thead><tr><th>التصنيف</th><th>العدد</th></tr></thead>
+                    <tbody>
+                        @foreach (var kv in byClassification)
+                        {
+                            <tr><td>@kv.Key</td><td>@kv.Value</td></tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+
+    <div class="alert alert-secondary mt-4">
+        <i class="bi bi-info-circle"></i>
+        تقارير تفصيلية إضافية (تصدير Excel/PDF، تقارير حسب الفترة الزمنية والبوابة) قيد التطوير.
+    </div>
+}
+
+@code {
+    private bool loading = true;
+    private int totalPermits;
+    private int totalEmployees;
+    private int totalGates;
+    private int totalMovements;
+    private Dictionary<string, int> byClassification = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        totalPermits = await UnitOfWork.Permits.GetQueryable().CountAsync();
+        totalEmployees = await UnitOfWork.Employees.GetQueryable().CountAsync(e => !e.isDeleted);
+        totalGates = await UnitOfWork.Gates.GetQueryable().CountAsync();
+        totalMovements = await UnitOfWork.MovementLogs.GetQueryable().CountAsync();
+
+        byClassification = await UnitOfWork.Permits.GetQueryable()
+            .Where(p => p.classification != null)
+            .GroupBy(p => p.classification!)
+            .Select(g => new { Classification = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Classification, x => x.Count);
+
+        loading = false;
+    }
+}

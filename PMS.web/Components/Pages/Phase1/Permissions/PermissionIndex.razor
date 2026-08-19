@@ -1,0 +1,37 @@
+@page "/access/permissions"
+@rendermode InteractiveServer
+@inject IEmployeeService EmployeeService
+@inject IReaderService ReaderService
+
+<PageTitle>إدارة صلاحيات الدخول - PMS</PageTitle>
+
+<h3 class="mb-4"><i class="bi bi-key-fill text-warning"></i> إدارة صلاحيات الدخول</h3>
+
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i>
+    إدارة صلاحيات دخول الموظفين للبوابات حسب الفترة الزمنية — قيد التطوير — المرحلة الأولى.
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>الموظف</th>
+                    <th>البوابة</th>
+                    <th>سارٍ من</th>
+                    <th>سارٍ إلى</th>
+                    <th>الفترة اليومية</th>
+                    <th>الحالة</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-4">
+                        لا توجد صلاحيات دخول مسجلة بعد.
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>

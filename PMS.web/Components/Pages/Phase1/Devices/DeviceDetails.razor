@@ -1,0 +1,323 @@
+@page "/devices/monitor/{Id:guid}"
+@rendermode InteractiveServer
+@inject IServiceScopeFactory ScopeFactory
+@inject IReaderConnectionLogService ConnectionLog
+@implements IDisposable
+
+<PageTitle>تفاصيل الجهاز - PMS</PageTitle>
+
+@if (loading)
+{
+    <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+}
+else if (reader == null)
+{
+    <div class="alert alert-danger">لم يتم العثور على الجهاز.</div>
+    <a class="btn btn-outline-secondary" href="/devices/monitor">العودة إلى حالة الأجهزة</a>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div>
+            <a class="small text-muted d-inline-block mb-1" href="/devices/monitor">
+                <i class="bi bi-arrow-right"></i> حالة الأجهزة
+            </a>
+            <h3 class="mb-0">
+                <i class="bi bi-hdd-network-fill text-warning"></i>
+                @(string.IsNullOrWhiteSpace(reader.Name) ? reader.DeviceSerial : reader.Name)
+            </h3>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <div class="form-check form-switch align-self-center">
+                <input class="form-check-input" type="checkbox" id="autoRefreshDetails" @bind="autoRefresh" />
+                <label class="form-check-label small" for="autoRefreshDetails">تحديث تلقائي</label>
+            </div>
+            <button class="btn btn-outline-secondary btn-sm" @onclick="() => RefreshStatsAsync()" disabled="@refreshing">
+                <i class="bi bi-arrow-clockwise@(refreshing ? " spin" : "")"></i> تحديث
+            </button>
+            <a class="btn btn-outline-secondary btn-sm" href="/devices/readers/edit/@reader.Id">
+                <i class="bi bi-pencil"></i> تعديل
+            </a>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(refreshMessage))
+    {
+        <div class="alert @(refreshOk ? "alert-success" : "alert-info") alert-dismissible fade show py-2 small">
+            @refreshMessage
+            <button type="button" class="btn-close" @onclick="() => refreshMessage = null"></button>
+        </div>
+    }
+
+    <div class="row g-3 mb-4">
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header pms-header">بيانات الجهاز</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <span class="badge @BadgeClass(reader.Status)">@Label(reader.Status)</span>
+                        @if (!reader.IsActive)
+                        {
+                            <span class="badge bg-secondary ms-1">موقوفة</span>
+                        }
+                        @if (reader.ConsecutiveFailures > 0)
+                        {
+                            <span class="badge bg-secondary ms-1">فشل × @reader.ConsecutiveFailures</span>
+                        }
+                    </div>
+                    <dl class="row small mb-0">
+                        <dt class="col-5 text-muted">الرقم التسلسلي</dt>
+                        <dd class="col-7"><code>@reader.DeviceSerial</code></dd>
+                        <dt class="col-5 text-muted">البوابة</dt>
+                        <dd class="col-7">@(reader.Gate?.no ?? "-") @(reader.Gate?.description)</dd>
+                        <dt class="col-5 text-muted">الموديل</dt>
+                        <dd class="col-7">@(reader.Model ?? "-")</dd>
+                        <dt class="col-5 text-muted">عنوان IP</dt>
+                        <dd class="col-7">@(reader.IpAddress ?? "-")@(reader.Port.HasValue ? $":{reader.Port}" : "")</dd>
+                        <dt class="col-5 text-muted">آخر Push من</dt>
+                        <dd class="col-7">@FormatLastPush(reader.DeviceSerial)</dd>
+                        <dt class="col-5 text-muted">آخر نبضة</dt>
+                        <dd class="col-7">@(reader.LastHeartbeat?.ToString("yyyy/MM/dd HH:mm:ss") ?? "-")</dd>
+                        <dt class="col-5 text-muted">آخر مزامنة</dt>
+                        <dd class="col-7">@(reader.LastSyncAt?.ToString("yyyy/MM/dd HH:mm:ss") ?? "-")</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header pms-header">الإحصائيات على الجهاز</div>
+                <div class="card-body">
+                    @if (refreshing)
+                    {
+                        <div class="text-center py-4">
+                            <div class="spinner-border spinner-border-sm text-warning"></div>
+                            <div class="text-muted small mt-2">تم إرسال أمر المزامنة الشاملة إلى القارئة…</div>
+                        </div>
+                    }
+                    else if (stats == null)
+                    {
+                        <div class="text-muted">لا تتوفر إحصائيات بعد. اضغط «تحديث» لإرسال أمر جلب الإحصائيات.</div>
+                    }
+                    else
+                    {
+                        <div class="row g-3 text-center">
+                            <div class="col-4 col-md">
+                                <div class="fs-3 fw-bold">@stats.UserCount</div>
+                                <div class="text-muted small">الموظفون</div>
+                            </div>
+                            <div class="col-4 col-md">
+                                <div class="fs-3 fw-bold">@stats.FaceCount</div>
+                                <div class="text-muted small">بصمات الوجه</div>
+                            </div>
+                            <div class="col-4 col-md">
+                                <div class="fs-3 fw-bold">@stats.FingerprintCount</div>
+                                <div class="text-muted small">بصمات اليد</div>
+                            </div>
+                            <div class="col-4 col-md">
+                                <div class="fs-3 fw-bold">@stats.CardCount</div>
+                                <div class="text-muted small">الكروت</div>
+                            </div>
+                            <div class="col-4 col-md">
+                                <div class="fs-3 fw-bold">@stats.AttLogCount</div>
+                                <div class="text-muted small">سجل الحركة</div>
+                            </div>
+                        </div>
+                        <div class="text-muted small mt-3">
+                            آخر تحديث: @stats.FetchedAt.ToString("yyyy/MM/dd HH:mm:ss")
+                            @if (!string.IsNullOrWhiteSpace(stats.FirmwareVersion))
+                            {
+                                <span> · البرنامج: @stats.FirmwareVersion</span>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header pms-header">توقفات القارئة</div>
+        @if (downtimes.Count == 0)
+        {
+            <div class="card-body text-muted">لا توجد فترات توقف مسجّلة لهذه القارئة.</div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>من</th>
+                            <th>إلى</th>
+                            <th>المدة</th>
+                            <th>الحالة أثناء التوقف</th>
+                            <th>السبب</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var d in downtimes)
+                        {
+                            <tr>
+                                <td>@d.StartedAt.ToString("yyyy/MM/dd HH:mm")</td>
+                                <td>@(d.EndedAt?.ToString("yyyy/MM/dd HH:mm") ?? "مستمر")</td>
+                                <td>@FormatDuration(d)</td>
+                                <td><span class="badge @BadgeClass(d.StatusDuringOutage)">@Label(d.StatusDuringOutage)</span></td>
+                                <td class="small">@(d.Reason ?? "-")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+}
+
+<style>
+    .spin { animation: spin 1s linear infinite; display: inline-block; }
+    @@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+</style>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private bool loading = true;
+    private bool refreshing;
+    private bool autoRefresh = true;
+    private bool refreshOk;
+    private string? refreshMessage;
+    private Reader? reader;
+    private ReaderDeviceStats? stats;
+    private List<ReaderDowntime> downtimes = new();
+    private System.Threading.Timer? _timer;
+    private readonly SemaphoreSlim _loadLock = new(1, 1);
+
+    private Guid _loadedId = Guid.Empty;
+    private DateTime _lastAutoRefreshAt = DateTime.MinValue;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loadedId == Id && reader != null)
+            return;
+
+        await LoadAsync();
+        _loadedId = Id;
+    }
+
+    protected override Task OnInitializedAsync()
+    {
+        _timer = new System.Threading.Timer(async _ =>
+        {
+            if (!autoRefresh || refreshing) return;
+            if ((DateTime.Now - _lastAutoRefreshAt) < TimeSpan.FromSeconds(30)) return;
+
+            await InvokeAsync(async () =>
+            {
+                await LoadAsync(silent: true);
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+        return Task.CompletedTask;
+    }
+
+    private async Task RefreshStatsAsync()
+    {
+        if (reader == null) return;
+
+        refreshing = true;
+        refreshMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var statsService = scope.ServiceProvider.GetRequiredService<IReaderDeviceStatsService>();
+            await statsService.EnqueueFullSyncAsync(reader.Id);
+
+            refreshOk = true;
+            refreshMessage = "تم إرسال أمر المزامنة الشاملة. ستُحدَّث الإحصائيات عند استجابة القارئة.";
+
+            stats = await statsService.GetByReaderAsync(reader.Id);
+            _lastAutoRefreshAt = DateTime.Now;
+        }
+        catch (Exception ex)
+        {
+            refreshOk = false;
+            refreshMessage = $"خطأ: {ex.Message}";
+        }
+        finally
+        {
+            refreshing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadAsync(bool silent = false)
+    {
+        await _loadLock.WaitAsync();
+        try
+        {
+            if (!silent) loading = true;
+            using var scope = ScopeFactory.CreateScope();
+            var readerService = scope.ServiceProvider.GetRequiredService<IReaderService>();
+            var downtimeService = scope.ServiceProvider.GetRequiredService<IReaderDowntimeService>();
+            var statsService = scope.ServiceProvider.GetRequiredService<IReaderDeviceStatsService>();
+
+            reader = await readerService.GetByIdAsync(Id);
+            if (reader != null)
+            {
+                stats = await statsService.GetByReaderAsync(reader.Id);
+                downtimes = await downtimeService.GetByReaderAsync(reader.Id, 50);
+            }
+            else
+            {
+                stats = null;
+                downtimes = new();
+            }
+        }
+        finally
+        {
+            if (!silent) loading = false;
+            _loadLock.Release();
+        }
+    }
+
+    private string FormatLastPush(string serial)
+    {
+        var last = ConnectionLog.GetLastForSerial(serial);
+        if (last == null) return "—";
+        return $"{last.RemoteIp} @ {last.ReceivedAt:HH:mm:ss}";
+    }
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
+        _loadLock.Dispose();
+    }
+
+    private static string Label(ReaderStatus s) => s switch
+    {
+        ReaderStatus.Online => "متصل",
+        ReaderStatus.Faulty => "معطل / خطأ",
+        _ => "غير متصل"
+    };
+
+    private static string BadgeClass(ReaderStatus s) => s switch
+    {
+        ReaderStatus.Online => "status-approved",
+        ReaderStatus.Faulty => "bg-danger",
+        _ => "status-rejected"
+    };
+
+    private static string FormatDuration(ReaderDowntime d)
+    {
+        var end = d.EndedAt ?? DateTime.Now;
+        var span = end - d.StartedAt;
+        if (span < TimeSpan.Zero) span = TimeSpan.Zero;
+        if (span.TotalDays >= 1)
+            return $"{(int)span.TotalDays}ي {span.Hours}س {span.Minutes}د";
+        if (span.TotalHours >= 1)
+            return $"{(int)span.TotalHours}س {span.Minutes}د";
+        return $"{Math.Max(0, (int)span.TotalMinutes)}د";
+    }
+}

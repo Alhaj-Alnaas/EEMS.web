@@ -1,0 +1,238 @@
+@page "/devices/readers"
+@rendermode InteractiveServer
+@inject IReaderService ReaderService
+@inject IDeviceCommandService CommandService
+
+<PageTitle>إدارة القارئات - PMS</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h3 class="mb-0"><i class="bi bi-hdd-network-fill text-warning"></i> إدارة القارئات</h3>
+    <a class="btn btn-warning" href="/devices/readers/edit/@Guid.Empty">
+        <i class="bi bi-plus-circle"></i> إضافة قارئة
+    </a>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <div class="row g-2 align-items-center">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input class="form-control" placeholder="بحث سريع (الاسم، الرقم التسلسلي، IP، البوابة)..."
+                           @bind="quickSearch" @bind:event="oninput" />
+                </div>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" @bind="statusFilter">
+                    <option value="">كل الحالات</option>
+                    <option value="Online">متصل</option>
+                    <option value="Offline">غير متصل</option>
+                    <option value="Faulty">معطل / خطأ</option>
+                </select>
+            </div>
+            <div class="col-md-3 text-md-end">
+                <button class="btn btn-outline-secondary btn-sm" type="button" @onclick="ToggleAdvanced">
+                    <i class="bi bi-funnel"></i> بحث متقدم
+                </button>
+            </div>
+        </div>
+        @if (showAdvanced)
+        {
+            <div class="row g-2 mt-2">
+                <div class="col-md-4">
+                    <input class="form-control form-control-sm" placeholder="الموديل" @bind="advModel" />
+                </div>
+                <div class="col-md-4">
+                    <input class="form-control form-control-sm" placeholder="رقم البوابة" @bind="advGate" />
+                </div>
+                <div class="col-md-4">
+                    <select class="form-select form-select-sm" @bind="advActive">
+                        <option value="">النشاط: الكل</option>
+                        <option value="true">نشطة فقط</option>
+                        <option value="false">غير نشطة</option>
+                    </select>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(message))
+{
+    <div class="alert @(messageIsError ? "alert-danger" : "alert-success") alert-dismissible fade show">
+        @message
+        <button type="button" class="btn-close" @onclick="() => message = null"></button>
+    </div>
+}
+
+@if (loading)
+{
+    <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+}
+else if (!Filtered.Any())
+{
+    <div class="pms-placeholder">
+        <i class="bi bi-hdd-network"></i>
+        <h5>لا توجد أجهزة قراءة مطابقة</h5>
+        <p>أضف قارئة جديدة واربطها ببوابة، ثم وجّه جهاز ZKTeco إلى مسار Push: <code>/iclock</code></p>
+        <a class="btn btn-warning mt-2" href="/devices/readers/edit/@Guid.Empty">
+            <i class="bi bi-plus-circle"></i> إضافة قارئة
+        </a>
+    </div>
+}
+else
+{
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>الاسم</th>
+                        <th>الرقم التسلسلي</th>
+                        <th>البوابة</th>
+                        <th>الموديل</th>
+                        <th>عنوان IP</th>
+                        <th>المنفذ</th>
+                        <th>الحالة</th>
+                        <th>آخر نبضة</th>
+                        <th>آخر مزامنة</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in Filtered.ToList())
+                    {
+                        <tr>
+                            <td class="fw-semibold">@(string.IsNullOrWhiteSpace(r.Name) ? "-" : r.Name)</td>
+                            <td><code>@r.DeviceSerial</code></td>
+                            <td>@(r.Gate?.no ?? "-")</td>
+                            <td>@(r.Model ?? "-")</td>
+                            <td>@(r.IpAddress ?? "-")</td>
+                            <td>@(r.Port?.ToString() ?? "-")</td>
+                            <td>
+                                <span class="badge @StatusBadgeClass(r.Status)">@StatusLabel(r.Status)</span>
+                                @if (!r.IsActive)
+                                {
+                                    <span class="badge bg-secondary ms-1">موقوفة</span>
+                                }
+                            </td>
+                            <td>@(r.LastHeartbeat?.ToString("yyyy/MM/dd HH:mm") ?? "-")</td>
+                            <td>@(r.LastSyncAt?.ToString("yyyy/MM/dd HH:mm") ?? "-")</td>
+                            <td class="text-nowrap">
+                                <button class="btn btn-sm btn-outline-primary" title="اختبار Push Protocol"
+                                        disabled="@busyIds.Contains(r.Id)"
+                                        @onclick="() => TestPushAsync(r)">
+                                    <i class="bi bi-broadcast-pin"></i>
+                                </button>
+                                <a class="btn btn-sm btn-outline-secondary" href="/devices/readers/edit/@r.Id" title="تعديل">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <button class="btn btn-sm btn-outline-danger" title="حذف"
+                                        @onclick="() => DeleteAsync(r.Id)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    private bool loading = true;
+    private bool showAdvanced;
+    private string? message;
+    private bool messageIsError;
+    private string quickSearch = "";
+    private string statusFilter = "";
+    private string advModel = "";
+    private string advGate = "";
+    private string advActive = "";
+    private List<Reader> readers = new();
+    private readonly HashSet<Guid> busyIds = new();
+
+    private IEnumerable<Reader> Filtered => readers.Where(Matches);
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        readers = await ReaderService.GetAllAsync();
+        loading = false;
+    }
+
+    private bool Matches(Reader r)
+    {
+        if (!string.IsNullOrWhiteSpace(statusFilter)
+            && !string.Equals(r.Status.ToString(), statusFilter, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (!string.IsNullOrWhiteSpace(advModel)
+            && (r.Model == null || r.Model.IndexOf(advModel, StringComparison.OrdinalIgnoreCase) < 0))
+            return false;
+
+        if (!string.IsNullOrWhiteSpace(advGate)
+            && (r.Gate?.no == null || r.Gate.no.IndexOf(advGate, StringComparison.OrdinalIgnoreCase) < 0))
+            return false;
+
+        if (advActive == "true" && !r.IsActive) return false;
+        if (advActive == "false" && r.IsActive) return false;
+
+        if (string.IsNullOrWhiteSpace(quickSearch)) return true;
+        var q = quickSearch.Trim();
+        return Contains(r.Name, q)
+            || Contains(r.DeviceSerial, q)
+            || Contains(r.IpAddress, q)
+            || Contains(r.Model, q)
+            || Contains(r.Gate?.no, q)
+            || Contains(r.Gate?.description, q);
+    }
+
+    private static bool Contains(string? value, string q) =>
+        !string.IsNullOrEmpty(value) && value.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0;
+
+    private void ToggleAdvanced() => showAdvanced = !showAdvanced;
+
+    private async Task TestPushAsync(Reader r)
+    {
+        busyIds.Add(r.Id);
+        try
+        {
+            await CommandService.EnqueueAsync(r.Id, DeviceCommandType.TestConnection);
+            messageIsError = false;
+            message = $"تم إدراج أمر اختبار اتصال للقارئة {r.DeviceSerial}. سيُنفَّذ عند استعلام الجهاز عبر Push (/iclock/getrequest).";
+        }
+        catch (Exception ex)
+        {
+            messageIsError = true;
+            message = ex.Message;
+        }
+        finally
+        {
+            busyIds.Remove(r.Id);
+        }
+    }
+
+    private async Task DeleteAsync(Guid id)
+    {
+        await ReaderService.DeleteAsync(id);
+        await LoadAsync();
+    }
+
+    private static string StatusLabel(ReaderStatus s) => s switch
+    {
+        ReaderStatus.Online => "متصل",
+        ReaderStatus.Faulty => "معطل",
+        _ => "غير متصل"
+    };
+
+    private static string StatusBadgeClass(ReaderStatus s) => s switch
+    {
+        ReaderStatus.Online => "status-approved",
+        ReaderStatus.Faulty => "bg-danger",
+        _ => "status-rejected"
+    };
+}

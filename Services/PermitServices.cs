@@ -1,14 +1,13 @@
-﻿using Core.Entities;
-using EEMS.web;
+using Core.Entities;
 using Core.Entities.DTOs;
 using Core.Interfaces.Services;
+using Core.Models;
 using DataAccess;
-using EEMS.Core.Interfaces.UnitOfWork;
+using Core.Interfaces.UnitOfWork;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
 using System.Reflection.Metadata;
 using System.Text.RegularExpressions;
-using EEMS.web.ViewModels;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 namespace Services
 {
@@ -22,17 +21,17 @@ namespace Services
             _unitOfWork = unitOfWork;
         }
 
-        // توليد رقم التصريح حسب نوعه
+        // ????? ??? ??????? ??? ????
         public async Task<string> GeneratePermitSerialNumberAsync(string permitType)
         {
             if (string.IsNullOrWhiteSpace(permitType))
                 throw new ArgumentException("permitType is required", nameof(permitType));
 
-            // السنة بصيغة 2 رقم
+            // ????? ????? 2 ???
             var now = DateTime.Now;
             string year = now.ToString("yy");
 
-            // كود نوع التصريح
+            // ??? ??? ???????
             string typeCode = permitType.ToLower() switch
             {
                 "materials" => "1",
@@ -41,17 +40,17 @@ namespace Services
                 _ => permitType.Substring(0, 1).ToUpperInvariant()
             };
 
-            // جلب آخر تصريح من قاعدة البيانات (فلترة بحسب النوع + نفس السنة إن أردت)
+            // ??? ??? ????? ?? ????? ???????? (????? ???? ????? + ??? ????? ?? ????)
             var lastPermit = await _unitOfWork.Permits.GetQueryable()
                 .Where(p => p.classification == permitType && p.createdOn.Year == DateTime.Now.Year) // && p.date.Year == DateTime.Now.Year
-                .OrderByDescending(p => p.createdOn) // أفضل من OrderByDescending(p => p.Id)
+                .OrderByDescending(p => p.createdOn) // ???? ?? OrderByDescending(p => p.Id)
                 .FirstOrDefaultAsync();
 
             int lastNumber = 0;
 
             if (lastPermit != null && !string.IsNullOrWhiteSpace(lastPermit.no))
             {
-                // نحاول استخراج آخر 4 أرقام من نهاية الحقل NO (مثال: "24-M-0003")
+                // ????? ??????? ??? 4 ????? ?? ????? ????? NO (????: "24-M-0003")
                 var match = Regex.Match(lastPermit.no, @"(\d{1,})$");
                 if (match.Success)
                 {
@@ -59,7 +58,7 @@ namespace Services
                 }
             }
 
-            lastNumber++; // الرقم الجديد
+            lastNumber++; // ????? ??????
 
             string newSerial = $"{year}-{typeCode}-{lastNumber:D4}";
             return newSerial;
@@ -68,7 +67,7 @@ namespace Services
             //if (string.IsNullOrEmpty(permitType))
             //    throw new ArgumentException("Permit type cannot be null or empty", nameof(permitType));
 
-            //// استخراج آخر تصريح لهذا النوع
+            //// ??????? ??? ????? ???? ?????
             //var lastPermit =  _unitOfWork.Permits.GetQueryable()
             //    .Where(p => p.type == permitType)
             //    .OrderByDescending(p => p.Id)
@@ -85,7 +84,7 @@ namespace Services
             //lastNumber++;
             //string year = DateTime.Now.ToString("yy");
 
-            //// تعيين كود النوع
+            //// ????? ??? ?????
             //string typeCode;
             //switch (permitType.ToLower())
             //{
@@ -99,7 +98,7 @@ namespace Services
             //return newSerial;
         }
 
-        //// جلب الإدارات حسب ResponsibilityCode من SP
+        //// ??? ???????? ??? ResponsibilityCode ?? SP
         //public async Task<List<DepartmentDto>> GetDepartmentsByResponsibilityAsync(string responsibilityCode)
         //{
         //    return await  _dataContext..FromSqlRaw("sp_show_Req_dep {0}"
@@ -116,6 +115,11 @@ namespace Services
                 throw new ArgumentNullException(nameof(permit));
             }
 
+            if (string.IsNullOrWhiteSpace(permit.UnifiedStatus))
+            {
+                permit.UnifiedStatus = Core.Common.StatusMapper.ToUnified(permit.status).ToString();
+            }
+
             _unitOfWork.Permits.Insert(permit);
             await _unitOfWork.SaveAsync();
         }
@@ -128,16 +132,16 @@ namespace Services
             }
 
             var existingPermit = await _unitOfWork.Permits.GetByIdAsync(permit.Id);
-            if (existingPermit == null) throw new Exception("التصريح غير موجود");
+            if (existingPermit == null) throw new Exception("??????? ??? ?????");
 
-            // تحديث الخصائص الأساسية
+            // ????? ??????? ????????
             existingPermit.reqDepartment = permit.reqDepartment;
             existingPermit.no = permit.no;
             existingPermit.classification = permit.classification;
             existingPermit.type = permit.type;
             existingPermit.reqDepApproval = permit.reqDepApproval;
            // existingPermit.secuDepApproval = permit.secuDepApproval;
-            existingPermit.gateId = permit.gateId;
+            existingPermit.GateId = permit.GateId;
             existingPermit.status = permit.status;
             existingPermit.statusDescription = permit.statusDescription;
             existingPermit.isClosed = permit.isClosed;
@@ -222,47 +226,46 @@ namespace Services
         {
             return wordToMapp switch
             {
-                // نوع التصريح
-                "Export" => "استخراج",
-                "Import" => "استيراد",
-                "ExtractAndInsert" => "استيراد",
+                // ??? ???????
+                "Export" => "???????",
+                "Import" => "???????",
+                "ExtractAndInsert" => "???????",
 
-                // تصنيف التصريح
-                "Materials" => "تصرح مواد",
-                "Visitors" => "تصريح زوار",
-                "Cars" => "سيارات",
+                // ????? ???????
+                "Materials" => "???? ????",
+                "Visitors" => "????? ????",
+                "Cars" => "??????",
 
-                // حالة التصريح
-                "A" => "معتمد",
-                "J" => "مرفوض",
-                "R" => "مرجع",
-                "C" => "مغلق/ تم التنفيد",
-                "D" => "محدوف",
-                "I" => "قيد الاعتماد",
+                // ???? ???????
+                "A" => "?????",
+                "J" => "?????",
+                "R" => "????",
+                "C" => "????/ ?? ???????",
+                "D" => "?????",
+                "I" => "??? ????????",
 
-                // الاجراء المتخد
-                "Insert" => "إدخال",
-                "Update" => "تعديل",
-                "approve" => "اعتماد",
-                "reject" => "رفض",
-                "return" => "ترجيع",
-                "close" => "تنفيذ",
+                // ??????? ??????
+                "Insert" => "?????",
+                "Update" => "?????",
+                "approve" => "??????",
+                "reject" => "???",
+                "return" => "?????",
+                "close" => "?????",
 
-                _ => "غير معروف",
+                _ => "??? ?????",
             };
         }
 
         public PermitActionsVisibility GetVisibility(User currentUser,Permit permit)
         {
             
-
             var visibility = new PermitActionsVisibility();
             string permitStatus= permit.status.ToString(); 
 
             switch (permitStatus)
             {
-                case "I": // قيد الاعتماد
-                    // حالات تفعيل زر الاعتماد والترجيع والرفض
+                case "I": // ??? ????????
+                    // ????? ????? ?? ???????? ???????? ??????
                     if (currentUser.JobStatus == "AE" &&
                         (currentUser.JobCatId == 1 && currentUser.ResponsibilityCode.Substring(0, 3) == permit.reqDepartment.Substring(0, 3)) ||
                         (currentUser.JobCatId == 1 && currentUser.ResponsibilityCode == "45012" && permit.reqDepApproval == true) ||
@@ -274,17 +277,17 @@ namespace Services
                         visibility.CanReject = true;
                     }
 
-                    // حالة الحدف
+                    // ???? ?????
                     if (currentUser.UserName == permit.createdBy && (permit.status == 'I' || permit.status == 'J'))
                     { visibility.CanDelete = true; }
                     break;
 
-                case "A": // معتمد
-                    if (permit.status == 'A' && currentUser.Discriminator == "Security" && permit.gateId == 1)
+                case "A": // ?????
+                    if (permit.status == 'A' && currentUser.Discriminator == "Security" && permit.GateId.HasValue)
                     { visibility.CanClose = true; }
                     break;
 
-                case "R": // مرجع
+                case "R": // ????
                     if (currentUser.JobStatus == "AE" &&
                        (currentUser.JobCatId == 1 && currentUser.ResponsibilityCode.Substring(0, 3) == permit.reqDepartment.Substring(0, 3)) ||
                        (currentUser.JobCatId == 1 && currentUser.ResponsibilityCode == "45012" && permit.reqDepApproval == true) ||
@@ -297,7 +300,7 @@ namespace Services
                     }
                     break;
 
-                case "J": // مرفوض
+                case "J": // ?????
                     if  (currentUser.JobStatus == "AE" &&
                         (currentUser.JobCatId == 1 && currentUser.ResponsibilityCode.Substring(0, 3) == permit.reqDepartment.Substring(0, 3)) ||
                         (currentUser.JobCatId == 1 && currentUser.ResponsibilityCode == "45012" && permit.reqDepApproval == true) ||
@@ -421,7 +424,7 @@ namespace Services
     //        return new List<Permit>();
     //    }
 
-    //    // بناء استعلام ديناميكي بناءً على المعلمات الممررة
+    //    // ???? ??????? ???????? ????? ??? ???????? ???????
     //    var query = _unitOfWork.Permits.GetQueryable(
     //        include: q => q.Include(p => p.Procedures)
     //                      .Include(p => p.Cars)
@@ -455,7 +458,7 @@ namespace Services
     //        case "moveto":
     //            query = query.Where(p => p.moveTo.Contains(param.Value));
     //            break;
-    //            // يمكنك إضافة المزيد من الحقول حسب الحاجة
+    //            // ????? ????? ?????? ?? ?????? ??? ??????
     //    }
     //}
 
@@ -469,7 +472,7 @@ namespace Services
     //        throw new ArgumentException("Permit type cannot be null or empty", nameof(permitType));
     //    }
 
-    //    // الحصول على آخر رقم تسلسلي لنوع التصريح المحدد
+    //    // ?????? ??? ??? ??? ?????? ???? ??????? ??????
     //    var lastPermit = await _unitOfWork.Permits.GetAllAsync(
     //        filter: p => p.type == permitType,
     //        orderBy: q => q.OrderByDescending(p => p.no));
@@ -477,15 +480,15 @@ namespace Services
     //    int lastNumber = 0;
     //    if (lastPermit != null)
     //    {
-    //        // استخراج الرقم الرقمي من آخر تصريح
+    //        // ??????? ????? ?????? ?? ??? ?????
     //        string numericPart = new string(lastPermit.no.Where(char.IsDigit).ToArray());
     //        int.TryParse(numericPart, out lastNumber);
     //    }
 
-    //    // زيادة الرقم بمقدار 1
+    //    // ????? ????? ?????? 1
     //    lastNumber++;
 
-    //    // إنشاء الرقم التسلسلي الجديد (يمكن تعديل التنسيق حسب المتطلبات)
+    //    // ????? ????? ???????? ?????? (???? ????? ??????? ??? ?????????)
     //    string newSerialNumber = $"{permitType}-{DateTime.Now:yyyyMMdd}-{lastNumber.ToString("D4")}";
 
     //    return newSerialNumber;

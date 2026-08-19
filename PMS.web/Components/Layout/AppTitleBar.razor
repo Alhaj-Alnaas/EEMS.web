@@ -1,0 +1,42 @@
+@namespace PMS.web.Components.Layout
+
+<header class="pms-app-titlebar" dir="rtl">
+    <div class="pms-titlebar-leading">
+        @if (Leading is not null)
+        {
+            @Leading
+        }
+        else
+        {
+            <div class="pms-titlebar-copyright">
+                كل الحقوق محفوظة للشركة الليبية للحديد والصلب © @CopyrightYear
+            </div>
+        }
+    </div>
+    <div class="pms-titlebar-center">
+        <span class="pms-titlebar-title">@Title</span>
+    </div>
+    <div class="pms-titlebar-trailing">
+        <button type="button"
+                class="pms-notify-btn"
+                title="الإشعارات"
+                aria-label="الإشعارات"
+                @onclick="OnNotificationsClick">
+            <i class="fas fa-bell" aria-hidden="true"></i>
+            @if (UnreadCount > 0)
+            {
+                <span class="pms-notify-badge">@(UnreadCount > 99 ? "99+" : UnreadCount.ToString())</span>
+            }
+        </button>
+        <img src="@LogoUrl" alt="شعار الشركة الليبية للحديد والصلب" class="pms-titlebar-logo" />
+    </div>
+</header>
+
+@code {
+    [Parameter] public string LogoUrl { get; set; } = "/images/lisco-logo.png";
+    [Parameter] public int CopyrightYear { get; set; } = DateTime.Now.Year;
+    [Parameter] public string Title { get; set; } = "نظام إدارة التصاريح الموحد (PMS) — تنفيذ قسم النظم والبرمجة";
+    [Parameter] public RenderFragment? Leading { get; set; }
+    [Parameter] public int UnreadCount { get; set; }
+    [Parameter] public EventCallback OnNotificationsClick { get; set; }
+}

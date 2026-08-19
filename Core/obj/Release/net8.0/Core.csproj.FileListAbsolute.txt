@@ -1,0 +1,13 @@
+D:\EEMS Project\PMS\Core\bin\Release\net8.0\Core.deps.json
+D:\EEMS Project\PMS\Core\bin\Release\net8.0\Core.dll
+D:\EEMS Project\PMS\Core\bin\Release\net8.0\Core.pdb
+D:\EEMS Project\PMS\Core\obj\Release\net8.0\Core.csproj.AssemblyReference.cache
+D:\EEMS Project\PMS\Core\obj\Release\net8.0\Core.GeneratedMSBuildEditorConfig.editorconfig
+D:\EEMS Project\PMS\Core\obj\Release\net8.0\Core.AssemblyInfoInputs.cache
+D:\EEMS Project\PMS\Core\obj\Release\net8.0\Core.AssemblyInfo.cs
+D:\EEMS Project\PMS\Core\obj\Release\net8.0\Core.csproj.CoreCompileInputs.cache
+D:\EEMS Project\PMS\Core\obj\Release\net8.0\Core.sourcelink.json
+D:\EEMS Project\PMS\Core\obj\Release\net8.0\Core.dll
+D:\EEMS Project\PMS\Core\obj\Release\net8.0\refint\Core.dll
+D:\EEMS Project\PMS\Core\obj\Release\net8.0\Core.pdb
+D:\EEMS Project\PMS\Core\obj\Release\net8.0\ref\Core.dll

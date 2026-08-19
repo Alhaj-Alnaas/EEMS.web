@@ -1,0 +1,100 @@
+/* /Components/Layout/MainLayout.razor.rz.scp.css */
+.pms-content[b-424mp41bby] {
+    min-height: calc(100vh - 220px);
+    padding-top: 1rem;
+}
+
+.bottom-bar[b-424mp41bby] {
+    background-color: #4a4a4a;
+    color: white;
+    padding: 10px 0;
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.user-info-bottom[b-424mp41bby] {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+footer[b-424mp41bby] {
+    margin-bottom: 50px;
+}
+/* /Components/Layout/NavMenu.razor.rz.scp.css */
+.navbar-custom[b-pmxxw6mivc] {
+    background-color: #fd7e14;
+}
+
+.navbar-custom .nav-link[b-pmxxw6mivc],
+.navbar-custom .navbar-brand[b-pmxxw6mivc] {
+    color: #fff;
+    font-weight: 500;
+}
+
+.navbar-custom .nav-link:hover[b-pmxxw6mivc],
+.navbar-custom .dropdown-item:hover[b-pmxxw6mivc] {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-radius: 5px;
+}
+
+.navbar-custom .dropdown-menu[b-pmxxw6mivc] {
+    text-align: right;
+}
+/* /Views/Shared/_Layout.cshtml.rz.scp.css */
+/* Please see documentation at https://learn.microsoft.com/aspnet/core/client-side/bundling-and-minification
+for details on configuring this project to bundle and minify static web assets. */
+
+a.navbar-brand[b-hayn3rg5mi] {
+  white-space: normal;
+  text-align: center;
+  word-break: break-all;
+}
+
+a[b-hayn3rg5mi] {
+  color: #0077cc;
+}
+
+.btn-primary[b-hayn3rg5mi] {
+  color: #fff;
+  background-color: #1b6ec2;
+  border-color: #1861ac;
+}
+
+.nav-pills .nav-link.active[b-hayn3rg5mi], .nav-pills .show > .nav-link[b-hayn3rg5mi] {
+  color: #fff;
+  background-color: #1b6ec2;
+  border-color: #1861ac;
+}
+
+.border-top[b-hayn3rg5mi] {
+  border-top: 1px solid #e5e5e5;
+}
+.border-bottom[b-hayn3rg5mi] {
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.box-shadow[b-hayn3rg5mi] {
+  box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .05);
+}
+
+button.accept-policy[b-hayn3rg5mi] {
+  font-size: 1rem;
+  line-height: inherit;
+}
+
+.footer[b-hayn3rg5mi] {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  white-space: nowrap;
+  line-height: 60px;
+}

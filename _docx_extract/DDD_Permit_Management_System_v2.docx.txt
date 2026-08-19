@@ -1,0 +1,788 @@
+﻿الشركة الليبية للحديد والصلب — قطاع الشؤون الفنية — الإدارة العامة للشؤون الفنيةإدارة الحاسبات والنظم والاتصالات — قسم النظم والبرمجة
+وثيقة تصميم قاعدة البيانات (Database Design Document)
+نظام إدارة التصاريح — Microsoft SQL Server — نمط Table-Per-Type للتصاريح
+الإصدار 2.0 — يوليو 2026
+إعداد: م. محسن عيبلو — م. الحاج النعاس — م. علي الشيخ
+فهرس المحتويات
+1. نظرة عامة على التصميم
+2. مخطط العلاقات (نصي)
+3. قواميس الحقول لكل جدول
+3.1 Departments
+3.2 Employees
+3.3 BiometricTemplates
+3.4 Gates
+3.5 Readers
+3.6 EmployeePermissions
+3.7 DeviceCommands
+3.8 MovementLogs
+3.9 SystemUsers
+3.10 Roles
+3.11 UserRoles
+3.12 AuditLogs
+3.13 WorkflowDefinitions
+3.14 WorkflowSteps
+3.15 Permits
+3.16 EquipmentPermitDetails
+3.17 VisitorPermitDetails
+3.18 VehiclePermitDetails
+3.19 PermitApprovals
+3.20 Notifications
+4. الفهارس (Indexes)
+5. القيود (Constraints)
+6. الأمان والاحتفاظ بالبيانات (Security &amp; Retention)
+7. مصفوفة التوافق مع وثيقة المتطلبات (SRS Mapping)
+1. نظرة عامة على التصميم
+تعتمد قاعدة البيانات نمط Table-Per-Type (TPT) لتمثيل أنواع التصاريح المختلفة: جدول أساسي مشترك Permits يحمل الحقول المشتركة بين جميع الأنواع (الحالة، الفترة الزمنية، مقدّم الطلب، مسار الاعتماد)، وثلاثة جداول تفصيلية EquipmentPermitDetails، VisitorPermitDetails، VehiclePermitDetails ترتبط كل منها بعلاقة (1-1) مع Permits عبر نفس المفتاح الأساسي PermitID. يوفّر هذا النمط مرونة إضافة أنواع تصاريح مستقبلية دون تعديل الجدول الأساسي.
+تنقسم الجداول إلى خمس مجموعات وظيفية:
+المجموعة
+الجداول
+التنظيم والموظفون
+Departments, Employees
+البنية البيومترية (المرحلة الأولى)
+BiometricTemplates, Gates, Readers, EmployeePermissions, DeviceCommands, MovementLogs
+الأمان والمستخدمون
+SystemUsers, Roles, UserRoles, AuditLogs
+محرك سير العمل والتصاريح (المرحلة الثانية)
+WorkflowDefinitions, WorkflowSteps, Permits, EquipmentPermitDetails, VisitorPermitDetails, VehiclePermitDetails, PermitApprovals
+الإشعارات
+Notifications
+2. مخطط العلاقات (نصي)
+Departments (1)───(N) Employees
+Employees   (1)───(N) BiometricTemplates
+Employees   (1)───(N) EmployeePermissions ───(N:1) Gates
+Gates       (1)───(N) Readers
+Readers     (1)───(N) DeviceCommands
+Readers     (1)───(N) MovementLogs ───(N:1) Employees (nullable) / Permits (nullable)
+SystemUsers (N)───(N) Roles   via UserRoles
+SystemUsers (1)───(N) AuditLogs
+WorkflowDefinitions (1)───(N) WorkflowSteps ───(N:1) Roles
+Permits     (1)───(1) EquipmentPermitDetails
+Permits     (1)───(1) VisitorPermitDetails
+Permits     (1)───(1) VehiclePermitDetails
+Permits     (1)───(N) PermitApprovals ───(N:1) WorkflowSteps
+Permits     (N)───(1) WorkflowDefinitions
+Permits     (N)───(1) Departments / Employees(RequestedBy)
+SystemUsers (1)───(N) Notifications ───(N:1) Permits (nullable)
+3. قواميس الحقول لكل جدول
+3.1 Departments — الإدارات والأقسام
+العمود
+النوع
+Nullable
+الوصف/القيود
+DepartmentID
+INT IDENTITY
+لا
+مفتاح أساسي (PK)
+DepartmentName
+NVARCHAR(150)
+لا
+اسم الإدارة/القسم
+ParentDepartmentID
+INT
+نعم
+FK ذاتي إلى Departments (هيكل هرمي)
+IsActive
+BIT
+لا
+DEFAULT 1
+CreatedAt
+DATETIME2
+لا
+DEFAULT SYSUTCDATETIME()
+3.2 Employees — الموظفون
+العمود
+النوع
+Nullable
+الوصف/القيود
+EmployeeID
+INT IDENTITY
+لا
+PK
+EmployeeNumber
+NVARCHAR(20)
+لا
+UNIQUE — الرقم الوظيفي
+FullName
+NVARCHAR(200)
+لا
+الاسم الكامل
+NationalID
+NVARCHAR(20)
+نعم
+الرقم الوطني
+DepartmentID
+INT
+لا
+FK → Departments
+JobTitle
+NVARCHAR(100)
+نعم
+المسمى الوظيفي
+HireDate
+DATE
+نعم
+تاريخ التعيين
+EmploymentStatus
+NVARCHAR(20)
+لا
+CHECK IN ('Active','Terminated','Suspended')
+Phone
+NVARCHAR(20)
+نعم
+رقم الهاتف
+CreatedAt / UpdatedAt
+DATETIME2
+لا/نعم
+تتبّع الإنشاء والتعديل
+3.3 BiometricTemplates — القوالب الحيوية
+العمود
+النوع
+Nullable
+الوصف/القيود
+TemplateID
+INT IDENTITY
+لا
+PK
+EmployeeID
+INT
+لا
+FK → Employees
+TemplateType
+NVARCHAR(20)
+لا
+CHECK IN ('Fingerprint','Face')
+TemplateData
+VARBINARY(MAX)
+لا
+مشفّر (Always Encrypted) — لا يُخزَّن كصورة خام
+FingerIndex
+TINYINT
+نعم
+رقم الإصبع (1-10) إن كان النوع بصمة
+EnrolledOn
+DATETIME2
+لا
+تاريخ التسجيل
+Status
+NVARCHAR(20)
+لا
+CHECK IN ('PendingApproval','Approved','Revoked') — مرتبط بـ BR-005
+ApprovedBy
+INT
+نعم
+FK → SystemUsers
+3.4 Gates — البوابات
+العمود
+النوع
+Nullable
+الوصف/القيود
+GateID
+INT IDENTITY
+لا
+PK
+GateName
+NVARCHAR(100)
+لا
+اسم البوابة
+Location
+NVARCHAR(200)
+نعم
+الموقع الوصفي
+GateType
+NVARCHAR(10)
+لا
+CHECK IN ('In','Out','Both')
+IsActive
+BIT
+لا
+DEFAULT 1
+3.5 Readers — أجهزة القراءة
+العمود
+النوع
+Nullable
+الوصف/القيود
+ReaderID
+INT IDENTITY
+لا
+PK
+GateID
+INT
+لا
+FK → Gates
+SerialNumber
+NVARCHAR(50)
+لا
+UNIQUE — الرقم التسلسلي لجهاز ZKTeco
+IPAddress
+VARCHAR(45)
+نعم
+عنوان IP على الشبكة المحلية
+Model
+NVARCHAR(50)
+نعم
+موديل الجهاز
+Status
+NVARCHAR(20)
+لا
+CHECK IN ('Online','Offline','Faulty')
+LastSyncAt
+DATETIME2
+نعم
+آخر مزامنة ناجحة
+3.6 EmployeePermissions — صلاحيات دخول الموظفين
+العمود
+النوع
+Nullable
+الوصف/القيود
+PermissionID
+INT IDENTITY
+لا
+PK
+EmployeeID
+INT
+لا
+FK → Employees
+GateID
+INT
+لا
+FK → Gates
+ValidFrom / ValidTo
+DATE
+لا
+CHECK (ValidTo &gt;= ValidFrom) — مرتبط بـ BR-004
+TimeWindowStart / TimeWindowEnd
+TIME
+نعم
+نافذة زمنية يومية اختيارية
+IsActive
+BIT
+لا
+DEFAULT 1 — يُعطَّل تلقائيًا وفق BR-002
+GrantedBy
+INT
+لا
+FK → SystemUsers — مرتبط بـ BR-001
+GrantedAt
+DATETIME2
+لا
+تاريخ منح الصلاحية
+3.7 DeviceCommands — قائمة أوامر الأجهزة
+العمود
+النوع
+Nullable
+الوصف/القيود
+CommandID
+BIGINT IDENTITY
+لا
+PK
+ReaderID
+INT
+لا
+FK → Readers
+CommandType
+NVARCHAR(30)
+لا
+CHECK IN ('AddTemplate','RemoveTemplate','AddPermission','RemovePermission','Sync')
+Payload
+NVARCHAR(MAX)
+نعم
+بيانات الأمر بصيغة JSON
+Status
+NVARCHAR(20)
+لا
+CHECK IN ('Pending','Sent','Acknowledged','Failed')
+RetryCount
+INT
+لا
+DEFAULT 0
+CreatedAt / ProcessedAt
+DATETIME2
+لا/نعم
+تتبّع زمن الإنشاء والمعالجة
+3.8 MovementLogs — سجلات الحركة
+العمود
+النوع
+Nullable
+الوصف/القيود
+MovementID
+BIGINT IDENTITY
+لا
+PK
+EmployeeID
+INT
+نعم
+FK → Employees (حركات الموظفين - المرحلة الأولى)
+PermitID
+BIGINT
+نعم
+FK → Permits (حركات المعدات/الزوار/المركبات - المرحلة الثانية)
+ReaderID
+INT
+نعم
+FK → Readers (فارغ في حالة التسجيل اليدوي البحت)
+GateID
+INT
+لا
+FK → Gates
+MovementType
+NVARCHAR(10)
+لا
+CHECK IN ('In','Out')
+MovementTime
+DATETIME2
+لا
+الطابع الزمني للحركة
+VerificationMethod
+NVARCHAR(20)
+لا
+CHECK IN ('Biometric','Manual')
+RecordedBy
+INT
+نعم
+FK → SystemUsers (ضابط البوابة عند التسجيل اليدوي)
+Notes
+NVARCHAR(300)
+نعم
+مبرر التسجيل اليدوي إن وجد
+SyncedToAttendance
+BIT
+لا
+DEFAULT 0 — حالة الإرسال إلى Attendance System API
+قيد CHECK: يجب أن يكون أحد الحقلين EmployeeID أو PermitID معبَّأ على الأقل (وليس كلاهما فارغًا).
+3.9 SystemUsers — مستخدمو النظام
+العمود
+النوع
+Nullable
+الوصف/القيود
+UserID
+INT IDENTITY
+لا
+PK
+Username
+NVARCHAR(50)
+لا
+UNIQUE
+PasswordHash
+VARBINARY(256)
+لا
+تجزئة كلمة المرور (لا تُخزَّن نصًا صريحًا)
+EmployeeID
+INT
+نعم
+FK → Employees (ربط اختياري بموظف)
+IsActive
+BIT
+لا
+DEFAULT 1
+LastLoginAt
+DATETIME2
+نعم
+آخر تسجيل دخول
+3.10 Roles — الأدوار
+العمود
+النوع
+Nullable
+الوصف/القيود
+RoleID
+INT IDENTITY
+لا
+PK
+RoleName
+NVARCHAR(50)
+لا
+UNIQUE — مثل: SystemAdmin, HRSecurityOfficer, DeviceTechnician, GateOperator, Viewer, DepartmentApprover, SecurityApprover, ReceptionOfficer, Requester
+3.11 UserRoles — ربط المستخدمين بالأدوار
+العمود
+النوع
+Nullable
+الوصف/القيود
+UserID
+INT
+لا
+PK مركّب / FK → SystemUsers
+RoleID
+INT
+لا
+PK مركّب / FK → Roles
+AssignedAt
+DATETIME2
+لا
+تاريخ إسناد الدور
+3.12 AuditLogs — سجل التدقيق
+العمود
+النوع
+Nullable
+الوصف/القيود
+AuditID
+BIGINT IDENTITY
+لا
+PK
+UserID
+INT
+نعم
+FK → SystemUsers (فارغ للعمليات النظامية الآلية)
+EntityName
+NVARCHAR(50)
+لا
+اسم الجدول/الكيان المتأثر
+EntityKey
+NVARCHAR(50)
+لا
+المفتاح الأساسي للسجل المتأثر
+Action
+NVARCHAR(20)
+لا
+CHECK IN ('Insert','Update','Delete','Approve','Reject')
+OldValue / NewValue
+NVARCHAR(MAX)
+نعم
+القيم قبل/بعد التغيير بصيغة JSON
+ActionAt
+DATETIME2
+لا
+DEFAULT SYSUTCDATETIME()
+3.13 WorkflowDefinitions — تعريفات مسارات الاعتماد
+العمود
+النوع
+Nullable
+الوصف/القيود
+WorkflowID
+INT IDENTITY
+لا
+PK
+PermitType
+NVARCHAR(20)
+لا
+CHECK IN ('Equipment','Visitor','Vehicle')
+Version
+INT
+لا
+UNIQUE مع PermitType — لدعم تعديل المسار دون فقدان السجل التاريخي
+IsActive
+BIT
+لا
+DEFAULT 1 — نسخة واحدة نشطة فقط لكل نوع
+CreatedAt
+DATETIME2
+لا
+تاريخ الإنشاء
+3.14 WorkflowSteps — خطوات مسار الاعتماد
+العمود
+النوع
+Nullable
+الوصف/القيود
+StepID
+INT IDENTITY
+لا
+PK
+WorkflowID
+INT
+لا
+FK → WorkflowDefinitions
+StepOrder
+INT
+لا
+UNIQUE مع WorkflowID — ترتيب تنفيذ الخطوة
+RoleID
+INT
+لا
+FK → Roles — الدور المسؤول عن اعتماد هذه الخطوة
+StepName
+NVARCHAR(100)
+لا
+اسم وصفي للخطوة
+SLA_Hours
+INT
+نعم
+مهلة المعالجة بالساعات — مرتبط بـ NFR-009
+3.15 Permits — الجدول الأساسي للتصاريح (Table-Per-Type Base)
+العمود
+النوع
+Nullable
+الوصف/القيود
+PermitID
+BIGINT IDENTITY
+لا
+PK
+PermitNumber
+NVARCHAR(30)
+لا
+UNIQUE — رقم التصريح المُولَّد آليًا
+PermitType
+NVARCHAR(20)
+لا
+CHECK IN ('Equipment','Visitor','Vehicle')
+RequestedBy
+INT
+لا
+FK → Employees
+DepartmentID
+INT
+لا
+FK → Departments
+WorkflowID
+INT
+لا
+FK → WorkflowDefinitions
+Status
+NVARCHAR(20)
+لا
+CHECK IN ('Draft','PendingApproval','Approved','Active','Rejected','Expired','Cancelled')
+ValidFrom / ValidTo
+DATETIME2
+لا
+CHECK (ValidTo &gt;= ValidFrom) — مرتبط بـ BR-004/BR-008
+CreatedAt / UpdatedAt
+DATETIME2
+لا/نعم
+تتبّع الإنشاء والتعديل
+3.16 EquipmentPermitDetails — تفاصيل تصاريح المعدات
+العمود
+النوع
+Nullable
+الوصف/القيود
+PermitID
+BIGINT
+لا
+PK/FK → Permits (علاقة 1-1)
+EquipmentName
+NVARCHAR(150)
+لا
+اسم/وصف المعدة
+EquipmentSerial
+NVARCHAR(50)
+نعم
+الرقم التسلسلي إن وجد
+Direction
+NVARCHAR(10)
+لا
+CHECK IN ('Out','In')
+Purpose
+NVARCHAR(300)
+نعم
+الغرض من الإخراج/الإدخال
+ExpectedReturnDate
+DATE
+نعم
+تاريخ الإرجاع المتوقع
+3.17 VisitorPermitDetails — تفاصيل تصاريح الزوار
+العمود
+النوع
+Nullable
+الوصف/القيود
+PermitID
+BIGINT
+لا
+PK/FK → Permits (علاقة 1-1)
+VisitorName
+NVARCHAR(150)
+لا
+اسم الزائر
+VisitorIDNumber
+NVARCHAR(30)
+نعم
+رقم الهوية/جواز السفر
+VisitorCompany
+NVARCHAR(150)
+نعم
+الجهة التي يمثلها الزائر
+HostEmployeeID
+INT
+لا
+FK → Employees — إلزامي وفق BR-007
+VisitPurpose
+NVARCHAR(300)
+نعم
+الغرض من الزيارة
+VisitDateTime
+DATETIME2
+لا
+تاريخ ووقت الزيارة المتوقع
+3.18 VehiclePermitDetails — تفاصيل تصاريح المركبات الداخلية
+العمود
+النوع
+Nullable
+الوصف/القيود
+PermitID
+BIGINT
+لا
+PK/FK → Permits (علاقة 1-1)
+PlateNumber
+NVARCHAR(20)
+لا
+رقم اللوحة
+VehicleType
+NVARCHAR(50)
+نعم
+نوع المركبة
+DriverName
+NVARCHAR(150)
+لا
+اسم السائق
+DriverIDNumber
+NVARCHAR(30)
+نعم
+رقم هوية السائق
+Purpose
+NVARCHAR(300)
+نعم
+الغرض من دخول المركبة
+3.19 PermitApprovals — سجل اعتمادات التصاريح
+العمود
+النوع
+Nullable
+الوصف/القيود
+ApprovalID
+BIGINT IDENTITY
+لا
+PK
+PermitID
+BIGINT
+لا
+FK → Permits
+StepID
+INT
+لا
+FK → WorkflowSteps
+ApproverUserID
+INT
+نعم
+FK → SystemUsers (يُعبَّأ عند اتخاذ القرار)
+Decision
+NVARCHAR(20)
+نعم
+CHECK IN ('Approved','Rejected','Pending')
+DecisionAt
+DATETIME2
+نعم
+تاريخ ووقت القرار
+Comments
+NVARCHAR(300)
+نعم
+ملاحظات — إلزامية عند الرفض (FR-107)
+3.20 Notifications — الإشعارات
+العمود
+النوع
+Nullable
+الوصف/القيود
+NotificationID
+BIGINT IDENTITY
+لا
+PK
+UserID
+INT
+لا
+FK → SystemUsers (المستلم)
+RelatedPermitID
+BIGINT
+نعم
+FK → Permits
+Message
+NVARCHAR(500)
+لا
+نص الإشعار
+Channel
+NVARCHAR(10)
+لا
+CHECK IN ('Email','SMS','InApp')
+IsRead
+BIT
+لا
+DEFAULT 0
+CreatedAt
+DATETIME2
+لا
+تاريخ الإنشاء
+4. الفهارس (Indexes)
+الجدول
+الفهرس
+الغرض
+Employees
+IX_Employees_EmployeeNumber (UNIQUE)
+بحث سريع عبر الرقم الوظيفي
+Employees
+IX_Employees_DepartmentID
+تسريع تقارير الإدارات
+EmployeePermissions
+IX_EmpPerm_Employee_Gate
+تسريع التحقق من صلاحية موظف على بوابة معينة
+MovementLogs
+IX_Movement_GateTime (GateID, MovementTime)
+تسريع تقارير الحركة حسب البوابة والفترة
+MovementLogs
+IX_Movement_Employee_Time (EmployeeID, MovementTime)
+تسريع تقارير حضور الموظف
+DeviceCommands
+IX_DeviceCmd_Status
+استخراج الأوامر المعلّقة (Pending) بسرعة للمعالج الخلفي
+Permits
+IX_Permits_Status_Type
+تسريع لوحات المتابعة والتقارير حسب الحالة والنوع
+Permits
+IX_Permits_PermitNumber (UNIQUE)
+بحث ضابط البوابة عن تصريح برقم التصريح
+PermitApprovals
+IX_Approvals_PermitID
+استرجاع سريع لسجل اعتمادات تصريح معيّن
+AuditLogs
+IX_Audit_Entity (EntityName, EntityKey)
+تسريع التدقيق على سجل محدد
+Notifications
+IX_Notifications_User_IsRead
+تسريع عرض الإشعارات غير المقروءة لكل مستخدم
+5. القيود (Constraints)
+سلامة مرجعية (Referential Integrity): جميع مفاتيح FK مفعّلة مع ON DELETE بسياسة NO ACTION لمنع الحذف العرضي للسجلات المرتبطة، باستثناء WorkflowSteps → WorkflowDefinitions (CASCADE عند حذف تعريف كامل غير مُستخدَم).
+قيود CHECK: على حقول الحالة (Status) والأنواع (Type) في جميع الجداول لضمان الاتساق (موضحة في كل جدول أعلاه).
+قيود UNIQUE: EmployeeNumber، SerialNumber (Readers)، PermitNumber، Username، RoleName.
+قيود التواريخ: ValidTo &gt;= ValidFrom على كل من EmployeePermissions وPermits.
+قيد منطقي على MovementLogs: عدم السماح بترك كل من EmployeeID وPermitID فارغَين معًا (فرض عبر CHECK أو Trigger).
+6. الأمان والاحتفاظ بالبيانات (Security &amp; Retention)
+الجانب
+السياسة
+تشفير القوالب الحيوية
+استخدام Always Encrypted أو TDE على مستوى العمود لحقل BiometricTemplates.TemplateData.
+تشفير الاتصال
+TLS 1.2+ إلزامي بين التطبيق وقاعدة البيانات وبين الخادم والأجهزة الطرفية.
+التحكم بالوصول
+صلاحيات قاعدة البيانات ممنوحة عبر أدوار SQL Server مطابقة لأدوار RBAC في طبقة التطبيق؛ مبدأ أقل صلاحية ممكنة (Least Privilege).
+الاحتفاظ بالبيانات
+MovementLogs وAuditLogs: الاحتفاظ الفعّال لمدة سنتين على الأقل ثم الأرشفة (NFR-006)؛ Notifications: أرشفة بعد 6 أشهر من قراءتها.
+النسخ الاحتياطي
+نسخ احتياطي كامل يومي ونسخ تفاضلي كل 4 ساعات، مع اختبار استعادة دوري.
+التدقيق
+تسجيل كل عملية حساسة (منح/سحب صلاحية، اعتماد/رفض تصريح، تعديل قالب حيوي) في AuditLogs تلقائيًا عبر منطق التطبيق أو المشغلات (Triggers).
+7. مصفوفة التوافق مع وثيقة المتطلبات (SRS Mapping)
+الجدول/الحقل
+معرّفات SRS ذات الصلة
+Employees, Departments
+FR-001, FR-012, IF-002
+BiometricTemplates
+FR-002, BR-005, NFR-004
+Gates, Readers
+FR-003, FR-004, IF-001
+EmployeePermissions
+FR-005, BR-001, BR-002, BR-004
+DeviceCommands
+FR-006, IF-001
+MovementLogs
+FR-007, FR-008, FR-009, FR-011, BR-003, IF-004
+SystemUsers, Roles, UserRoles
+NFR-004, RBAC (القسم 3.9 من analysis_v2.html)
+AuditLogs
+FR-013, NFR-006
+WorkflowDefinitions, WorkflowSteps
+FR-104, FR-105, NFR-009
+Permits (أساسي)
+FR-108, FR-111, FR-112, BR-006, BR-008
+EquipmentPermitDetails
+FR-101
+VisitorPermitDetails
+FR-102, BR-007
+VehiclePermitDetails
+FR-103
+PermitApprovals
+FR-106, FR-107
+Notifications
+FR-106, IF-006
+تُعتمد هذه المصفوفة كأساس لاختبارات التتبّعية (Traceability Testing) قبل اعتماد كل سبرنت، بالتوازي مع عمود SRS_Refs في timeline_backlog.csv.
+الشركة الليبية للحديد والصلب — إدارة الحاسبات والنظم والاتصالات — قسم النظم والبرمجةوثيقة تصميم قاعدة البيانات (DDD) — الإصدار 2.0 — يوليو 2026

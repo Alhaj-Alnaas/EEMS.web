@@ -1,0 +1,22 @@
+@namespace PMS.web.Components.Shared
+
+<div class="pms-placeholder-page">
+    <div class="pms-placeholder-card">
+        <div class="pms-placeholder-icon">
+            <i class="@Icon" aria-hidden="true"></i>
+        </div>
+        <h2>@Title</h2>
+        @if (!string.IsNullOrWhiteSpace(Description))
+        {
+            <p class="text-muted mb-2">@Description</p>
+        }
+        <p class="pms-placeholder-note">@Message</p>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; } = "المهمة";
+    [Parameter] public string Icon { get; set; } = "fas fa-tools";
+    [Parameter] public string? Description { get; set; }
+    [Parameter] public string Message { get; set; } = "هذه الشاشة قيد التجهيز وفق هيكل النظام الموحّد.";
+}

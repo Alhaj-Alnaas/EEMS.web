@@ -12,10 +12,10 @@ namespace Core.Interfaces.Services
     {
         Task<IEnumerable<Gate>> GetAllAsync();
         Task<Gate> GetByIdAsync(Guid id, bool includePermitTypes);
-        Task InsertAsync(Gate gate, List<int> selectedPermitTypeIds);
-        Task UpdateAsync(Gate gate, List<int> selectedPermitTypeIds);
+        Task InsertAsync(Gate gate, List<Guid> selectedPermitTypeIds);
+        Task UpdateAsync(Gate gate, List<Guid> selectedPermitTypeIds);
         Task DeleteAsync(Gate gate);
 
-        Task<List<Gate>> GetGatesByPermitTypeAsync(int permitTypeId);
+        Task<List<Gate>> GetGatesByPermitTypeAsync(Guid permitTypeId);
     }
 }

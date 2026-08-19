@@ -1,0 +1,61 @@
+@page "/admin/workflows"
+@rendermode InteractiveServer
+@inject IUnitOfWork UnitOfWork
+@using Core.Interfaces.UnitOfWork
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>مسارات الاعتماد - PMS</PageTitle>
+
+<h3 class="mb-4"><i class="bi bi-diagram-3-fill text-warning"></i> مسارات الاعتماد (Workflows)</h3>
+
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i>
+    محرر مسارات الاعتماد الكامل قيد التطوير. يعرض هذا القسم مسارات الاعتماد المعرّفة حالياً في النظام.
+</div>
+
+@if (loading)
+{
+    <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+}
+else if (workflows.Count == 0)
+{
+    <div class="pms-placeholder">
+        <i class="bi bi-diagram-3"></i>
+        <h5>لا توجد مسارات اعتماد معرّفة بعد</h5>
+        <p>أضف مسار اعتماد لكل تصنيف تصريح (مواد / زوار / سيارات / دخول موظفين) لتفعيل الاعتماد التلقائي متعدد الخطوات.</p>
+    </div>
+}
+else
+{
+    @foreach (var wf in workflows)
+    {
+        <div class="card mb-3">
+            <div class="card-header pms-header d-flex justify-content-between">
+                <span>@wf.Name (@wf.PermitClassification) - الإصدار @wf.Version</span>
+                <span class="badge @(wf.IsActive ? "status-approved" : "status-cancelled")">@(wf.IsActive ? "فعّال" : "غير فعّال")</span>
+            </div>
+            <ul class="list-group list-group-flush">
+                @foreach (var step in wf.Steps.OrderBy(s => s.StepOrder))
+                {
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>@step.StepOrder. @step.StepType (@step.RoleName)</span>
+                        <span class="text-muted small">SLA: @step.SlaHours ساعة</span>
+                    </li>
+                }
+            </ul>
+        </div>
+    }
+}
+
+@code {
+    private bool loading = true;
+    private List<WorkflowDefinition> workflows = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        workflows = await UnitOfWork.WorkflowDefinitions.GetQueryable()
+            .Include(w => w.Steps)
+            .ToListAsync();
+        loading = false;
+    }
+}

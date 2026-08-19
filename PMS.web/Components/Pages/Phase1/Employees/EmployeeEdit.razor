@@ -1,0 +1,134 @@
+@page "/employees/{Id:guid}"
+@rendermode InteractiveServer
+@inject IEmployeeService EmployeeService
+@inject IDepartmentMasterService DepartmentService
+@inject NavigationManager Navigation
+
+<PageTitle>بيانات الموظف - PMS</PageTitle>
+
+<h3 class="mb-4">
+    <i class="bi bi-person-badge-fill text-warning"></i>
+    @(IsNew ? "إضافة موظف جديد" : "تعديل بيانات موظف")
+</h3>
+
+@if (loading)
+{
+    <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(saveMessage))
+{
+    <div class="alert @(saveOk ? "alert-success" : "alert-warning") alert-dismissible fade show">
+        @saveMessage
+        <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+    </div>
+}
+
+<div class="card">
+        <div class="card-body">
+            <EditForm Model="model" OnValidSubmit="SaveAsync">
+                <DataAnnotationsValidator />
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">الرقم الوظيفي</label>
+                        <InputText class="form-control" @bind-Value="model.FileNumber" />
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label">الاسم الكامل</label>
+                        <InputText class="form-control" @bind-Value="model.FullName" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">الإدارة</label>
+                        <InputSelect class="form-select" @bind-Value="selectedDepartmentId">
+                            <option value="">-- بدون --</option>
+                            @foreach (var d in departments)
+                            {
+                                <option value="@d.Id">@d.NameAr</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">الحالة الوظيفية</label>
+                        <InputText class="form-control" @bind-Value="model.JobStatus" placeholder="AE" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">الجنسية</label>
+                        <InputText class="form-control" @bind-Value="model.Nationality" />
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <div class="form-check">
+                            <InputCheckbox class="form-check-input" @bind-Value="model.IsActive" id="isActive" />
+                            <label class="form-check-label" for="isActive">موظف نشط</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <div class="form-check">
+                            <InputCheckbox class="form-check-input" @bind-Value="model.HostCapable" id="hostCapable" />
+                            <label class="form-check-label" for="hostCapable">يمكنه استضافة زوار</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4 d-flex gap-2">
+                    <button type="submit" class="btn btn-warning"><i class="bi bi-save"></i> حفظ</button>
+                    <a href="/employees" class="btn btn-outline-secondary">إلغاء</a>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private bool IsNew => Id == Guid.Empty;
+    private bool loading = true;
+    private string? saveMessage;
+    private bool saveOk;
+    private Employee model = new();
+    private List<Department> departments = new();
+    private string selectedDepartmentId = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        departments = await DepartmentService.GetAllAsync();
+
+        if (!IsNew)
+        {
+            var existing = await EmployeeService.GetByIdAsync(Id);
+            if (existing != null)
+            {
+                model = existing;
+                selectedDepartmentId = existing.DepartmentId?.ToString() ?? "";
+            }
+        }
+
+        loading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        model.DepartmentId = Guid.TryParse(selectedDepartmentId, out var depId) ? depId : null;
+        saveMessage = null;
+
+        int queued;
+        if (IsNew)
+        {
+            model.Id = Guid.NewGuid();
+            model.createdOn = DateTime.Now;
+            queued = await EmployeeService.InsertAsync(model);
+        }
+        else
+        {
+            model.updatedOn = DateTime.Now;
+            queued = await EmployeeService.UpdateAsync(model);
+        }
+
+        saveOk = queued > 0;
+        saveMessage = queued > 0
+            ? $"تم الحفظ. أُرسل أمر للقارئة (PIN={model.FileNumber}). انتظر حتى تستعلم القارئة (~30–60 ثانية) ثم حدّث قائمة المستخدمين على الجهاز. الرقم الوظيفي يجب أن يطابق pin وليس uid الداخلي."
+            : "تم الحفظ في النظام، لكن لم يُدرج أمر للقارئة. تحقق أن الرقم الوظيفي يطابق PIN على الجهاز وأن القارئة متصلة.";
+    }
+}

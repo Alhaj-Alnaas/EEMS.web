@@ -1,0 +1,120 @@
+@page "/admin/gates/edit/{Id:guid}"
+@rendermode InteractiveServer
+@inject IGates GateService
+@inject IPermitType PermitTypeService
+@inject AuthenticationStateProvider AuthProvider
+@inject NavigationManager Navigation
+
+<PageTitle>بيانات البوابة - PMS</PageTitle>
+
+<h3 class="mb-4"><i class="bi bi-door-open-fill text-warning"></i> @(IsNew ? "إضافة بوابة جديدة" : "تعديل بيانات البوابة")</h3>
+
+@if (loading)
+{
+    <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+}
+else
+{
+    <div class="card">
+        <div class="card-body">
+            <EditForm Model="gate" OnValidSubmit="SaveAsync">
+                <DataAnnotationsValidator />
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">رقم البوابة</label>
+                        <InputText class="form-control" @bind-Value="gate.no" />
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label">الوصف</label>
+                        <InputText class="form-control" @bind-Value="gate.description" />
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check form-switch mt-4">
+                            <InputCheckbox class="form-check-input" @bind-Value="gate.isActive" id="isActive" />
+                            <label class="form-check-label" for="isActive">بوابة نشطة</label>
+                        </div>
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label">ملاحظات</label>
+                        <InputTextArea class="form-control" @bind-Value="gate.remarks" />
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label fw-bold">أنواع التصاريح المسموح بها</label>
+                        <div class="d-flex flex-wrap gap-3">
+                            @foreach (var pt in permitTypes)
+                            {
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="pt_@pt.Id"
+                                           checked="@selectedPermitTypeIds.Contains(pt.Id)"
+                                           @onchange="e => ToggleType(pt.Id, (bool)e.Value!)" />
+                                    <label class="form-check-label" for="pt_@pt.Id">@pt.Name</label>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4 d-flex gap-2">
+                    <button type="submit" class="btn btn-warning"><i class="bi bi-save"></i> حفظ</button>
+                    <a href="/admin/gates" class="btn btn-outline-secondary">إلغاء</a>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private bool IsNew => Id == Guid.Empty;
+    private bool loading = true;
+    private Gate gate = new() { no = "", description = "" };
+    private List<PermitType> permitTypes = new();
+    private List<Guid> selectedPermitTypeIds = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        permitTypes = (await PermitTypeService.GetAllAsync()).Where(p => !p.isDeleted).ToList();
+
+        if (!IsNew)
+        {
+            var existing = await GateService.GetByIdAsync(Id, true);
+            if (existing != null)
+            {
+                gate = existing;
+                selectedPermitTypeIds = existing.PermitTypes.Select(p => p.Id).ToList();
+            }
+        }
+
+        loading = false;
+    }
+
+    private void ToggleType(Guid id, bool isChecked)
+    {
+        if (isChecked && !selectedPermitTypeIds.Contains(id)) selectedPermitTypeIds.Add(id);
+        else if (!isChecked) selectedPermitTypeIds.Remove(id);
+    }
+
+    private async Task SaveAsync()
+    {
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var userName = authState.User.Identity?.Name;
+
+        if (IsNew)
+        {
+            gate.Id = Guid.NewGuid();
+            gate.createdOn = DateTime.Now;
+            gate.createdBy = userName;
+            await GateService.InsertAsync(gate, selectedPermitTypeIds);
+        }
+        else
+        {
+            gate.updatedOn = DateTime.Now;
+            gate.updatedBy = userName;
+            await GateService.UpdateAsync(gate, selectedPermitTypeIds);
+        }
+
+        Navigation.NavigateTo("/admin/gates");
+    }
+}

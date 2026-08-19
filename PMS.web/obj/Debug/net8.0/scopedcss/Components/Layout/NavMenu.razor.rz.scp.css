@@ -1,0 +1,19 @@
+.navbar-custom[b-pmxxw6mivc] {
+    background-color: #fd7e14;
+}
+
+.navbar-custom .nav-link[b-pmxxw6mivc],
+.navbar-custom .navbar-brand[b-pmxxw6mivc] {
+    color: #fff;
+    font-weight: 500;
+}
+
+.navbar-custom .nav-link:hover[b-pmxxw6mivc],
+.navbar-custom .dropdown-item:hover[b-pmxxw6mivc] {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-radius: 5px;
+}
+
+.navbar-custom .dropdown-menu[b-pmxxw6mivc] {
+    text-align: right;
+}

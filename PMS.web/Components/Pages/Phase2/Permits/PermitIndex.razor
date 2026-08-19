@@ -1,0 +1,116 @@
+@page "/permits"
+@rendermode InteractiveServer
+@inject IPermit PermitService
+@inject UserManager<User> UserManager
+@inject AuthenticationStateProvider AuthProvider
+@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.Identity
+@using Core.Extensions
+
+<PageTitle>التصاريح - PMS</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h3><i class="bi bi-file-earmark-text-fill text-warning"></i> قائمة التصاريح</h3>
+    <div class="dropdown">
+        <button class="btn btn-warning dropdown-toggle" data-bs-toggle="dropdown">
+            <i class="bi bi-plus-circle"></i> إضافة تصريح
+        </button>
+        <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="/permits/materials/create"><i class="bi bi-box-arrow-in-down-right"></i> تصريح مواد</a></li>
+            <li><a class="dropdown-item" href="/permits/visitors/create"><i class="bi bi-people-fill"></i> تصريح زوار</a></li>
+            <li><a class="dropdown-item" href="/permits/vehicles/create"><i class="bi bi-truck"></i> تصريح سيارات</a></li>
+        </ul>
+    </div>
+</div>
+
+@if (loading)
+{
+    <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+}
+else if (permits.Count == 0)
+{
+    <div class="pms-placeholder">
+        <i class="bi bi-inbox"></i>
+        <h5>لا توجد تصاريح بعد</h5>
+        <p>ابدأ بإضافة أول تصريح من القائمة أعلاه.</p>
+    </div>
+}
+else
+{
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>رقم التصريح</th>
+                        <th>التصنيف</th>
+                        <th>النوع</th>
+                        <th>الجهة المصرح لها</th>
+                        <th>تاريخ التصريح</th>
+                        <th>قادم من</th>
+                        <th>ذاهب إلى</th>
+                        <th>الحالة</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in permits)
+                    {
+                        <tr>
+                            <td class="fw-bold">@p.no</td>
+                            <td>@PermitService.MappingAsync(p.classification ?? "")</td>
+                            <td>@(p.type?.ToEnumDescription<EnumPermitType>())</td>
+                            <td>@p.OrgDescription</td>
+                            <td>@p.date.ToString("yyyy/MM/dd")</td>
+                            <td>@p.moveFrom</td>
+                            <td>@p.moveTo</td>
+                            <td>@StatusBadge(p.status)</td>
+                            <td class="text-nowrap">
+                                <a class="btn btn-sm btn-info" href="/permits/materials/view/@p.Id"><i class="bi bi-eye"></i> عرض</a>
+                                <a class="btn btn-sm btn-warning" href="/permits/materials/edit/@p.Id"><i class="bi bi-pencil"></i> تعديل</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    private bool loading = true;
+    private List<Permit> permits = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var userName = authState.User.Identity?.Name;
+        var user = userName != null ? await UserManager.FindByNameAsync(userName) : null;
+
+        if (user != null)
+        {
+            permits = await PermitService.GetAllPermitAsync(user);
+        }
+
+        loading = false;
+    }
+
+    private RenderFragment StatusBadge(char status) => builder =>
+    {
+        var (cssClass, text) = status switch
+        {
+            'I' => ("status-pending", "قيد الاعتماد"),
+            'A' => ("status-approved", "معتمد"),
+            'J' => ("status-rejected", "مرفوض"),
+            'R' => ("status-returned", "مرجع"),
+            'C' => ("status-closed", "مغلق"),
+            'D' => ("status-cancelled", "محذوف"),
+            _ => ("status-draft", "غير معروف"),
+        };
+
+        builder.OpenElement(0, "span");
+        builder.AddAttribute(1, "class", $"badge {cssClass}");
+        builder.AddContent(2, text);
+        builder.CloseElement();
+    };
+}

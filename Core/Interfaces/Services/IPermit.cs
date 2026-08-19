@@ -1,6 +1,6 @@
 ﻿using Core.Entities;
 using Core.Entities.DTOs;
-using EEMS.web.ViewModels;
+using Core.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;

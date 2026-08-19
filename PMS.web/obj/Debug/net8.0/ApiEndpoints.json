@@ -1,0 +1,258 @@
+[
+  {
+    "ContainingType": "PMS.web.Controllers.ZkTecoPushController",
+    "Method": "CData",
+    "RelativePath": "iclock/cdata",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "SN",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "table",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "Stamp",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "pushver",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "PushOptionsFlag",
+        "Type": "System.String",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "PMS.web.Controllers.ZkTecoPushController",
+    "Method": "CData",
+    "RelativePath": "iclock/cdata",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "SN",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "table",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "Stamp",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "pushver",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "PushOptionsFlag",
+        "Type": "System.String",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "PMS.web.Controllers.ZkTecoPushController",
+    "Method": "DeviceCmd",
+    "RelativePath": "iclock/devicecmd",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "SN",
+        "Type": "System.String",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "PMS.web.Controllers.ZkTecoPushController",
+    "Method": "GetRequest",
+    "RelativePath": "iclock/getrequest",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "SN",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "INFO",
+        "Type": "System.String",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "PMS.web.Controllers.ZkTecoPushController",
+    "Method": "Ping",
+    "RelativePath": "iclock/ping",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "SN",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "INFO",
+        "Type": "System.String",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "PMS.web.Controllers.ZkTecoPushController",
+    "Method": "PushConfig",
+    "RelativePath": "iclock/push",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "SN",
+        "Type": "System.String",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "PMS.web.Controllers.ZkTecoPushController",
+    "Method": "PushConfig",
+    "RelativePath": "iclock/push",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "SN",
+        "Type": "System.String",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "PMS.web.Controllers.ZkTecoPushController",
+    "Method": "QueryData",
+    "RelativePath": "iclock/querydata",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "SN",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "table",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "type",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "cmdid",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "tablename",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "count",
+        "Type": "System.String",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "PMS.web.Controllers.ZkTecoPushController",
+    "Method": "Registry",
+    "RelativePath": "iclock/registry",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "SN",
+        "Type": "System.String",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "PMS.web.Controllers.ZkTecoPushController",
+    "Method": "Registry",
+    "RelativePath": "iclock/registry",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "SN",
+        "Type": "System.String",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "PMS.web.Controllers.ZkTecoPushController",
+    "Method": "Ping",
+    "RelativePath": "iclock/request",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "SN",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "INFO",
+        "Type": "System.String",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  }
+]

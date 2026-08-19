@@ -1,0 +1,310 @@
+@page "/permits/materials/create"
+@rendermode InteractiveServer
+@inject IPermit PermitService
+@inject IDepartmentService DepartmentService
+@inject UserManager<User> UserManager
+@inject AuthenticationStateProvider AuthProvider
+@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.Identity
+@using Core.Entities.DTOs
+@using static Core.Enums.BaseEnums
+
+<PageTitle>تصريح مواد جديد - PMS</PageTitle>
+
+<h3 class="mb-4"><i class="bi bi-box-arrow-in-down-right text-warning"></i> إضافة تصريح مواد جديد</h3>
+
+@if (loading)
+{
+    <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+}
+else
+{
+    <EditForm Model="model" OnValidSubmit="SaveAsync">
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header pms-header">البيانات الأساسية</div>
+                    <div class="card-body">
+                        <div class="form-check form-switch mb-3">
+                            <InputCheckbox class="form-check-input" @bind-Value="model.IsTemp" id="isTemp" />
+                            <label class="form-check-label fw-bold" for="isTemp">تصريح مؤقت</label>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">رقم التصريح</label>
+                            <input class="form-control text-center fw-bold text-warning" value="@model.No" readonly />
+                        </div>
+
+                        <div class="row g-2 mb-3">
+                            <div class="col-7">
+                                <label class="form-label">تاريخ التصريح</label>
+                                <InputDate class="form-control" @bind-Value="model.Date" />
+                            </div>
+                            <div class="col-5">
+                                <label class="form-label">الوقت</label>
+                                <InputText type="time" class="form-control" @bind-Value="model.HourOfEntry" />
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">نوع التصريح</label>
+                            <InputSelect class="form-select" @bind-Value="model.Type">
+                                <option value="@EnumPermitType.Export">استخراج</option>
+                                <option value="@EnumPermitType.Import">إدخال</option>
+                                <option value="@EnumPermitType.ExtractAndInsert">إستخراج وإدخال</option>
+                            </InputSelect>
+                        </div>
+
+                        @if (model.Type == EnumPermitType.ExtractAndInsert)
+                        {
+                            <div class="mb-3">
+                                <label class="form-label">تاريخ الترجيع</label>
+                                <InputDate class="form-control" @bind-Value="model.ReturnDate" />
+                            </div>
+                        }
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">الجهة الطالبة</label>
+                            <InputSelect class="form-select" @bind-Value="selectedRespCode">
+                                <option value="">-- اختر الجهة الطالبة --</option>
+                                @foreach (var dep in departments)
+                                {
+                                    <option value="@dep.RespCode">@dep.DepartmentName</option>
+                                }
+                            </InputSelect>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">الجهة المصرح لها</label>
+                            <InputText class="form-control" @bind-Value="model.OrgDescription" placeholder="وصف الجهة" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">رقم الهاتف</label>
+                            <InputText class="form-control" @bind-Value="model.PhoneNo" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">قادم من</label>
+                            <InputText class="form-control" @bind-Value="model.MoveFrom" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">ذاهب إلى</label>
+                            <InputText class="form-control" @bind-Value="model.MoveTo" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                <div class="card mb-3">
+                    <div class="card-header pms-header d-flex justify-content-between align-items-center">
+                        <span>المواد والمعدات</span>
+                        <button type="button" class="btn btn-sm btn-light" @onclick="AddEquipmentRow">
+                            <i class="bi bi-plus-circle"></i> إضافة مادة
+                        </button>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-bordered mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>اسم المادة/المعدة</th>
+                                        <th style="width:120px">الكمية</th>
+                                        <th style="width:160px">الوحدة</th>
+                                        <th style="width:50px"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @for (int i = 0; i < model.EquipmentsAndMaterials.Count; i++)
+                                    {
+                                        var idx = i;
+                                        <tr>
+                                            <td><input class="form-control" @bind="model.EquipmentsAndMaterials[idx].ItemName" /></td>
+                                            <td><input type="number" class="form-control" @bind="model.EquipmentsAndMaterials[idx].Quantity" /></td>
+                                            <td>
+                                                <select class="form-select" @bind="model.EquipmentsAndMaterials[idx].Unit">
+                                                    @foreach (var u in Enum.GetValues<UnitType>())
+                                                    {
+                                                        <option value="@u">@u</option>
+                                                    }
+                                                </select>
+                                            </td>
+                                            <td class="text-center">
+                                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => model.EquipmentsAndMaterials.RemoveAt(idx)">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                    @if (model.EquipmentsAndMaterials.Count == 0)
+                                    {
+                                        <tr><td colspan="4" class="text-center text-muted py-3">لا توجد مواد مضافة</td></tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-header pms-header d-flex justify-content-between align-items-center">
+                        <span>السيارات</span>
+                        <button type="button" class="btn btn-sm btn-light" @onclick="AddCarRow">
+                            <i class="bi bi-plus-circle"></i> إضافة سيارة
+                        </button>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-bordered mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>رقم السيارة</th>
+                                        <th>نوع السيارة</th>
+                                        <th>اسم السائق</th>
+                                        <th>جنسية السائق</th>
+                                        <th>رخصة القيادة</th>
+                                        <th style="width:50px"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @for (int i = 0; i < model.Cars.Count; i++)
+                                    {
+                                        var idx = i;
+                                        <tr>
+                                            <td><input class="form-control" @bind="model.Cars[idx].CarNo" /></td>
+                                            <td><input class="form-control" @bind="model.Cars[idx].CarType" /></td>
+                                            <td><input class="form-control" @bind="model.Cars[idx].DriverName" /></td>
+                                            <td>
+                                                <select class="form-select" @bind="model.Cars[idx].driverNationality">
+                                                    @foreach (var n in Enum.GetValues<Nationality>())
+                                                    {
+                                                        <option value="@n">@n</option>
+                                                    }
+                                                </select>
+                                            </td>
+                                            <td><input class="form-control" @bind="model.Cars[idx].licenseNo" /></td>
+                                            <td class="text-center">
+                                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => model.Cars.RemoveAt(idx)">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                    @if (model.Cars.Count == 0)
+                                    {
+                                        <tr><td colspan="6" class="text-center text-muted py-3">لا توجد سيارات مضافة</td></tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">ملاحظات</label>
+                    <InputTextArea class="form-control" rows="3" @bind-Value="model.Notes" />
+                </div>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger mt-3">@errorMessage</div>
+        }
+
+        <div class="mt-4 text-center">
+            <button type="submit" class="btn btn-warning px-4"><i class="bi bi-save"></i> حفظ</button>
+            <a href="/permits" class="btn btn-outline-secondary px-4">إلغاء</a>
+        </div>
+    </EditForm>
+}
+
+@code {
+    private bool loading = true;
+    private string? errorMessage;
+    private PermitViewModel model = new();
+    private List<DepartmentDto> departments = new();
+    private string selectedRespCode = "";
+    private User? currentUser;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var userName = authState.User.Identity?.Name;
+        currentUser = userName != null ? await UserManager.FindByNameAsync(userName) : null;
+
+        model.No = await PermitService.GeneratePermitSerialNumberAsync("Materials");
+        model.Date = DateTime.Now;
+        model.HourOfEntry = DateTime.Now.ToString("HH:mm");
+
+        if (currentUser != null)
+        {
+            departments = await DepartmentService.GetDepartmentsByResponsibilityAsync(currentUser.ResponsibilityCode);
+        }
+
+        loading = false;
+    }
+
+    private void AddEquipmentRow() => model.EquipmentsAndMaterials.Add(new EquipMatiMovmentViewModel());
+    private void AddCarRow() => model.Cars.Add(new CarMovmentViewModel());
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrEmpty(selectedRespCode))
+        {
+            errorMessage = "يرجى اختيار الجهة الطالبة.";
+            return;
+        }
+
+        var permit = new Permit
+        {
+            Id = Guid.NewGuid(),
+            createdBy = currentUser?.UserName,
+            createdOn = DateTime.Now,
+            no = model.No,
+            date = model.Date,
+            hourOfEntry = model.HourOfEntry,
+            type = model.Type.ToString(),
+            classification = "Materials",
+            IsTemp = model.IsTemp,
+            moveFrom = model.MoveFrom,
+            moveTo = model.MoveTo,
+            reqDepartment = selectedRespCode,
+            phoneNo = model.PhoneNo,
+            OrgDescription = model.OrgDescription,
+            remarks = model.Notes,
+        };
+
+        permit.EquipmentsAndMatirials = model.EquipmentsAndMaterials
+            .Select(e => new EquipMatiMovment { description = e.ItemName, qty = e.Quantity, unit = e.Unit.ToString() })
+            .ToList();
+
+        permit.Cars = model.Cars
+            .Select(c => new CarMovment
+            {
+                carType = c.CarType,
+                carNo = c.CarNo,
+                licenseNo = c.licenseNo,
+                name = c.DriverName,
+                nattiunality = c.driverNationality.ToString(),
+                orginaization = model.OrgDescription
+            }).ToList();
+
+        permit.Procedures = new List<ProcedureMovment>
+        {
+            new ProcedureMovment
+            {
+                procedureType = ProcedureType.Insert.ToString(),
+                donedBy = currentUser?.FullName,
+                doneAs = currentUser?.JobtypeName,
+                shift = "A",
+                doneOn = DateTime.Now
+            }
+        };
+
+        await PermitService.InsertPermitAsync(permit);
+        Navigation.NavigateTo("/permits");
+    }
+}
