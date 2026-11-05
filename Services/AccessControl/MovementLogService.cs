@@ -16,11 +16,45 @@ namespace Services.AccessControl
 
         public async Task<List<MovementLog>> GetRecentAsync(int take = 100)
         {
-            return await _unitOfWork.MovementLogs.GetQueryable()
+            return await GetFilteredAsync(take: take);
+        }
+
+        public async Task<List<MovementLog>> GetFilteredAsync(
+            string? employeeNumber = null,
+            Guid? departmentId = null,
+            Guid? gateId = null,
+            DateTime? from = null,
+            DateTime? to = null,
+            int take = 200)
+        {
+            var query = _unitOfWork.MovementLogs.GetQueryable()
                 .Include(m => m.Employee)
                 .Include(m => m.Gate)
                 .Include(m => m.Reader)
-                .Where(m => !m.isDeleted)
+                .Where(m => !m.isDeleted);
+
+            if (!string.IsNullOrWhiteSpace(employeeNumber))
+            {
+                var number = employeeNumber.Trim();
+                query = query.Where(m =>
+                    (m.Employee != null && m.Employee.FileNumber.Contains(number))
+                    || (m.Employee != null && m.Employee.FullName != null && m.Employee.FullName.Contains(number))
+                    || (m.DevicePin != null && m.DevicePin.Contains(number)));
+            }
+
+            if (departmentId.HasValue)
+                query = query.Where(m => m.Employee != null && m.Employee.DepartmentId == departmentId.Value);
+
+            if (gateId.HasValue)
+                query = query.Where(m => m.GateId == gateId.Value);
+
+            if (from.HasValue)
+                query = query.Where(m => m.EventTime >= from.Value);
+
+            if (to.HasValue)
+                query = query.Where(m => m.EventTime <= to.Value);
+
+            return await query
                 .OrderByDescending(m => m.EventTime)
                 .Take(take)
                 .ToListAsync();

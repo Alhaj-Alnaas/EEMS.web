@@ -1,4 +1,7 @@
 @using Microsoft.AspNetCore.Components.Authorization
+@using Core.Security
+@using System.Security.Claims
+@inject NavigationManager Navigation
 
 <nav class="navbar navbar-expand-lg navbar-custom shadow-sm mb-3">
     <div class="container-fluid">
@@ -12,72 +15,162 @@
         </button>
 
         <div class="collapse navbar-collapse" id="mainNavbar">
-            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                <li class="nav-item">
-                    <a class="nav-link" href="/dashboard">
-                        <i class="bi bi-house-door-fill me-1"></i> الرئيسية
-                    </a>
-                </li>
-
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                        <i class="bi bi-fingerprint me-1"></i> المرحلة الأولى - الدخول البيومتري
-                    </a>
-                    <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="/employees"><i class="bi bi-people me-1"></i> الموظفون</a></li>
-                        <li><a class="dropdown-item" href="/devices/readers"><i class="bi bi-hdd-network me-1"></i> أجهزة القراءة</a></li>
-                        <li><a class="dropdown-item" href="/devices/monitor"><i class="bi bi-display me-1"></i> مراقبة الأجهزة</a></li>
-                        <li><a class="dropdown-item" href="/access/permissions"><i class="bi bi-key me-1"></i> صلاحيات الدخول</a></li>
-                        <li><a class="dropdown-item" href="/movements"><i class="bi bi-arrow-left-right me-1"></i> سجل الحركة</a></li>
-                    </ul>
-                </li>
-
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                        <i class="bi bi-file-earmark-text-fill me-1"></i> المرحلة الثانية - التصاريح
-                    </a>
-                    <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="/permits"><i class="bi bi-list-check me-1"></i> عرض التصاريح</a></li>
-                        <li><hr class="dropdown-divider" /></li>
-                        <li><a class="dropdown-item" href="/permits/materials/create"><i class="bi bi-box-arrow-in-down-right me-1"></i> تصريح مواد جديد</a></li>
-                        <li><a class="dropdown-item" href="/permits/visitors/create"><i class="bi bi-person-badge me-1"></i> تصريح زوار جديد</a></li>
-                        <li><a class="dropdown-item" href="/permits/vehicles/create"><i class="bi bi-truck me-1"></i> تصريح سيارات جديد</a></li>
-                        <li><hr class="dropdown-divider" /></li>
-                        <li><a class="dropdown-item" href="/gate-officer"><i class="bi bi-qr-code-scan me-1"></i> نقطة تفتيش البوابة</a></li>
-                        <li><a class="dropdown-item" href="/admin/workflows"><i class="bi bi-diagram-3 me-1"></i> مسارات الاعتماد</a></li>
-                    </ul>
-                </li>
-
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                        <i class="bi bi-gear-fill me-1"></i> الإدارة
-                    </a>
-                    <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="/admin/gates"><i class="bi bi-door-open-fill me-1"></i> البوابات</a></li>
-                        <li><a class="dropdown-item" href="/admin/users"><i class="bi bi-person-lines-fill me-1"></i> المستخدمون</a></li>
-                        <li><a class="dropdown-item" href="/admin/users/create"><i class="bi bi-person-plus-fill me-1"></i> إضافة مستخدم</a></li>
-                    </ul>
-                </li>
-
-                <li class="nav-item">
-                    <a class="nav-link" href="/reports">
-                        <i class="bi bi-bar-chart-fill me-1"></i> التقارير
-                    </a>
-                </li>
-            </ul>
-
             <AuthorizeView>
                 <Authorized>
+                    @{
+                        var tasks = context.User.FindAll(SystemTaskCodes.ClaimType)
+                            .Select(c => c.Value)
+                            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                        var legacyAdmin = context.User.HasClaim("pms_legacy_usertype", "Admin");
+                        // Legacy Admin must see admin menu during UserType → AccessLevel transition
+                        // even if pms_task claims are missing (stale cookie / incomplete seed).
+                        bool Can(string code) =>
+                            tasks.Contains(code)
+                            || DesignModeOpen
+                            || (legacyAdmin && (
+                                string.Equals(code, SystemTaskCodes.AdminUsers, StringComparison.OrdinalIgnoreCase)
+                                || string.Equals(code, SystemTaskCodes.AdminAccessLevels, StringComparison.OrdinalIgnoreCase)
+                                || string.Equals(code, SystemTaskCodes.AdminGates, StringComparison.OrdinalIgnoreCase)
+                                || string.Equals(code, SystemTaskCodes.Dashboard, StringComparison.OrdinalIgnoreCase)));
+                    }
+
+                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                        @if (Can(SystemTaskCodes.Dashboard))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link" href="/dashboard">
+                                    <i class="bi bi-house-door-fill me-1"></i> الرئيسية
+                                </a>
+                            </li>
+                        }
+
+                        @if (Can(SystemTaskCodes.EmployeesList) || Can(SystemTaskCodes.EmployeesRegister)
+                            || Can(SystemTaskCodes.DevicesReaders) || Can(SystemTaskCodes.DevicesMonitor)
+                            || Can(SystemTaskCodes.GatePermissions) || Can(SystemTaskCodes.Movements))
+                        {
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                                    <i class="bi bi-fingerprint me-1"></i> المرحلة الأولى - الدخول البيومتري
+                                </a>
+                                <ul class="dropdown-menu">
+                                    @if (Can(SystemTaskCodes.EmployeesList))
+                                    {
+                                        <li><a class="dropdown-item" href="/employees"><i class="bi bi-people me-1"></i> الموظفون</a></li>
+                                    }
+                                    @if (Can(SystemTaskCodes.EmployeesRegister))
+                                    {
+                                        <li><a class="dropdown-item" href="@ReturnUrl.Go(Navigation, "/employees/register")"><i class="bi bi-person-vcard me-1"></i> تسجيل موظف</a></li>
+                                    }
+                                    @if (Can(SystemTaskCodes.DevicesReaders))
+                                    {
+                                        <li><a class="dropdown-item" href="/devices/readers"><i class="bi bi-hdd-network me-1"></i> أجهزة القراءة</a></li>
+                                    }
+                                    @if (Can(SystemTaskCodes.DevicesMonitor))
+                                    {
+                                        <li><a class="dropdown-item" href="/devices/monitor"><i class="bi bi-display me-1"></i> مراقبة الأجهزة</a></li>
+                                    }
+                                    @if (Can(SystemTaskCodes.GatePermissions))
+                                    {
+                                        <li><a class="dropdown-item" href="/access/permissions"><i class="bi bi-key me-1"></i> صلاحيات عبور البوابات</a></li>
+                                    }
+                                    @if (Can(SystemTaskCodes.Movements))
+                                    {
+                                        <li><a class="dropdown-item" href="/movements"><i class="bi bi-arrow-left-right me-1"></i> سجل الحركة</a></li>
+                                    }
+                                </ul>
+                            </li>
+                        }
+
+                        @if (Can(SystemTaskCodes.PermitsList) || Can(SystemTaskCodes.PermitsMaterialsCreate)
+                            || Can(SystemTaskCodes.PermitsVisitorsCreate) || Can(SystemTaskCodes.PermitsVehiclesCreate)
+                            || Can(SystemTaskCodes.GateOfficer) || Can(SystemTaskCodes.Workflows))
+                        {
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                                    <i class="bi bi-file-earmark-text-fill me-1"></i> المرحلة الثانية - التصاريح
+                                </a>
+                                <ul class="dropdown-menu">
+                                    @if (Can(SystemTaskCodes.PermitsList))
+                                    {
+                                        <li><a class="dropdown-item" href="/permits"><i class="bi bi-list-check me-1"></i> قائمة التصاريح</a></li>
+                                    }
+                                    @if (Can(SystemTaskCodes.PermitsMaterialsCreate) || Can(SystemTaskCodes.PermitsVisitorsCreate) || Can(SystemTaskCodes.PermitsVehiclesCreate))
+                                    {
+                                        <li><hr class="dropdown-divider" /></li>
+                                    }
+                                    @if (Can(SystemTaskCodes.PermitsMaterialsCreate))
+                                    {
+                                        <li><a class="dropdown-item" href="@ReturnUrl.Go(Navigation, "/permits/materials/create")"><i class="bi bi-box-arrow-in-down-right me-1"></i> تصريح مواد جديد</a></li>
+                                    }
+                                    @if (Can(SystemTaskCodes.PermitsVisitorsCreate))
+                                    {
+                                        <li><a class="dropdown-item" href="@ReturnUrl.Go(Navigation, "/permits/visitors/create")"><i class="bi bi-person-badge me-1"></i> تصريح زوار جديد</a></li>
+                                    }
+                                    @if (Can(SystemTaskCodes.PermitsVehiclesCreate))
+                                    {
+                                        <li><a class="dropdown-item" href="@ReturnUrl.Go(Navigation, "/permits/vehicles/create")"><i class="bi bi-truck me-1"></i> تصريح سيارات جديد</a></li>
+                                    }
+                                    @if (Can(SystemTaskCodes.GateOfficer) || Can(SystemTaskCodes.Workflows))
+                                    {
+                                        <li><hr class="dropdown-divider" /></li>
+                                    }
+                                    @if (Can(SystemTaskCodes.GateOfficer))
+                                    {
+                                        <li><a class="dropdown-item" href="/gate-officer"><i class="bi bi-qr-code-scan me-1"></i> نقطة تفتيش البوابة</a></li>
+                                    }
+                                    @if (Can(SystemTaskCodes.Workflows))
+                                    {
+                                        <li><a class="dropdown-item" href="/admin/workflows"><i class="bi bi-sliders me-1"></i> إعدادات التصريح</a></li>
+                                    }
+                                </ul>
+                            </li>
+                        }
+
+                        @if (Can(SystemTaskCodes.AdminGates) || Can(SystemTaskCodes.AdminUsers) || Can(SystemTaskCodes.AdminAccessLevels))
+                        {
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                                    <i class="bi bi-gear-fill me-1"></i> الإدارة
+                                </a>
+                                <ul class="dropdown-menu">
+                                    @if (Can(SystemTaskCodes.AdminGates))
+                                    {
+                                        <li><a class="dropdown-item" href="/admin/gates"><i class="bi bi-door-open-fill me-1"></i> البوابات</a></li>
+                                    }
+                                    @if (Can(SystemTaskCodes.AdminAccessLevels))
+                                    {
+                                        <li><a class="dropdown-item" href="/admin/access-levels"><i class="bi bi-shield-lock me-1"></i> مستويات الدخول</a></li>
+                                    }
+                                    @if (Can(SystemTaskCodes.AdminUsers))
+                                    {
+                                        <li><a class="dropdown-item" href="/admin/users"><i class="bi bi-person-lines-fill me-1"></i> المستخدمون</a></li>
+                                        <li><a class="dropdown-item" href="@ReturnUrl.Go(Navigation, "/admin/users/create")"><i class="bi bi-person-plus-fill me-1"></i> إضافة مستخدم</a></li>
+                                    }
+                                </ul>
+                            </li>
+                        }
+
+                        @if (Can(SystemTaskCodes.Reports))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link" href="/reports">
+                                    <i class="bi bi-bar-chart-fill me-1"></i> التقارير
+                                </a>
+                            </li>
+                        }
+                    </ul>
+
                     <div class="d-flex align-items-center gap-2">
                         <span class="text-white small d-none d-lg-inline">
                             <i class="bi bi-person-fill"></i> @context.User.Identity?.Name
                         </span>
-                        <a class="btn btn-outline-light btn-sm" href="/logout">
+                        <a class="btn btn-outline-light btn-sm" href="/logout" data-enhance-nav="false">
                             <i class="bi bi-box-arrow-right"></i> تسجيل الخروج
                         </a>
                     </div>
                 </Authorized>
                 <NotAuthorized>
+                    <ul class="navbar-nav me-auto"></ul>
                     <a class="btn btn-outline-light btn-sm" href="/login">
                         <i class="bi bi-box-arrow-in-left"></i> تسجيل الدخول
                     </a>
@@ -86,3 +179,8 @@
         </div>
     </div>
 </nav>
+
+@code {
+    [Inject] private IConfiguration Configuration { get; set; } = default!;
+    private bool DesignModeOpen => Configuration.GetValue("DesignMode:DisableAuthentication", false);
+}

@@ -39,7 +39,8 @@ namespace DataAccess
             Console.WriteLine($"[EF Design] Connection={MaskConnectionString(connectionString)}");
 
             var optionsBuilder = new DbContextOptionsBuilder<DataContext>();
-            optionsBuilder.UseSqlServer(connectionString);
+            // Production DB is SQL Server 2012 (compat 110) — avoid EF Core 8 OPENJSON/WITH.
+            optionsBuilder.UseSqlServer(connectionString, sql => sql.UseCompatibilityLevel(110));
 
             return new DataContext(optionsBuilder.Options);
         }

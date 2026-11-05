@@ -1,5 +1,37 @@
 [
   {
+    "ContainingType": "PMS.web.Controllers.AuthProbeController",
+    "Method": "GateRequired",
+    "RelativePath": "api/auth/gate-required",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "username",
+        "Type": "System.String",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "PMS.web.Controllers.HrEmployeeController",
+    "Method": "Get",
+    "RelativePath": "api/hr/employee/{empNo}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "empNo",
+        "Type": "System.String",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
     "ContainingType": "PMS.web.Controllers.ZkTecoPushController",
     "Method": "CData",
     "RelativePath": "iclock/cdata",

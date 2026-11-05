@@ -31,7 +31,8 @@ namespace Services.AccessControl
             // and let them pick the lines they recognize.
             var users = await ImportUserInfoAsync(deviceSerial, table, body, ct);
             var templates = await ImportFingerTmpAsync(deviceSerial, table, body, ct);
-            return new BiometricIngestResult(users, templates, 0);
+            var parsed = ZkTecoUserInfoParser.Parse(body, table).Count;
+            return new BiometricIngestResult(users, templates, 0, parsed);
         }
 
         public async Task<int> ImportUserInfoAsync(
@@ -42,8 +43,24 @@ namespace Services.AccessControl
 
             await RemoveBlankEmployeesAsync(ct);
 
-            var entries = ZkTecoUserInfoParser.Parse(body, table);
-            if (entries.Count == 0) return 0;
+            IReadOnlyList<ZkTecoUserInfoEntry> entries = ZkTecoUserInfoParser.Parse(body, table);
+            // SpeedFace sometimes posts user rows under type=tabledata / empty table hint.
+            if (entries.Count == 0 && body.Contains("pin=", StringComparison.OrdinalIgnoreCase))
+                entries = ZkTecoUserInfoParser.Parse(body, "user");
+
+            if (entries.Count == 0)
+            {
+                _logger.LogWarning(
+                    "USERINFO parse=0 SN={Serial} table={Table} bodyLen={Len} preview={Preview}",
+                    deviceSerial, table ?? "-", body.Length, PreviewBody(body, 200));
+                await TryCompletePendingEnrollsAsync(deviceSerial, body, ct);
+                return 0;
+            }
+
+            _logger.LogWarning(
+                "USERINFO parse={Parsed} SN={Serial} table={Table} pins=[{Pins}]",
+                entries.Count, deviceSerial, table ?? "-",
+                string.Join(",", entries.Select(e => e.Pin)));
 
             var changes = 0;
             var pendingNamePush = new List<Employee>();
@@ -53,35 +70,61 @@ namespace Services.AccessControl
                 if (string.IsNullOrWhiteSpace(entry.Pin))
                     continue;
 
+                // Include soft-deleted — unique FileNumber index is not filtered.
                 var employee = await _unitOfWork.Employees.GetQueryable()
-                    .FirstOrDefaultAsync(e => e.FileNumber == entry.Pin && !e.isDeleted, ct);
+                    .FirstOrDefaultAsync(e => e.FileNumber == entry.Pin, ct);
 
                 if (employee == null)
                 {
-                    // Incomplete SpeedFace users (empty name) must not become PMS rows.
-                    // Those appear after a DATA UPDATE without uid — they are inserts, not edits.
-                    if (string.IsNullOrWhiteSpace(entry.DeviceName))
-                    {
-                        _logger.LogInformation(
-                            "Skip stub device user SN={Serial} PIN={Pin} uid={Uid}",
-                            deviceSerial, entry.Pin, entry.Uid ?? "-");
-                        continue;
-                    }
+                    // Device may return users with empty name (common on SpeedFace).
+                    // Still import them — FullName falls back to PIN. Skip only empty PIN.
+                    var displayName = !string.IsNullOrWhiteSpace(entry.DeviceName)
+                        ? entry.DeviceName!.Trim()
+                        : entry.Pin;
 
                     employee = new Employee
                     {
                         Id = Guid.NewGuid(),
                         FileNumber = entry.Pin,
-                        FullName = entry.Name,
+                        FullName = displayName,
+                        CardNumber = string.IsNullOrWhiteSpace(entry.Card) ? null : entry.Card.Trim(),
                         IsActive = true,
-                        remarks = ZkTecoAccUserCommand.UpsertUid(
-                            $"Imported from reader {reader.DeviceSerial}", entry.Uid ?? ""),
+                        remarks = ZkTecoAccUserCommand.UpsertEnrolledSerials(
+                            !string.IsNullOrWhiteSpace(entry.Uid)
+                                ? ZkTecoAccUserCommand.UpsertUid(
+                                    $"Imported from reader {reader.DeviceSerial}", entry.Uid)
+                                : $"Imported from reader {reader.DeviceSerial}",
+                            new[] { reader.DeviceSerial }),
                         createdOn = DateTime.Now
                     };
-                    if (string.IsNullOrWhiteSpace(entry.Uid))
-                        employee.remarks = $"Imported from reader {reader.DeviceSerial}";
                     _unitOfWork.Employees.Insert(employee);
                     changes++;
+                    _logger.LogWarning(
+                        "Created employee from device SN={Serial} PIN={Pin} uid={Uid} name={Name} card={Card}",
+                        deviceSerial, entry.Pin, entry.Uid ?? "-", displayName, entry.Card ?? "-");
+                    continue;
+                }
+
+                if (employee.isDeleted)
+                {
+                    employee.isDeleted = false;
+                    employee.deletedOn = null;
+                    employee.deletedBy = null;
+                    employee.IsActive = true;
+                    employee.updatedOn = DateTime.Now;
+                    if (string.IsNullOrWhiteSpace(employee.FullName))
+                        employee.FullName = entry.DeviceName ?? entry.Pin;
+                    if (!string.IsNullOrWhiteSpace(entry.Uid))
+                        employee.remarks = ZkTecoAccUserCommand.UpsertUid(employee.remarks, entry.Uid);
+                    if (!string.IsNullOrWhiteSpace(entry.Card) && string.IsNullOrWhiteSpace(employee.CardNumber))
+                        employee.CardNumber = entry.Card.Trim();
+                    employee.remarks = ZkTecoAccUserCommand.UpsertEnrolledSerials(
+                        employee.remarks, new[] { reader.DeviceSerial });
+                    _unitOfWork.Employees.Update(employee);
+                    changes++;
+                    _logger.LogWarning(
+                        "Reactivated soft-deleted employee PIN={Pin} from SN={Serial}",
+                        entry.Pin, deviceSerial);
                     continue;
                 }
 
@@ -91,6 +134,23 @@ namespace Services.AccessControl
                 {
                     employee.remarks = ZkTecoAccUserCommand.UpsertUid(employee.remarks, entry.Uid);
                     remarksChanged = true;
+                }
+
+                var remarksBeforeSerials = employee.remarks;
+                employee.remarks = ZkTecoAccUserCommand.UpsertEnrolledSerials(
+                    employee.remarks, new[] { reader.DeviceSerial });
+                if (!string.Equals(remarksBeforeSerials ?? "", employee.remarks ?? "", StringComparison.Ordinal))
+                    remarksChanged = true;
+
+                if (!string.IsNullOrWhiteSpace(entry.Card)
+                    && !string.Equals(employee.CardNumber?.Trim(), entry.Card.Trim(), StringComparison.Ordinal))
+                {
+                    // لا نكتب فوق كرت PMS إن وُجد واختلف — نملأ فقط إن كان فارغاً
+                    if (string.IsNullOrWhiteSpace(employee.CardNumber))
+                    {
+                        employee.CardNumber = entry.Card.Trim();
+                        remarksChanged = true;
+                    }
                 }
 
                 var deviceName = entry.DeviceName ?? "";
@@ -112,7 +172,11 @@ namespace Services.AccessControl
                     changes++;
                 }
 
+                // Do NOT auto-push name when device name is empty — that loops forever:
+                // enroll → device returns name= → push UPDATE → device push → …
+                // and duplicate UPDATE user can create blank rows on SpeedFace.
                 if (hasRealPmsName
+                    && !string.IsNullOrWhiteSpace(deviceName)
                     && !string.Equals(employee.FullName.Trim(), deviceName, StringComparison.Ordinal)
                     && !string.IsNullOrWhiteSpace(ZkTecoAccUserCommand.TryGetUid(employee.remarks)))
                 {
@@ -121,7 +185,19 @@ namespace Services.AccessControl
             }
 
             if (changes > 0)
-                await _unitOfWork.SaveAsync();
+            {
+                try
+                {
+                    await _unitOfWork.SaveAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex,
+                        "USERINFO SaveAsync failed SN={Serial} parsed={Parsed} changes={Changes}",
+                        deviceSerial, entries.Count, changes);
+                    throw;
+                }
+            }
 
             foreach (var employee in pendingNamePush)
             {
@@ -139,7 +215,16 @@ namespace Services.AccessControl
                 "USERINFO import SN={Serial} parsed={Parsed} changed={Changed} namePush={Push}",
                 deviceSerial, entries.Count, changes, pendingNamePush.Count);
 
-            return entries.Count;
+            try
+            {
+                await TryCompletePendingEnrollsAsync(deviceSerial, body, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Complete pending Acc enroll failed SN={Serial}", deviceSerial);
+            }
+
+            return changes;
         }
 
         public async Task<int> ImportFingerTmpAsync(
@@ -152,6 +237,9 @@ namespace Services.AccessControl
             if (entries.Count == 0) return 0;
 
             var saved = 0;
+            var handCount = 0;
+            var faceCount = 0;
+            var changedEmployees = new HashSet<Guid>();
             foreach (var entry in entries)
             {
                 ct.ThrowIfCancellationRequested();
@@ -160,6 +248,10 @@ namespace Services.AccessControl
                 if (string.IsNullOrWhiteSpace(entry.Pin))
                     continue;
 
+                var templateType = ZkTecoFingerTmpParser.IsFaceBioType(entry.BioType)
+                    ? BiometricTemplateType.Face
+                    : BiometricTemplateType.Fingerprint;
+
                 byte[] bytes;
                 try
                 {
@@ -167,7 +259,6 @@ namespace Services.AccessControl
                 }
                 catch (FormatException)
                 {
-                    // Some firmware sends hex; store UTF8 of raw TMP as fallback.
                     bytes = System.Text.Encoding.UTF8.GetBytes(entry.TemplateBase64);
                 }
 
@@ -175,23 +266,35 @@ namespace Services.AccessControl
                     .FirstOrDefaultAsync(e => e.FileNumber == entry.Pin && !e.isDeleted, ct);
 
                 if (employee == null)
+                {
+                    _logger.LogInformation(
+                        "Skip bio template SN={Serial} PIN={Pin} type={BioType} — employee not found",
+                        deviceSerial, entry.Pin, entry.BioType);
                     continue;
+                }
 
-                // Replace existing template for same finger index when possible (tracked via remarks).
-                var marker = $"FID={entry.FingerIndex}";
+                var marker = $"FID={entry.FingerIndex};BioType={entry.BioType}";
+                if (entry.MajorVer is int majorVer) marker += $";MajorVer={majorVer}";
+                if (entry.MinorVer is int minorVer) marker += $";MinorVer={minorVer}";
+                if (entry.Format is int format) marker += $";Format={format}";
+                var remarks = $"{marker}; from {reader.DeviceSerial}";
                 var existing = await _unitOfWork.BiometricTemplates.GetQueryable()
                     .FirstOrDefaultAsync(t =>
                         t.EmployeeId == employee.Id
                         && !t.isDeleted
-                        && t.TemplateType == BiometricTemplateType.Fingerprint
+                        && t.TemplateType == templateType
                         && t.remarks != null
-                        && t.remarks.Contains(marker), ct);
+                        && t.remarks.Contains($"FID={entry.FingerIndex}")
+                        && t.remarks.Contains($"BioType={entry.BioType}"), ct);
 
+                var changed = true;
                 if (existing != null)
                 {
+                    changed = existing.TemplateData == null
+                        || !existing.TemplateData.AsSpan().SequenceEqual(bytes);
                     existing.TemplateData = bytes;
                     existing.updatedOn = DateTime.Now;
-                    existing.remarks = $"{marker}; from {reader.DeviceSerial}";
+                    existing.remarks = remarks;
                     _unitOfWork.BiometricTemplates.Update(existing);
                 }
                 else
@@ -200,27 +303,51 @@ namespace Services.AccessControl
                     {
                         Id = Guid.NewGuid(),
                         EmployeeId = employee.Id,
-                        TemplateType = BiometricTemplateType.Fingerprint,
+                        TemplateType = templateType,
                         TemplateData = bytes,
                         IsApproved = true,
                         ApprovedBy = $"ZKTeco/{reader.DeviceSerial}",
                         ApprovedOn = DateTime.Now,
-                        remarks = $"{marker}; from {reader.DeviceSerial}",
+                        remarks = remarks,
                         createdOn = DateTime.Now
                     });
                 }
 
+                if (changed)
+                    changedEmployees.Add(employee.Id);
+
                 saved++;
+                if (templateType == BiometricTemplateType.Face) faceCount++;
+                else handCount++;
             }
 
             if (saved > 0)
             {
                 await _unitOfWork.SaveAsync();
                 _logger.LogInformation(
-                    "FINGERTMP import SN={Serial} templates={Count}", deviceSerial, saved);
+                    "BIO import SN={Serial} saved={Saved} hands={Hands} faces={Faces}",
+                    deviceSerial, saved, handCount, faceCount);
+                foreach (var employeeId in changedEmployees)
+                {
+                    try
+                    {
+                        await _deviceSync.PushTemplatesExceptSourceAsync(employeeId, deviceSerial, ct);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Push templates after bio import failed PIN employee={EmployeeId}", employeeId);
+                    }
+                }
             }
 
             return saved;
+        }
+
+        private static string PreviewBody(string body, int max)
+        {
+            if (string.IsNullOrEmpty(body)) return "(empty)";
+            var text = body.Replace('\t', '|').Replace('\r', ' ').Replace('\n', ' ').Trim();
+            return text.Length <= max ? text : text[..max] + "…";
         }
 
         private async Task RemoveBlankEmployeesAsync(CancellationToken ct)
@@ -242,6 +369,18 @@ namespace Services.AccessControl
 
             await _unitOfWork.SaveAsync();
             _logger.LogWarning("Removed {Count} employee rows with empty file number", stubs.Count);
+        }
+
+        private async Task TryCompletePendingEnrollsAsync(string deviceSerial, string body, CancellationToken ct)
+        {
+            try
+            {
+                await _deviceSync.CompletePendingEnrollsFromDeviceUsersAsync(deviceSerial, body, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Complete pending Acc enroll failed SN={Serial}", deviceSerial);
+            }
         }
 
         private async Task<Reader?> FindReaderAsync(string deviceSerial, CancellationToken ct)

@@ -246,7 +246,25 @@ namespace Core.Enums
             PermitsSectionApproval,
 
             [Description("خطوة مخصصة")]
-            Custom
+            Custom,
+
+            [Description("لا يحتاج اعتماد")]
+            NoApproval,
+
+            [Description("اعتماد الرئيس المباشر")]
+            DirectSupervisor,
+
+            [Description("اعتماد الرئيس الأعلى")]
+            HigherSupervisor,
+
+            [Description("اعتماد رئيس قسم المراقبة الإلكترونية")]
+            ElectronicMonitoring,
+
+            [Description("اعتماد مدير إدارة الشؤون الأمنية")]
+            SecurityAffairs,
+
+            [Description("اعتماد رئيس قسم الحراسة")]
+            GuardSection
         }
 
         /// <summary>Biometric template kind captured for an employee.</summary>
@@ -268,7 +286,7 @@ namespace Core.Enums
             [Description("يدوي")]
             Manual,
 
-            [Description("ضابط البوابة")]
+            [Description("أمن البوابة")]
             GateOfficer
         }
 

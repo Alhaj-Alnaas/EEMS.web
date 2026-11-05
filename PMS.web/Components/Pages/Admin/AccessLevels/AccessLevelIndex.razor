@@ -1,0 +1,163 @@
+@page "/admin/access-levels"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = TaskPolicies.AdminAccessLevels)]
+@using Core.Interfaces.Services.Security
+@using Core.Security
+@using PMS.web.Authorization
+@inject IAccessLevelService AccessLevels
+@inject NavigationManager Navigation
+
+<PageTitle>مستويات الدخول - PMS</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h3 class="mb-1"><i class="bi bi-shield-lock text-warning"></i> مستويات الدخول</h3>
+        <div class="text-muted small">تعريف مستويات الصلاحيات وربطها بمهام النظام</div>
+    </div>
+    <a class="btn btn-warning" href="@ReturnUrl.Go(Navigation, "/admin/access-levels/edit")"><i class="bi bi-plus-circle"></i> إضافة مستوى</a>
+</div>
+
+@if (!loading && items.Count > 0)
+{
+    <div class="card shadow-sm mb-3">
+        <div class="card-body py-3">
+            <div class="pms-search-toolbar">
+                <div class="pms-search-actions ms-auto">
+                    <div class="input-group input-group-sm pms-quick-search">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input class="form-control" placeholder="بحث سريع: اسم المستوى / الوصف..."
+                               @bind="quickSearch" @bind:event="oninput" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+
+@if (loading)
+{
+    <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+}
+else if (items.Count == 0)
+{
+    <div class="pms-placeholder">
+        <i class="bi bi-shield"></i>
+        <h5>لا توجد مستويات بعد</h5>
+        <p class="text-muted">أضف مستوى دخول وربطه بمهام النظام المسموح بها.</p>
+    </div>
+}
+else if (FilteredItems.Count == 0)
+{
+    <div class="pms-placeholder">
+        <i class="bi bi-search"></i>
+        <h5>لا توجد نتائج مطابقة للبحث</h5>
+    </div>
+}
+else
+{
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>الترتيب</th>
+                        <th>اسم المستوى</th>
+                        <th>الوصف</th>
+                        <th>أمن بوابة</th>
+                        <th>تنبيهات أجهزة</th>
+                        <th>الحالة</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var a in FilteredItems)
+                    {
+                        <tr>
+                            <td>@a.SortOrder</td>
+                            <td class="fw-bold">@a.Name</td>
+                            <td class="small text-muted">@a.Description</td>
+                            <td>@(a.IsGateOfficer ? "نعم" : "لا")</td>
+                            <td>@(a.ReceivesDeviceAlerts ? "نعم" : "لا")</td>
+                            <td>
+                                @if (a.IsActive)
+                                {
+                                    <span class="badge status-approved">نشط</span>
+                                }
+                                else
+                                {
+                                    <span class="badge status-rejected">موقوف</span>
+                                }
+                            </td>
+                            <td class="text-nowrap">
+                                <a class="btn btn-sm btn-outline-secondary" href="@ReturnUrl.Go(Navigation, $"/admin/access-levels/edit/{a.Id}")">
+                                    <i class="bi bi-pencil"></i> تعديل
+                                </a>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(a.Id)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    private bool loading = true;
+    private string? error;
+    private string quickSearch = "";
+    private List<Core.Entities.Security.AccessLevel> items = new();
+
+    private List<Core.Entities.Security.AccessLevel> FilteredItems
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(quickSearch))
+                return items;
+            var q = quickSearch.Trim();
+            return items.Where(a =>
+                Contains(a.Name, q) || Contains(a.Description, q)).ToList();
+        }
+    }
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        error = null;
+        try
+        {
+            items = await AccessLevels.GetAllAsync(includeInactive: true);
+        }
+        catch (Exception ex)
+        {
+            error = "تعذر تحميل مستويات الدخول. تأكد من تطبيق ترحيل AccessLevels ثم أعد تشغيل النظام. " + ex.Message;
+            items = new();
+        }
+        loading = false;
+    }
+
+    private static bool Contains(string? value, string q) =>
+        !string.IsNullOrEmpty(value) && value.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0;
+
+    private async Task DeleteAsync(Guid id)
+    {
+        try
+        {
+            await AccessLevels.DeleteAsync(id, null);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+    }
+}

@@ -1,61 +1,308 @@
 @page "/admin/workflows"
+@page "/admin/permit-gates"
 @rendermode InteractiveServer
-@inject IUnitOfWork UnitOfWork
-@using Core.Interfaces.UnitOfWork
-@using Microsoft.EntityFrameworkCore
+@inject IApprovalPathService ApprovalPaths
+@inject IPermitExecutionService Execution
+@inject UserManager<User> UserManager
+@inject AuthenticationStateProvider AuthProvider
+@using Microsoft.AspNetCore.Identity
+@using Core.Models
+@using static Core.Enums.BaseEnums
 
-<PageTitle>مسارات الاعتماد - PMS</PageTitle>
+<PageTitle>إعدادات التصريح - PMS</PageTitle>
 
-<h3 class="mb-4"><i class="bi bi-diagram-3-fill text-warning"></i> مسارات الاعتماد (Workflows)</h3>
-
-<div class="alert alert-info">
-    <i class="bi bi-info-circle"></i>
-    محرر مسارات الاعتماد الكامل قيد التطوير. يعرض هذا القسم مسارات الاعتماد المعرّفة حالياً في النظام.
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h3 class="mb-0"><i class="bi bi-sliders text-warning"></i> إعدادات التصريح</h3>
 </div>
+
+<p class="text-muted">
+    اختر نوع التصريح، ثم مسار اعتماده، ثم بوابات التنفيذ التي تُستخدم عندما لا يمر المسار بقسم الحراسة.
+</p>
+
+@if (!string.IsNullOrEmpty(loadError))
+{
+    <div class="alert alert-danger">@loadError</div>
+}
 
 @if (loading)
 {
     <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
 }
-else if (workflows.Count == 0)
+else if (Selected is not null)
 {
-    <div class="pms-placeholder">
-        <i class="bi bi-diagram-3"></i>
-        <h5>لا توجد مسارات اعتماد معرّفة بعد</h5>
-        <p>أضف مسار اعتماد لكل تصنيف تصريح (مواد / زوار / سيارات / دخول موظفين) لتفعيل الاعتماد التلقائي متعدد الخطوات.</p>
-    </div>
-}
-else
-{
-    @foreach (var wf in workflows)
-    {
-        <div class="card mb-3">
-            <div class="card-header pms-header d-flex justify-content-between">
-                <span>@wf.Name (@wf.PermitClassification) - الإصدار @wf.Version</span>
-                <span class="badge @(wf.IsActive ? "status-approved" : "status-cancelled")">@(wf.IsActive ? "فعّال" : "غير فعّال")</span>
-            </div>
-            <ul class="list-group list-group-flush">
-                @foreach (var step in wf.Steps.OrderBy(s => s.StepOrder))
+    var noApproval = Selected.Steps.First(s => s.Type == WorkflowStepType.NoApproval);
+    <div class="card">
+        <div class="card-header pms-header">إعدادات تصريح @Selected.Title</div>
+        <ul class="nav nav-tabs px-3 pt-3">
+            <li class="nav-item">
+                <button type="button" class="nav-link @(tab == SettingsTab.Type ? "active" : "")" @onclick="() => tab = SettingsTab.Type">نوع التصريح</button>
+            </li>
+            <li class="nav-item">
+                <button type="button" class="nav-link @(tab == SettingsTab.Path ? "active" : "")" @onclick="() => tab = SettingsTab.Path">مسار الاعتماد</button>
+            </li>
+            <li class="nav-item">
+                <button type="button" class="nav-link @(tab == SettingsTab.Gates ? "active" : "")" @onclick="() => tab = SettingsTab.Gates">بوابات التنفيذ</button>
+            </li>
+        </ul>
+
+        <div class="p-4">
+            @if (messages.TryGetValue(Selected.Classification, out var message))
+            {
+                <div class="alert @(message.Ok ? "alert-success" : "alert-danger")">@message.Text</div>
+            }
+
+            @if (tab == SettingsTab.Type)
+            {
+                <div class="border rounded overflow-hidden" style="max-width: 360px;">
+                    @foreach (var row in rows)
+                    {
+                        <button type="button"
+                                class="pms-path-type @(row.Classification == Selected.Classification ? "active" : "")"
+                                @onclick="() => Select(row)">
+                            @row.Title
+                        </button>
+                    }
+                </div>
+            }
+            else if (tab == SettingsTab.Path)
+            {
+                <div class="mb-4">
+                    <div class="fw-bold">المسار السابق</div>
+                    <div class="text-muted">@SavedPathText(Selected)</div>
+                </div>
+
+                @foreach (var step in Selected.Steps)
                 {
-                    <li class="list-group-item d-flex justify-content-between">
-                        <span>@step.StepOrder. @step.StepType (@step.RoleName)</span>
-                        <span class="text-muted small">SLA: @step.SlaHours ساعة</span>
-                    </li>
+                    var inputId = $"{Selected.Classification}-{step.Type}";
+                    var locked = step.Type != WorkflowStepType.NoApproval && noApproval.Enabled;
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="@inputId"
+                               checked="@step.Enabled" disabled="@locked"
+                               @onchange="args => TogglePath(Selected, step, args)" />
+                        <label class="form-check-label fw-bold" for="@inputId">@step.Label</label>
+                        <div class="text-muted small">@step.Hint</div>
+                    </div>
                 }
-            </ul>
+
+                <button class="btn btn-warning mt-2" disabled="@saving" @onclick="() => SavePathAsync(Selected)">
+                    حفظ المسار
+                </button>
+            }
+            else
+            {
+                <div class="mb-4">
+                    <div class="fw-bold">الربط السابق</div>
+                    <div class="text-muted">@SavedGateText(Selected.Classification)</div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(gateError))
+                {
+                    <div class="alert alert-danger">@gateError</div>
+                }
+                else if (gates.Count == 0)
+                {
+                    <div class="text-muted">لا توجد بوابات نشطة. أضف البوابات من إدارة البوابات.</div>
+                }
+                else
+                {
+                    @foreach (var gate in gates)
+                    {
+                        var inputId = $"gate-{Selected.Classification}-{gate.Id}";
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" role="switch" id="@inputId"
+                                   checked="@IsGateChecked(Selected.Classification, gate.Id)"
+                                   @onchange="args => ToggleGate(Selected.Classification, gate.Id, args)" />
+                            <label class="form-check-label" for="@inputId">@GateText(gate)</label>
+                        </div>
+                    }
+
+                    <button class="btn btn-warning mt-2" disabled="@saving" @onclick="() => SaveGatesAsync(Selected.Classification)">
+                        حفظ البوابات
+                    </button>
+                }
+            }
         </div>
-    }
+    </div>
 }
 
 @code {
+    private enum SettingsTab { Type, Path, Gates }
+
     private bool loading = true;
-    private List<WorkflowDefinition> workflows = new();
+    private bool saving;
+    private string? loadError;
+    private string? gateError;
+    private SettingsTab tab = SettingsTab.Type;
+    private List<ApprovalPathRow> rows = new();
+    private List<Gate> gates = new();
+    private PermitClassification selected = PermitClassification.Materials;
+    private Dictionary<PermitClassification, string> savedPaths = new();
+    private Dictionary<PermitClassification, HashSet<Guid>> chosenGates = new();
+    private Dictionary<PermitClassification, string> savedGates = new();
+    private readonly Dictionary<PermitClassification, (bool Ok, string Text)> messages = new();
+
+    private ApprovalPathRow? Selected =>
+        rows.FirstOrDefault(r => r.Classification == selected) ?? rows.FirstOrDefault();
 
     protected override async Task OnInitializedAsync()
     {
-        workflows = await UnitOfWork.WorkflowDefinitions.GetQueryable()
-            .Include(w => w.Steps)
-            .ToListAsync();
-        loading = false;
+        try
+        {
+            rows = await ApprovalPaths.GetAsync();
+            RememberSavedPaths();
+            if (rows.Count > 0)
+                selected = rows[0].Classification;
+        }
+        catch (Exception ex)
+        {
+            loadError = "تعذر تحميل إعدادات التصريح: " + ex.Message;
+        }
+
+        try
+        {
+            gates = await Execution.GetActiveGatesAsync();
+            var links = await Execution.GetLinksAsync();
+            foreach (var kind in rows.Select(r => r.Classification))
+            {
+                var ids = links.TryGetValue(kind, out var stored)
+                    ? stored.ToHashSet()
+                    : new HashSet<Guid>();
+                chosenGates[kind] = ids;
+                savedGates[kind] = DescribeGates(ids);
+            }
+        }
+        catch (Exception ex)
+        {
+            gateError = "تعذر تحميل بوابات التنفيذ: " + ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void Select(ApprovalPathRow row)
+    {
+        selected = row.Classification;
+        tab = SettingsTab.Path;
+    }
+
+    private string SavedPathText(ApprovalPathRow row) =>
+        savedPaths.TryGetValue(row.Classification, out var text) && text != "لم يُحدد بعد"
+            ? text
+            : "لا يوجد مسار محفوظ لهذا النوع";
+
+    private string SavedGateText(PermitClassification kind) =>
+        savedGates.TryGetValue(kind, out var text) ? text : "لا توجد بوابات محفوظة لهذا النوع";
+
+    private void TogglePath(ApprovalPathRow row, ApprovalPathStepChoice step, ChangeEventArgs args)
+    {
+        var enabled = args.Value is bool value && value;
+        step.Enabled = enabled;
+
+        if (step.Type == WorkflowStepType.NoApproval && enabled)
+        {
+            foreach (var other in row.Steps.Where(s => s.Type != WorkflowStepType.NoApproval))
+                other.Enabled = false;
+        }
+        else if (enabled)
+        {
+            var noApproval = row.Steps.First(s => s.Type == WorkflowStepType.NoApproval);
+            noApproval.Enabled = false;
+        }
+    }
+
+    private bool IsGateChecked(PermitClassification kind, Guid gateId) =>
+        chosenGates.TryGetValue(kind, out var ids) && ids.Contains(gateId);
+
+    private void ToggleGate(PermitClassification kind, Guid gateId, ChangeEventArgs args)
+    {
+        if (!chosenGates.TryGetValue(kind, out var ids))
+        {
+            ids = new HashSet<Guid>();
+            chosenGates[kind] = ids;
+        }
+
+        if (args.Value is bool on && on)
+            ids.Add(gateId);
+        else
+            ids.Remove(gateId);
+        messages.Remove(kind);
+    }
+
+    private static string Preview(ApprovalPathRow row)
+    {
+        var labels = row.Steps.Where(s => s.Enabled).Select(s => s.Label).ToList();
+        return labels.Count == 0 ? "لم يُحدد بعد" : string.Join(" ← ", labels);
+    }
+
+    private void RememberSavedPaths() =>
+        savedPaths = rows.ToDictionary(r => r.Classification, Preview);
+
+    private string DescribeGates(IReadOnlySet<Guid> ids)
+    {
+        var names = gates.Where(g => ids.Contains(g.Id)).Select(GateText).ToList();
+        return names.Count == 0 ? "لا توجد بوابات محفوظة لهذا النوع" : string.Join("، ", names);
+    }
+
+    private async Task SavePathAsync(ApprovalPathRow row)
+    {
+        messages.Remove(row.Classification);
+        saving = true;
+        try
+        {
+            var auth = await AuthProvider.GetAuthenticationStateAsync();
+            var userName = auth.User.Identity?.Name;
+            var user = userName == null ? null : await UserManager.FindByNameAsync(userName);
+            if (user == null)
+                throw new InvalidOperationException("تعذر تحديد المستخدم الحالي.");
+
+            var enabled = row.Steps.Where(s => s.Enabled).Select(s => s.Type).ToList();
+            await ApprovalPaths.SaveAsync(row.Classification, enabled, user);
+            selected = row.Classification;
+            rows = await ApprovalPaths.GetAsync();
+            RememberSavedPaths();
+            messages[row.Classification] = (true, "حُفظ مسار " + row.Title + ".");
+        }
+        catch (Exception ex)
+        {
+            messages[row.Classification] = (false, ex.Message);
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private async Task SaveGatesAsync(PermitClassification kind)
+    {
+        if (!chosenGates.TryGetValue(kind, out var ids))
+            ids = new HashSet<Guid>();
+
+        messages.Remove(kind);
+        saving = true;
+        try
+        {
+            await Execution.SaveLinksAsync(kind, ids);
+            savedGates[kind] = DescribeGates(ids);
+            messages[kind] = (true, "حُفظت بوابات التنفيذ.");
+        }
+        catch (Exception ex)
+        {
+            messages[kind] = (false, ex.Message);
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private static string GateText(Gate gate)
+    {
+        var number = gate.no?.Trim() ?? "";
+        var description = gate.description?.Trim() ?? "";
+        if (number.Length == 0)
+            return description.Length == 0 ? gate.Id.ToString() : description;
+        return description.Length == 0 ? number : number + " - " + description;
     }
 }

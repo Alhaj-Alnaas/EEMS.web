@@ -1,0 +1,219 @@
+@page "/admin/access-levels/edit"
+@page "/admin/access-levels/edit/{Id:guid}"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = TaskPolicies.AdminAccessLevels)]
+@using Core.Entities.Security
+@using Core.Interfaces.Services.Security
+@using Core.Models.Security
+@using Core.Security
+@using PMS.web.Authorization
+@inject IAccessLevelService AccessLevels
+@inject ISystemTaskQueryService Tasks
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthState
+
+<PageTitle>@(Id.HasValue ? "تعديل مستوى" : "إضافة مستوى") - PMS</PageTitle>
+
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+    <div>
+        <h3 class="mb-1">
+            <i class="bi bi-shield-lock text-warning"></i>
+            @(Id.HasValue ? "تعديل مستوى الدخول" : "إضافة مستوى دخول")
+        </h3>
+        <div class="text-muted small">حدد اسم المستوى ثم اختر المهام المسموح بها</div>
+    </div>
+    <BackLink Fallback="/admin/access-levels"><i class="bi bi-arrow-right"></i> رجوع</BackLink>
+</div>
+
+@if (!string.IsNullOrEmpty(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+@if (!string.IsNullOrEmpty(success))
+{
+    <div class="alert alert-success">@success</div>
+}
+
+@if (loading)
+{
+    <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+}
+else
+{
+    <EditForm Model="model" OnValidSubmit="SaveAsync">
+        <DataAnnotationsValidator />
+
+        <div class="row g-3">
+            <div class="col-lg-4">
+                <div class="card h-100">
+                    <div class="card-header fw-bold">بيانات المستوى</div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">اسم المستوى</label>
+                            <InputText class="form-control" @bind-Value="model.Name" placeholder="مثال: مدير النظام" />
+                            <ValidationMessage For="() => model.Name" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">الوصف</label>
+                            <InputTextArea class="form-control" rows="3" @bind-Value="model.Description" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">الترتيب</label>
+                            <InputNumber class="form-control" @bind-Value="model.SortOrder" />
+                        </div>
+                        <div class="form-check mb-2">
+                            <InputCheckbox class="form-check-input" @bind-Value="model.IsActive" id="isActive" />
+                            <label class="form-check-label" for="isActive">نشط</label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <InputCheckbox class="form-check-input" @bind-Value="model.IsGateOfficer" id="isGate" />
+                            <label class="form-check-label" for="isGate">أمن بوابة (يتطلب اختيار بوابة عند الدخول)</label>
+                        </div>
+                        <div class="form-check">
+                            <InputCheckbox class="form-check-input" @bind-Value="model.ReceivesDeviceAlerts" id="alerts" />
+                            <label class="form-check-label" for="alerts">يستقبل تنبيهات الأجهزة</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-8">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span class="fw-bold">مهام النظام المسموحة</span>
+                        <div class="btn-group btn-group-sm">
+                            <button type="button" class="btn btn-outline-secondary" @onclick="SelectAll">تحديد الكل</button>
+                            <button type="button" class="btn btn-outline-secondary" @onclick="ClearAll">إلغاء الكل</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        @foreach (var group in tasks.GroupBy(t => t.Category))
+                        {
+                            <div class="mb-3">
+                                <div class="fw-bold text-warning mb-2">@group.Key</div>
+                                <div class="row g-2">
+                                    @foreach (var t in group)
+                                    {
+                                        var selected = selectedIds.Contains(t.Id);
+                                        <div class="col-md-6">
+                                            <label class="access-task-item @(selected ? "selected" : "")">
+                                                <input type="checkbox" checked="@selected"
+                                                       @onchange="e => ToggleTask(t.Id, (bool)(e.Value ?? false))" />
+                                                <span>@t.NameAr</span>
+                                                @if (!string.IsNullOrEmpty(t.Route))
+                                                {
+                                                    <small class="text-muted d-block">@t.Route</small>
+                                                }
+                                            </label>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-3 d-flex gap-2">
+            <button type="submit" class="btn btn-warning px-4" disabled="@saving">
+                <i class="bi bi-save"></i> حفظ
+            </button>
+            <BackLink Fallback="/admin/access-levels">إلغاء</BackLink>
+        </div>
+    </EditForm>
+}
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+
+    private bool loading = true;
+    private bool saving;
+    private string? error;
+    private string? success;
+    private AccessLevelEditModel model = new();
+    private List<SystemTask> tasks = new();
+    private HashSet<Guid> selectedIds = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        tasks = await Tasks.GetAllActiveAsync();
+
+        if (Id.HasValue)
+        {
+            var existing = await AccessLevels.GetByIdAsync(Id.Value);
+            if (existing == null)
+            {
+                error = "المستوى غير موجود.";
+                loading = false;
+                return;
+            }
+
+            model = new AccessLevelEditModel
+            {
+                Id = existing.Id,
+                Name = existing.Name,
+                Description = existing.Description,
+                SortOrder = existing.SortOrder,
+                IsActive = existing.IsActive,
+                IsGateOfficer = existing.IsGateOfficer,
+                ReceivesDeviceAlerts = existing.ReceivesDeviceAlerts,
+                SelectedTaskIds = existing.AccessLevelTasks.Select(t => t.SystemTaskId).ToList()
+            };
+            selectedIds = model.SelectedTaskIds.ToHashSet();
+        }
+        else
+        {
+            model.SortOrder = 100;
+            // Dashboard on by default
+            var dash = tasks.FirstOrDefault(t => t.Code == SystemTaskCodes.Dashboard);
+            if (dash != null) selectedIds.Add(dash.Id);
+        }
+
+        loading = false;
+    }
+
+    private void ToggleTask(Guid id, bool on)
+    {
+        if (on) selectedIds.Add(id);
+        else selectedIds.Remove(id);
+    }
+
+    private void SelectAll() => selectedIds = tasks.Select(t => t.Id).ToHashSet();
+    private void ClearAll() => selectedIds.Clear();
+
+    private async Task SaveAsync()
+    {
+        saving = true;
+        error = null;
+        success = null;
+        model.SelectedTaskIds = selectedIds.ToList();
+
+        try
+        {
+            var auth = await AuthState.GetAuthenticationStateAsync();
+            var userName = auth.User.Identity?.Name;
+
+            if (Id.HasValue)
+            {
+                model.Id = Id;
+                await AccessLevels.UpdateAsync(model, userName);
+                success = "تم تحديث المستوى بنجاح.";
+            }
+            else
+            {
+                var created = await AccessLevels.CreateAsync(model, userName);
+                Navigation.NavigateTo($"/admin/access-levels/edit/{created.Id}");
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+}

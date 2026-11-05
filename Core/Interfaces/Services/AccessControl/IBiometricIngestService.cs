@@ -3,7 +3,7 @@ using Core.Interfaces.Services.AccessControl;
 
 namespace Core.Interfaces.Services.AccessControl
 {
-    public sealed record BiometricIngestResult(int UsersUpserted, int TemplatesSaved, int TemplatesSkipped);
+    public sealed record BiometricIngestResult(int UsersUpserted, int TemplatesSaved, int TemplatesSkipped, int UsersParsed = 0);
 
     /// <summary>Imports USERINFO / FINGERTMP payloads pushed by ZKTeco readers.</summary>
     public interface IBiometricIngestService

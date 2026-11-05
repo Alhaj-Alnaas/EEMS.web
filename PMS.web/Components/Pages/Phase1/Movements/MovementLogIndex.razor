@@ -8,11 +8,11 @@
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <h3 class="mb-0"><i class="bi bi-arrow-left-right text-warning"></i> سجل حركة الدخول والخروج</h3>
     <div class="d-flex gap-2 flex-wrap">
-        <button class="btn btn-warning btn-sm" @onclick="RequestAttLogAsync" disabled="@busy">
-            <i class="bi bi-cloud-download"></i> مزامنة سجل الحركة
+        <button type="button" class="btn pms-btn-sync" @onclick="RequestAttLogAsync" disabled="@busy">
+            <i class="bi bi-cloud-download@(busy ? " pms-spin" : "")"></i> مزامنة سجل الحركة
         </button>
-        <button class="btn btn-outline-secondary btn-sm" @onclick="() => LoadAsync()" disabled="@loading">
-            <i class="bi bi-arrow-clockwise"></i> تحديث
+        <button type="button" class="btn pms-btn-refresh" @onclick="() => LoadAsync()" disabled="@loading">
+            <i class="bi bi-arrow-clockwise@(loading ? " pms-spin" : "")"></i> تحديث
         </button>
     </div>
 </div>
@@ -25,28 +25,101 @@
     </div>
 }
 
+<div class="card shadow-sm mb-3">
+    <div class="card-body py-3">
+        <div class="pms-search-toolbar">
+            <div class="pms-search-actions ms-auto">
+                <div class="input-group input-group-sm pms-quick-search">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input class="form-control" @bind="quickSearch" @bind:event="oninput"
+                           placeholder="بحث سريع: رقم الموظف / الاسم / القارئة..." />
+                </div>
+                <button type="button"
+                        class="btn btn-sm pms-btn-advanced @(showAdvancedSearch ? "is-open" : "")"
+                        @onclick="ToggleAdvancedSearch"
+                        title="بحث متقدم">
+                    <i class="bi bi-sliders"></i>
+                    <span class="ms-1">بحث متقدم</span>
+                    <i class="bi @(showAdvancedSearch ? "bi-chevron-up" : "bi-chevron-down") ms-1"></i>
+                </button>
+            </div>
+        </div>
+
+        @if (showAdvancedSearch)
+        {
+            <div class="pms-search-advanced">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-6 col-lg-2">
+                        <label class="form-label small mb-1">رقم الموظف</label>
+                        <input class="form-control form-control-sm" @bind="filterEmployeeNumber" @bind:event="oninput"
+                               placeholder="رقم الموظف أو PIN" />
+                    </div>
+                    <div class="col-md-6 col-lg-2">
+                        <label class="form-label small mb-1">الإدارة</label>
+                        <select class="form-select form-select-sm" @bind="filterDepartmentId" @bind:after="ApplyFilterAsync">
+                            <option value="">الكل</option>
+                            @foreach (var d in departments)
+                            {
+                                <option value="@d.Id">@d.NameAr</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-6 col-lg-2">
+                        <label class="form-label small mb-1">البوابة</label>
+                        <select class="form-select form-select-sm" @bind="filterGateId" @bind:after="ApplyFilterAsync">
+                            <option value="">الكل</option>
+                            @foreach (var g in gates)
+                            {
+                                <option value="@g.Id">@(string.IsNullOrWhiteSpace(g.description) ? g.no : $"{g.no} - {g.description}")</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-6 col-lg-2">
+                        <label class="form-label small mb-1">من تاريخ</label>
+                        <input type="date" class="form-control form-control-sm"
+                               @bind="filterFrom" @bind:format="yyyy-MM-dd" @bind:after="ApplyFilterAsync" />
+                    </div>
+                    <div class="col-md-6 col-lg-2">
+                        <label class="form-label small mb-1">إلى تاريخ</label>
+                        <input type="date" class="form-control form-control-sm"
+                               @bind="filterTo" @bind:format="yyyy-MM-dd" @bind:after="ApplyFilterAsync" />
+                    </div>
+                    <div class="col-md-6 col-lg-2 d-flex gap-1">
+                        <button type="button" class="btn btn-sm btn-outline-primary flex-grow-1" @onclick="ApplyFilterAsync" disabled="@loading">
+                            <i class="bi bi-funnel"></i> تطبيق
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ClearAdvancedFiltersAsync" disabled="@loading" title="مسح البحث المتقدم">
+                            <i class="bi bi-x-circle"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
 @if (loading)
 {
     <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
 }
-else if (logs.Count == 0)
+else if (DisplayLogs.Count == 0)
 {
     <div class="pms-placeholder">
         <i class="bi bi-journal-text"></i>
-        <h5>لا توجد حركات مسجلة بعد</h5>
-        <p>اضغط «مزامنة سجل الحركة» لجلب الحركات من القارئات، أو انتظر المزامنة الدورية.</p>
+        <h5>لا توجد حركات مطابقة</h5>
+        <p>غيّر الفلاتر أو اضغط «مزامنة سجل الحركة» لجلب الحركات من القارئات.</p>
     </div>
 }
 else
 {
     <div class="card">
-        <div class="card-header small text-muted">@logs.Count حركة (آخر @takeCount)</div>
+        <div class="card-header small text-muted">@DisplayLogs.Count حركة (آخر @takeCount)</div>
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0 table-sm">
                 <thead>
                     <tr>
                         <th>الوقت</th>
-                        <th>PIN / موظف</th>
+                        <th>الموظف</th>
                         <th>القارئة</th>
                         <th>البوابة</th>
                         <th>الاتجاه</th>
@@ -54,19 +127,31 @@ else
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var log in logs)
+                    @foreach (var log in DisplayLogs)
                     {
                         <tr>
                             <td>@log.EventTime.ToString("yyyy/MM/dd HH:mm:ss")</td>
                             <td>
-                                @if (log.Employee != null)
+                                @{
+                                    var empNo = !string.IsNullOrWhiteSpace(log.Employee?.FileNumber)
+                                        ? log.Employee!.FileNumber!.Trim()
+                                        : (log.DevicePin ?? "").Trim();
+                                    var empName = log.Employee?.FullName?.Trim();
+                                }
+                                @if (string.IsNullOrWhiteSpace(empNo) && string.IsNullOrWhiteSpace(empName))
                                 {
-                                    <span>@log.Employee.FullName</span>
-                                    <div class="text-muted small">@log.DevicePin</div>
+                                    <span class="text-muted">-</span>
                                 }
                                 else
                                 {
-                                    <code>@(log.DevicePin ?? "-")</code>
+                                    @if (!string.IsNullOrWhiteSpace(empNo))
+                                    {
+                                        <code>@empNo</code>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(empName))
+                                    {
+                                        <span class="@(string.IsNullOrWhiteSpace(empNo) ? "" : "ms-1")">@empName</span>
+                                    }
                                 }
                             </td>
                             <td><code>@(log.Reader?.DeviceSerial ?? "-")</code></td>
@@ -92,11 +177,41 @@ else
     private bool messageOk;
     private string? message;
     private List<MovementLog> logs = new();
+    private List<Department> departments = new();
+    private List<Gate> gates = new();
     private readonly SemaphoreSlim _loadLock = new(1, 1);
     private System.Threading.Timer? _timer;
 
+    private string quickSearch = "";
+    private bool showAdvancedSearch;
+    private string filterEmployeeNumber = "";
+    private string filterDepartmentId = "";
+    private string filterGateId = "";
+    private DateTime? filterFrom;
+    private DateTime? filterTo;
+
+    private List<MovementLog> DisplayLogs
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(quickSearch))
+                return logs;
+
+            var q = quickSearch.Trim();
+            return logs.Where(m =>
+                Contains(m.Employee?.FullName, q)
+                || Contains(m.Employee?.FileNumber, q)
+                || Contains(m.DevicePin, q)
+                || Contains(m.Gate?.no, q)
+                || Contains(m.Gate?.description, q)
+                || Contains(m.Reader?.DeviceSerial, q)
+                || Contains(m.Reader?.Name, q)).ToList();
+        }
+    }
+
     protected override async Task OnInitializedAsync()
     {
+        await LoadLookupsAsync();
         await LoadAsync();
         _timer = new System.Threading.Timer(async _ =>
         {
@@ -108,6 +223,33 @@ else
         }, null, TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(15));
     }
 
+    private async Task LoadLookupsAsync()
+    {
+        using var scope = ScopeFactory.CreateScope();
+        var deptService = scope.ServiceProvider.GetRequiredService<IDepartmentMasterService>();
+        var gateService = scope.ServiceProvider.GetRequiredService<IGates>();
+        departments = (await deptService.GetAllAsync())
+            .OrderBy(d => d.NameAr)
+            .ToList();
+        gates = (await gateService.GetAllAsync())
+            .OrderBy(g => g.no)
+            .ToList();
+    }
+
+    private void ToggleAdvancedSearch() => showAdvancedSearch = !showAdvancedSearch;
+
+    private async Task ApplyFilterAsync() => await LoadAsync();
+
+    private async Task ClearAdvancedFiltersAsync()
+    {
+        filterEmployeeNumber = "";
+        filterDepartmentId = "";
+        filterGateId = "";
+        filterFrom = null;
+        filterTo = null;
+        await LoadAsync();
+    }
+
     private async Task LoadAsync(bool silent = false)
     {
         await _loadLock.WaitAsync();
@@ -116,7 +258,19 @@ else
             if (!silent) loading = true;
             using var scope = ScopeFactory.CreateScope();
             var movementService = scope.ServiceProvider.GetRequiredService<IMovementLogService>();
-            logs = await movementService.GetRecentAsync(takeCount);
+
+            Guid? departmentId = Guid.TryParse(filterDepartmentId, out var dId) ? dId : null;
+            Guid? gateId = Guid.TryParse(filterGateId, out var gId) ? gId : null;
+            DateTime? from = filterFrom?.Date;
+            DateTime? to = filterTo.HasValue ? filterTo.Value.Date.AddDays(1).AddTicks(-1) : null;
+
+            logs = await movementService.GetFilteredAsync(
+                employeeNumber: string.IsNullOrWhiteSpace(filterEmployeeNumber) ? null : filterEmployeeNumber,
+                departmentId: departmentId,
+                gateId: gateId,
+                from: from,
+                to: to,
+                take: takeCount);
         }
         finally
         {
@@ -133,7 +287,9 @@ else
         {
             using var scope = ScopeFactory.CreateScope();
             var statsService = scope.ServiceProvider.GetRequiredService<IReaderDeviceStatsService>();
-            await statsService.EnqueueCommandsAllAsync(DeviceCommandType.QueryAttLog);
+            await statsService.EnqueueCommandsAllAsync(
+                force: true,
+                DeviceCommandType.QueryAttLog);
             messageOk = true;
             message = "تم إرسال أمر جلب سجل الحركة لجميع القارئات. ستُحدَّث القائمة تلقائياً عند استجابة القارئات.";
         }
@@ -142,6 +298,9 @@ else
             busy = false;
         }
     }
+
+    private static bool Contains(string? value, string q) =>
+        !string.IsNullOrEmpty(value) && value.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0;
 
     public void Dispose()
     {

@@ -1,134 +1,672 @@
 @page "/employees"
 @rendermode InteractiveServer
 @inject IEmployeeService EmployeeService
+@inject IDepartmentMasterService DepartmentService
+@inject IGates GateService
+@inject IReaderService ReaderService
+@inject IEmployeeCardService CardService
+@inject IEmployeePhotoService PhotoService
+@inject IEmployeeEnrollmentService EnrollmentService
 @inject IServiceScopeFactory ScopeFactory
+@inject IJSRuntime JS
 @inject NavigationManager Navigation
+@inject IWebHostEnvironment HostEnvironment
+@inject PMS.web.Notifications.IUiToast Toast
+@using Core.Interfaces.UnitOfWork
+@using Core.Models
+@using Microsoft.AspNetCore.Hosting
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.Extensions.DependencyInjection
+@using Services.AccessControl
+@using Core.Interfaces.Services.Organization
 
-<PageTitle>الموظفون - PMS</PageTitle>
+<PageTitle>شاشة تسجيل موظف - PMS</PageTitle>
 
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-    <h3 class="mb-0"><i class="bi bi-people-fill text-warning"></i> الموظفون (المرحلة الأولى)</h3>
-    <div class="d-flex gap-2 flex-wrap">
-        <button class="btn btn-outline-secondary btn-sm" @onclick="SyncFromReadersAsync" disabled="@syncing">
-            <i class="bi bi-arrow-repeat@(syncing ? " spin" : "")"></i> مزامنة من القارئات
-        </button>
-        <a class="btn btn-warning" href="/employees/@Guid.Empty">
-            <i class="bi bi-plus-circle"></i> إضافة موظف
-        </a>
-    </div>
-</div>
-
-@if (!string.IsNullOrEmpty(syncMessage))
-{
-    <div class="alert @(syncOk ? "alert-success" : "alert-info") alert-dismissible fade show py-2 small">
-        @syncMessage
-        <button type="button" class="btn-close" @onclick="() => syncMessage = null"></button>
-    </div>
-}
-
-@if (loading)
-{
-    <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
-}
-else if (employees.Count == 0)
-{
-    <div class="pms-placeholder">
-        <i class="bi bi-people"></i>
-        <h5>لا يوجد موظفون مسجلون بعد</h5>
-        <p>قم بإضافة أول موظف أو اضغط «مزامنة من القارئات» لجلب الموظفين من أجهزة البصمة.</p>
-    </div>
-}
-else
-{
-    <div class="card">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead>
-                    <tr>
-                        <th>الرقم الوظيفي</th>
-                        <th>الاسم الكامل</th>
-                        <th>الإدارة</th>
-                        <th>الحالة الوظيفية</th>
-                        <th>الجنسية</th>
-                        <th>مضيف زوار</th>
-                        <th>نشط</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var e in employees)
-                    {
-                        <tr>
-                            <td>@(string.IsNullOrWhiteSpace(e.FileNumber) ? "-" : e.FileNumber)</td>
-                            <td>@(string.IsNullOrWhiteSpace(e.FullName) ? "-" : e.FullName)</td>
-                            <td>@(e.Department?.NameAr ?? "-")</td>
-                            <td>@e.JobStatus</td>
-                            <td>@e.Nationality</td>
-                            <td>@(e.HostCapable ? "نعم" : "لا")</td>
-                            <td>
-                                @if (e.IsActive)
-                                {
-                                    <span class="badge status-approved">نشط</span>
-                                }
-                                else
-                                {
-                                    <span class="badge status-rejected">غير نشط</span>
-                                }
-                            </td>
-                            <td class="text-nowrap">
-                                <a class="btn btn-sm btn-outline-secondary" href="/employees/@e.Id">
-                                    <i class="bi bi-pencil"></i> تعديل
-                                </a>
-                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(e)">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+<div class="emp-hub">
+    <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+        <div>
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <h3 class="mb-0">
+                    <i class="bi bi-person-vcard text-warning"></i>
+                    شاشة تسجيل موظف
+                </h3>
+                <span class="emp-total-pill" title="إجمالي الموظفين في النظام">
+                    <i class="bi bi-people-fill"></i>
+                    <strong>@employees.Count</strong>
+                    <span>موظف مسجّل</span>
+                </span>
+            </div>
+            <div class="emp-hub-path mt-2" title="مسار تسجيل موظف جديد">
+                <span class="emp-hub-path-step"><span class="emp-hub-path-num">1</span> تسجيل على القارئة</span>
+                <span class="emp-hub-path-sep" aria-hidden="true">←</span>
+                <span class="emp-hub-path-step"><span class="emp-hub-path-num">2</span> مزامنة</span>
+                <span class="emp-hub-path-sep" aria-hidden="true">←</span>
+                <span class="emp-hub-path-step"><span class="emp-hub-path-num">3</span> تسجيل البيانات</span>
+                <span class="emp-hub-path-sep" aria-hidden="true">←</span>
+                <span class="emp-hub-path-step"><span class="emp-hub-path-num">4</span> البوابات</span>
+                <span class="emp-hub-path-sep" aria-hidden="true">←</span>
+                <span class="emp-hub-path-step"><span class="emp-hub-path-num">5</span> طباعة الكرت</span>
+            </div>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <button class="btn pms-btn-sync" @onclick="SyncFromReadersAsync" disabled="@syncing">
+                <i class="bi bi-arrow-repeat@(syncing ? " pms-spin" : "")"></i> مزامنة من القارئات
+            </button>
+            <BackLink Fallback="/dashboard" Css="btn pms-btn-refresh">
+                <i class="bi bi-arrow-right"></i> رجوع
+            </BackLink>
         </div>
     </div>
-}
+
+    @* بحث وفلترة *@
+    <div class="card shadow-sm mb-3">
+        <div class="card-body py-3">
+            <div class="emp-hub-toolbar d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                <div class="btn-group btn-group-sm flex-wrap" role="group" aria-label="خيارات العرض">
+                    <button type="button" class="btn @(listTab == "all" ? "btn-primary" : "btn-outline-primary")"
+                            @onclick='() => listTab = "all"'>الكل</button>
+                    <button type="button" class="btn @(listTab == "ready" ? "btn-primary" : "btn-outline-primary")"
+                            @onclick='() => listTab = "ready"'>جاهز للتسجيل (@CountPhase(EmployeeEnrollmentPhase.ReadyToRegister))</button>
+                    <button type="button" class="btn @(listTab == "awaiting" ? "btn-primary" : "btn-outline-primary")"
+                            @onclick='() => listTab = "awaiting"'>بانتظار بصمة/كرت (@CountPhase(EmployeeEnrollmentPhase.AwaitingCredential))</button>
+                    <button type="button" class="btn @(listTab == "gates" ? "btn-primary" : "btn-outline-primary")"
+                            @onclick='() => listTab = "gates"'>بانتظار بوابات (@CountPhase(EmployeeEnrollmentPhase.NeedsGates))</button>
+                    <button type="button" class="btn @(listTab == "complete" ? "btn-primary" : "btn-outline-primary")"
+                            @onclick='() => listTab = "complete"'>مكتمل</button>
+                </div>
+
+                <div class="d-flex flex-wrap gap-2 align-items-center flex-grow-1 justify-content-end pms-search-actions">
+                    <div class="input-group input-group-sm pms-quick-search">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input class="form-control" @bind="quickSearch" @bind:event="oninput"
+                               placeholder="بحث سريع: رقم الملف / الاسم / الهاتف..." />
+                    </div>
+                    <button type="button"
+                            class="btn btn-sm pms-btn-advanced @(showAdvancedSearch ? "is-open" : "")"
+                            @onclick="ToggleAdvancedSearch"
+                            title="بحث متقدم">
+                        <i class="bi bi-sliders"></i>
+                        <span class="ms-1">بحث متقدم</span>
+                        <i class="bi @(showAdvancedSearch ? "bi-chevron-up" : "bi-chevron-down") ms-1"></i>
+                    </button>
+                </div>
+            </div>
+
+            @if (showAdvancedSearch)
+            {
+                <div class="emp-hub-advanced pms-search-advanced">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-6 col-lg-3">
+                            <label class="form-label small mb-1">رقم الملف</label>
+                            <input class="form-control form-control-sm" @bind="filterFileNo" @bind:event="oninput" placeholder="الرقم الوظيفي" />
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <label class="form-label small mb-1">الإدارة</label>
+                            <select class="form-select form-select-sm" @bind="filterDepartmentId">
+                                <option value="">الكل</option>
+                                @foreach (var d in departments)
+                                {
+                                    <option value="@d.Id">@d.NameAr</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <label class="form-label small mb-1">البوابة</label>
+                            <select class="form-select form-select-sm" @bind="filterGateId">
+                                <option value="">الكل</option>
+                                @foreach (var g in gates)
+                                {
+                                    <option value="@g.Id">@(!string.IsNullOrWhiteSpace(g.description) ? g.description : g.no)</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6 col-lg-2">
+                            <label class="form-label small mb-1">القارئة</label>
+                            <select class="form-select form-select-sm" @bind="filterReaderId">
+                                <option value="">الكل</option>
+                                @foreach (var r in readers.Where(x => !x.isDeleted))
+                                {
+                                    <option value="@r.Id">@(string.IsNullOrWhiteSpace(r.Name) ? r.DeviceSerial : r.Name)</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6 col-lg-1">
+                            <button type="button" class="btn btn-sm btn-outline-secondary w-100" @onclick="ClearAdvancedFilters" title="مسح البحث المتقدم">
+                                <i class="bi bi-x-circle"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    @if (syncing)
+    {
+        <div class="card border-primary mb-3">
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-3 mb-2">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <div>
+                        <div class="fw-semibold">جاري المزامنة من القارئات...</div>
+                        <div class="small text-muted">
+                            الوقت المتوقع تقريباً @expectedSyncSeconds ثانية
+                            (حسب عدد القارئات: @activeReaderCount).
+                            تم الانتظار: @elapsedSyncSeconds ث
+                        </div>
+                    </div>
+                </div>
+                <div class="progress" style="height: 8px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated"
+                         style="width:@SyncProgressPercent%"></div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (showSyncResult)
+    {
+        <div class="alert alert-success alert-dismissible fade show">
+            <div class="fw-semibold mb-1">
+                اكتملت المزامنة — تم رصد @syncedEmployees.Count موظفاً (@(syncedEmployees.Count == 0 ? "لا يوجد جدد في هذه الجولة" : "تمت إضافتهم/تحديثهم"))
+            </div>
+            <div class="small">الإجمالي في النظام الآن: @employees.Count</div>
+            <button type="button" class="btn-close" @onclick="() => showSyncResult = false"></button>
+        </div>
+
+        @if (syncedEmployees.Count > 0)
+        {
+            <div class="card shadow-sm mb-3 border-success">
+                <div class="card-header bg-success-subtle fw-semibold py-2">
+                    الموظفون الذين تمت مزامنتهم (@syncedEmployees.Count)
+                </div>
+                <div class="table-responsive" style="max-height: 260px; overflow:auto;">
+                    <table class="table table-sm table-hover mb-0 align-middle">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th>الرقم الوظيفي</th>
+                                <th>الاسم</th>
+                                <th>الإدارة</th>
+                                <th>الحالة</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var e in syncedEmployees)
+                            {
+                                <tr>
+                                    <td>@e.FileNumber</td>
+                                    <td>@e.FullName</td>
+                                    <td>@(e.Department?.NameAr ?? e.DepartmentName ?? "-")</td>
+                                    <td>
+                                        @{
+                                            var syncPhase = GetPhase(e.Id);
+                                        }
+                                        @switch (syncPhase)
+                                        {
+                                            case EmployeeEnrollmentPhase.AwaitingCredential:
+                                                <span class="badge text-bg-warning">بانتظار بصمة/كرت</span>
+                                                break;
+                                            case EmployeeEnrollmentPhase.ReadyToRegister:
+                                                <span class="badge text-bg-primary">جاهز للتسجيل</span>
+                                                break;
+                                            case EmployeeEnrollmentPhase.NeedsGates:
+                                                <span class="badge" style="background:#fd7e14;color:#fff;">بانتظار بوابات</span>
+                                                break;
+                                            case EmployeeEnrollmentPhase.Complete:
+                                                <span class="badge text-bg-success">مكتمل</span>
+                                                break;
+                                            default:
+                                                <span>-</span>
+                                                break;
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    }
+
+    @* التنبيهات عبر pmsToast *@
+
+    @if (loading)
+    {
+        <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+    }
+    else if (FilteredEmployees.Count == 0)
+    {
+        <div class="pms-placeholder">
+            <i class="bi bi-people"></i>
+            <h5>@(employees.Count == 0 ? "لا يوجد موظفون مسجلون بعد" : "لا توجد نتائج مطابقة للبحث")</h5>
+            <p>
+                @if (employees.Count == 0)
+                {
+                    <span>سجّل الموظف على القارئة أولاً (بصمة/كرت)، ثم اضغط «مزامنة من القارئات»، وبعدها أكمل التسجيل من قائمة الانتظار.</span>
+                }
+                else if (listTab == "ready")
+                {
+                    <span>لا يوجد موظفون جاهزون للتسجيل. سجّل على القارئة ثم زامن.</span>
+                }
+                else
+                {
+                    <span>عدّل معايير البحث أو امسح الفلاتر أو غيّر تبويب الحالة.</span>
+                }
+            </p>
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>الرقم الوظيفي</th>
+                            <th>الاسم الكامل</th>
+                            <th>الإدارة</th>
+                            <th>الوظيفة</th>
+                            <th>الهاتف</th>
+                            <th>الحالة</th>
+                            <th>إجراء</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var e in FilteredEmployees)
+                        {
+                            var phase = GetPhase(e.Id);
+                            <tr>
+                                <td><code>@(string.IsNullOrWhiteSpace(e.FileNumber) ? "-" : e.FileNumber)</code></td>
+                                <td>@(string.IsNullOrWhiteSpace(e.FullName) ? "-" : e.FullName)</td>
+                                <td>@(e.Department?.NameAr ?? e.DepartmentName ?? "-")</td>
+                                <td>@(e.JobTitle ?? e.JobStatus ?? "-")</td>
+                                <td>@(e.Phone ?? "-")</td>
+                                <td>
+                                    @switch (phase)
+                                    {
+                                        case EmployeeEnrollmentPhase.AwaitingCredential:
+                                            <span class="badge text-bg-warning">بانتظار بصمة/كرت</span>
+                                            break;
+                                        case EmployeeEnrollmentPhase.ReadyToRegister:
+                                            <span class="badge text-bg-primary">جاهز للتسجيل</span>
+                                            break;
+                                        case EmployeeEnrollmentPhase.NeedsGates:
+                                            <span class="badge" style="background:#fd7e14;color:#fff;">بانتظار بوابات</span>
+                                            break;
+                                        case EmployeeEnrollmentPhase.Complete:
+                                            <span class="badge text-bg-success">مكتمل</span>
+                                            break;
+                                        default:
+                                            <span class="badge text-bg-secondary">-</span>
+                                            break;
+                                    }
+                                </td>
+                                <td class="text-nowrap">
+                                    @if (phase == EmployeeEnrollmentPhase.Complete)
+                                    {
+                                        var canPrint = CanPrintCard(e);
+                                        <button type="button" class="btn btn-sm pms-table-action-btn"
+                                                disabled="@(printingId.HasValue || !canPrint)"
+                                                @onclick="() => PrintCardAsync(e)"
+                                                title="@(canPrint ? "طباعة كرت" : "الطباعة غير متاحة — أكمل تسجيل بيانات الموظف أولاً")">
+                                            @if (printingId == e.Id)
+                                            {
+                                                <span class="spinner-border spinner-border-sm"></span>
+                                            }
+                                            else
+                                            {
+                                                <i class="bi bi-printer"></i>
+                                            }
+                                            <span>طباعة كرت</span>
+                                        </button>
+                                    }
+                                    else if (phase == EmployeeEnrollmentPhase.ReadyToRegister
+                                          || phase == EmployeeEnrollmentPhase.NeedsGates
+                                          || phase == EmployeeEnrollmentPhase.AwaitingCredential)
+                                    {
+                                        @if (phase == EmployeeEnrollmentPhase.NeedsGates)
+                                        {
+                                            <a class="btn btn-sm pms-table-action-btn" href="@ReturnUrl.Go(Navigation, $"/employees/register/{e.Id}")" title="ربط البوابات">
+                                                <i class="bi bi-door-open"></i>
+                                                <span>ربط البوابات</span>
+                                            </a>
+                                        }
+                                        else
+                                        {
+                                            <a class="btn btn-sm pms-table-action-btn" href="@ReturnUrl.Go(Navigation, $"/employees/register/{e.Id}")" title="تسجيل">
+                                                <i class="bi bi-person-check"></i>
+                                                <span>تسجيل</span>
+                                            </a>
+                                        }
+                                    }
+                                    <a class="btn btn-sm btn-outline-secondary" href="@ReturnUrl.Go(Navigation, $"/employees/register/{e.Id}")" title="تعديل">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(e)" title="حذف">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
 
 <style>
-    .spin { animation: spin 1s linear infinite; display: inline-block; }
-    @@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .emp-hub .emp-total-pill {
+        display: inline-flex; align-items: center; gap: .4rem;
+        padding: .35rem .75rem; border-radius: 2rem;
+        background: #fff8e6; border: 1px solid #ffe08a; color: #6b5300;
+        font-size: .9rem;
+    }
+    .emp-hub .emp-total-pill strong { font-size: 1.05rem; }
+    .emp-hub-path {
+        display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .45rem;
+        color: #6c757d; font-size: .85rem; line-height: 1.4;
+    }
+    .emp-hub-path-step {
+        display: inline-flex; align-items: center; gap: .3rem;
+        color: #495057;
+    }
+    .emp-hub-path-num {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 1.15rem; height: 1.15rem; border-radius: 50%;
+        background: #ffc107; color: #212529;
+        font-size: .7rem; font-weight: 700; line-height: 1;
+    }
+    .emp-hub-path-sep { color: #adb5bd; font-size: .8rem; }
 </style>
 
 @code {
     private List<Employee> employees = new();
+    private List<Employee> syncedEmployees = new();
+    private List<Department> departments = new();
+    private List<Gate> gates = new();
+    private List<Reader> readers = new();
+    private Dictionary<Guid, HashSet<Guid>> employeeGateIds = new();
+    private Dictionary<Guid, HashSet<Guid>> employeeReaderIds = new();
+    private Dictionary<Guid, EmployeeEnrollmentInfo> enrollmentMap = new();
+
+    private string quickSearch = "";
+    private string filterFileNo = "";
+    private string filterDepartmentId = "";
+    private string filterGateId = "";
+    private string filterReaderId = "";
+    private string listTab = "all";
+    private bool showAdvancedSearch;
+
     private bool loading = true;
     private bool syncing;
-    private bool syncOk;
-    private string? syncMessage;
+    private bool showSyncResult;
+    private Guid? printingId;
+    private int expectedSyncSeconds = 60;
+    private int elapsedSyncSeconds;
+    private int activeReaderCount;
+
+    private int SyncProgressPercent =>
+        expectedSyncSeconds <= 0 ? 0 : Math.Min(100, (int)(100.0 * elapsedSyncSeconds / expectedSyncSeconds));
+
+    private int CountPhase(EmployeeEnrollmentPhase phase)
+        => enrollmentMap.Values.Count(x => x.Phase == phase);
+
+    private EmployeeEnrollmentPhase? GetPhase(Guid employeeId)
+        => enrollmentMap.TryGetValue(employeeId, out var info) ? info.Phase : null;
+
+    private List<Employee> FilteredEmployees
+    {
+        get
+        {
+            IEnumerable<Employee> q = employees;
+
+            if (!string.IsNullOrWhiteSpace(filterFileNo))
+            {
+                var pin = filterFileNo.Trim();
+                q = q.Where(e => (e.FileNumber ?? "").Contains(pin, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (Guid.TryParse(filterDepartmentId, out var depId))
+                q = q.Where(e => e.DepartmentId == depId);
+
+            if (Guid.TryParse(filterGateId, out var gateId))
+            {
+                q = q.Where(e =>
+                    employeeGateIds.TryGetValue(e.Id, out var set) && set.Contains(gateId));
+            }
+
+            if (Guid.TryParse(filterReaderId, out var readerId))
+            {
+                q = q.Where(e =>
+                    employeeReaderIds.TryGetValue(e.Id, out var set) && set.Contains(readerId));
+            }
+
+            if (!string.IsNullOrWhiteSpace(quickSearch))
+            {
+                var s = quickSearch.Trim();
+                q = q.Where(e =>
+                    Contains(e.FileNumber, s) ||
+                    Contains(e.FullName, s) ||
+                    Contains(e.JobTitle, s) ||
+                    Contains(e.JobStatus, s) ||
+                    Contains(e.Phone, s) ||
+                    Contains(e.Email, s) ||
+                    Contains(e.Nationality, s) ||
+                    Contains(e.CardNumber, s) ||
+                    Contains(e.Address, s) ||
+                    Contains(e.DepartmentName, s) ||
+                    Contains(e.Department?.NameAr, s) ||
+                    Contains(e.Department?.NameEn, s));
+            }
+
+            q = listTab switch
+            {
+                "ready" => q.Where(e => GetPhase(e.Id) == EmployeeEnrollmentPhase.ReadyToRegister),
+                "awaiting" => q.Where(e => GetPhase(e.Id) == EmployeeEnrollmentPhase.AwaitingCredential),
+                "gates" => q.Where(e => GetPhase(e.Id) == EmployeeEnrollmentPhase.NeedsGates),
+                "complete" => q.Where(e => GetPhase(e.Id) == EmployeeEnrollmentPhase.Complete),
+                _ => q
+            };
+
+            return q.OrderBy(e => e.FullName).ToList();
+        }
+    }
+
+    private static bool Contains(string? value, string term)
+        => !string.IsNullOrWhiteSpace(value)
+           && value.Contains(term, StringComparison.OrdinalIgnoreCase);
 
     protected override async Task OnInitializedAsync()
     {
-        employees = await EmployeeService.GetAllAsync();
+        await LoadAllAsync();
         loading = false;
+    }
+
+    private async Task LoadAllAsync()
+    {
+        employees = await EmployeeService.GetAllAsync();
+        departments = await DepartmentService.GetAllAsync();
+        gates = (await GateService.GetAllAsync()).Where(g => !g.isDeleted).ToList();
+        readers = (await ReaderService.GetAllAsync()).Where(r => !r.isDeleted).ToList();
+        await LoadAccessMapsAsync();
+        enrollmentMap = await EnrollmentService.GetEnrollmentMapAsync(employees.Select(e => e.Id));
+    }
+
+    private async Task LoadAccessMapsAsync()
+    {
+        employeeGateIds = new();
+        employeeReaderIds = new();
+
+        using var scope = ScopeFactory.CreateScope();
+        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+
+        var permissions = await uow.EmployeePermissions.GetQueryable()
+            .AsNoTracking()
+            .Where(p => p.IsActive && !p.isDeleted)
+            .Select(p => new { p.EmployeeId, p.GateId })
+            .ToListAsync();
+
+        foreach (var p in permissions)
+        {
+            if (!employeeGateIds.TryGetValue(p.EmployeeId, out var gatesSet))
+            {
+                gatesSet = new HashSet<Guid>();
+                employeeGateIds[p.EmployeeId] = gatesSet;
+            }
+            gatesSet.Add(p.GateId);
+
+            foreach (var reader in readers.Where(r => r.GateId == p.GateId && r.IsActive))
+            {
+                if (!employeeReaderIds.TryGetValue(p.EmployeeId, out var readersSet))
+                {
+                    readersSet = new HashSet<Guid>();
+                    employeeReaderIds[p.EmployeeId] = readersSet;
+                }
+                readersSet.Add(reader.Id);
+            }
+        }
+
+        // قارئات مسجّلة في remarks عند التسجيل
+        foreach (var emp in employees)
+        {
+            foreach (var sn in ZkTecoAccUserCommand.TryGetEnrolledSerials(emp.remarks))
+            {
+                var reader = readers.FirstOrDefault(r =>
+                    string.Equals(r.DeviceSerial, sn, StringComparison.OrdinalIgnoreCase));
+                if (reader == null) continue;
+                if (!employeeReaderIds.TryGetValue(emp.Id, out var set))
+                {
+                    set = new HashSet<Guid>();
+                    employeeReaderIds[emp.Id] = set;
+                }
+                set.Add(reader.Id);
+            }
+        }
+    }
+
+    private void ToggleAdvancedSearch()
+        => showAdvancedSearch = !showAdvancedSearch;
+
+    private void ClearAdvancedFilters()
+    {
+        filterFileNo = "";
+        filterDepartmentId = "";
+        filterGateId = "";
+        filterReaderId = "";
+    }
+
+    private void ClearFilters()
+    {
+        quickSearch = "";
+        ClearAdvancedFilters();
+        listTab = "all";
+        showAdvancedSearch = false;
     }
 
     private async Task SyncFromReadersAsync()
     {
         syncing = true;
-        syncMessage = null;
+        showSyncResult = false;
+        syncedEmployees = new();
+        elapsedSyncSeconds = 0;
+
+        var beforeIds = employees.Select(e => e.Id).ToHashSet();
+        var beforeReadyIds = enrollmentMap
+            .Where(kv => kv.Value.Phase == EmployeeEnrollmentPhase.ReadyToRegister)
+            .Select(kv => kv.Key)
+            .ToHashSet();
+        var syncStarted = DateTime.Now;
+        var lastChangeAt = syncStarted;
+        var lastSnapshot = BuildEnrollmentSnapshot();
+
+        activeReaderCount = readers.Count(r => r.IsActive && !r.isDeleted);
+        expectedSyncSeconds = Math.Clamp(20 + activeReaderCount * 12, 40, 100);
+
         StateHasChanged();
 
         try
         {
-            using var scope = ScopeFactory.CreateScope();
-            var statsService = scope.ServiceProvider.GetRequiredService<IReaderDeviceStatsService>();
-            await statsService.EnqueueCommandsAllAsync(
-                DeviceCommandType.QueryUserInfo);
+            using (var scope = ScopeFactory.CreateScope())
+            {
+                var statsService = scope.ServiceProvider.GetRequiredService<IReaderDeviceStatsService>();
+                await statsService.EnqueueCommandsAllAsync(
+                    force: true,
+                    DeviceCommandType.QueryUserInfo,
+                    DeviceCommandType.QueryBioData,
+                    DeviceCommandType.QueryFingerTmp);
+            }
 
-            syncOk = true;
-            syncMessage = "تم إرسال أمر جلب الموظفين لجميع القارئات. ستُحدَّث القائمة عند استجابة القارئات — أعد تحميل الصفحة بعد ثوانٍ.";
+            var deadline = DateTime.Now.AddSeconds(expectedSyncSeconds);
+            while (DateTime.Now < deadline)
+            {
+                await Task.Delay(3000);
+                elapsedSyncSeconds = (int)(DateTime.Now - syncStarted).TotalSeconds;
+                await RefreshEmployeesQuietAsync();
+
+                var snapshot = BuildEnrollmentSnapshot();
+                if (!string.Equals(snapshot, lastSnapshot, StringComparison.Ordinal))
+                {
+                    lastSnapshot = snapshot;
+                    lastChangeAt = DateTime.Now;
+                }
+
+                // بعد 20 ثانية كحد أدنى: خروج مبكر إن استقر الوضع 12 ثانية متتالية
+                var stableSeconds = (DateTime.Now - lastChangeAt).TotalSeconds;
+                if (elapsedSyncSeconds >= 20 && stableSeconds >= 12)
+                    break;
+
+                StateHasChanged();
+            }
+
+            elapsedSyncSeconds = Math.Min(expectedSyncSeconds, (int)(DateTime.Now - syncStarted).TotalSeconds);
+            await RefreshEmployeesQuietAsync();
+
+            var newlyReady = employees
+                .Where(e =>
+                    enrollmentMap.TryGetValue(e.Id, out var info)
+                    && info.Phase == EmployeeEnrollmentPhase.ReadyToRegister
+                    && !beforeReadyIds.Contains(e.Id))
+                .OrderBy(e => e.FullName)
+                .ToList();
+
+            syncedEmployees = employees
+                .Where(e => !beforeIds.Contains(e.Id)
+                            || (e.createdOn >= syncStarted)
+                            || (e.updatedOn != null && e.updatedOn >= syncStarted))
+                .OrderBy(e => e.FullName)
+                .ToList();
+
+            var newlyAdded = employees.Where(e => !beforeIds.Contains(e.Id)).OrderBy(e => e.FullName).ToList();
+            if (newlyReady.Count > 0)
+                syncedEmployees = newlyReady;
+            else if (newlyAdded.Count > 0)
+                syncedEmployees = newlyAdded;
+
+            showSyncResult = true;
+
+            var readyCount = CountPhase(EmployeeEnrollmentPhase.ReadyToRegister);
+            var awaitingCount = CountPhase(EmployeeEnrollmentPhase.AwaitingCredential);
+
+            if (newlyReady.Count > 0 || newlyAdded.Count > 0)
+            {
+                await Toast.SuccessAsync(
+                    $"اكتملت المزامنة. جاهزون للتسجيل: {readyCount}، بانتظار بصمة/كرت: {awaitingCount}" +
+                    (newlyReady.Count > 0 ? $" (جدد جاهزون: {newlyReady.Count})." : "."));
+                if (newlyReady.Count > 0)
+                    listTab = "ready";
+            }
+            else
+            {
+                await Toast.InfoAsync(
+                    $"اكتملت المزامنة. لا يوجد موظفون جدد. جاهزون للتسجيل: {readyCount}، بانتظار بصمة/كرت: {awaitingCount}.");
+            }
         }
         catch (Exception ex)
         {
-            syncOk = false;
-            syncMessage = $"خطأ: {ex.Message}";
+            showSyncResult = false;
+            await Toast.ErrorAsync($"فشل بدء المزامنة: {ex.Message}");
         }
         finally
         {
@@ -137,9 +675,123 @@ else
         }
     }
 
+    private string BuildEnrollmentSnapshot()
+    {
+        var empPart = string.Join("|", employees
+            .OrderBy(e => e.Id)
+            .Select(e => $"{e.Id}:{e.updatedOn?.Ticks ?? e.createdOn.Ticks}:{e.CardNumber}"));
+        var mapPart = string.Join("|", enrollmentMap
+            .OrderBy(kv => kv.Key)
+            .Select(kv => $"{kv.Key}:{(int)kv.Value.Phase}:{kv.Value.TemplateCount}:{kv.Value.HasCard}:{kv.Value.ActiveGateCount}"));
+        return empPart + "#" + mapPart;
+    }
+
+    private async Task RefreshEmployeesQuietAsync()
+    {
+        employees = await EmployeeService.GetAllAsync();
+        await LoadAccessMapsAsync();
+        enrollmentMap = await EnrollmentService.GetEnrollmentMapAsync(employees.Select(e => e.Id));
+    }
+
+    private static bool CanPrintCard(Employee e)
+        => !string.IsNullOrWhiteSpace(e.FullName)
+           && !string.IsNullOrWhiteSpace(e.FileNumber)
+           && (
+               !string.IsNullOrWhiteSpace(e.JobTitle)
+               || !string.IsNullOrWhiteSpace(e.DepartmentName)
+               || !string.IsNullOrWhiteSpace(e.Address)
+               || !string.IsNullOrWhiteSpace(e.Nationality)
+           );
+
+    private async Task PrintCardAsync(Employee employee)
+    {
+        if (!CanPrintCard(employee))
+        {
+            await Toast.ErrorAsync("لا يمكن طباعة الكرت — أكمل تسجيل بيانات الموظف أولاً.");
+            return;
+        }
+
+        printingId = employee.Id;
+        try
+        {
+            await CardService.RecordPrintAsync(employee.Id, null);
+
+            string? photoSrc = PhotoService.TryGetPhotoDataUrl(employee.PhotoPath)
+                               ?? TryReadPhotoDataUrl(employee.PhotoPath);
+
+            var organization = employee.Department?.NameAr ?? employee.DepartmentName;
+            var html = PMS.web.Helpers.EmployeeCardPrintHtml.Build(
+                employee.FileNumber ?? "",
+                employee.FullName ?? "",
+                employee.Nationality,
+                employee.Address,
+                employee.JobTitle,
+                organization,
+                photoSrc,
+                bloodType: employee.BloodType);
+
+            await JS.InvokeVoidAsync("employeeCamera.printHtml", html);
+
+            if (string.IsNullOrWhiteSpace(photoSrc))
+                await Toast.WarningAsync($"تم فتح طباعة كرت {employee.FileNumber} بدون صورة.");
+        }
+        catch (Exception ex)
+        {
+            await Toast.ErrorAsync("فشل طباعة الكرت: " + ex.Message);
+        }
+        finally
+        {
+            printingId = null;
+        }
+    }
+
+    private string? TryReadPhotoDataUrl(string? photoPath)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(photoPath)) return null;
+            var relative = photoPath.Split('?', 2)[0].Replace('\\', '/').TrimStart('/');
+            if (!relative.StartsWith("uploads/employees/", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            var candidates = new[]
+            {
+                Path.Combine(HostEnvironment.WebRootPath, relative.Replace('/', Path.DirectorySeparatorChar)),
+                Path.Combine(AppContext.BaseDirectory, "wwwroot", relative.Replace('/', Path.DirectorySeparatorChar))
+            };
+
+            foreach (var physical in candidates)
+            {
+                if (!File.Exists(physical)) continue;
+                var bytes = File.ReadAllBytes(physical);
+                if (bytes.Length == 0) continue;
+                var ext = Path.GetExtension(physical).ToLowerInvariant();
+                var mime = ext switch
+                {
+                    ".png" => "image/png",
+                    ".webp" => "image/webp",
+                    ".gif" => "image/gif",
+                    _ => "image/jpeg"
+                };
+                return $"data:{mime};base64,{Convert.ToBase64String(bytes)}";
+            }
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private async Task DeleteAsync(Employee employee)
     {
+        var name = string.IsNullOrWhiteSpace(employee.FullName) ? employee.FileNumber : employee.FullName;
+        var ok = await JS.InvokeAsync<bool>("confirm",
+            $"هل أنت متأكد من حذف الموظف «{name}»؟\nلا يمكن التراجع عن هذا الإجراء بسهولة.");
+        if (!ok) return;
         await EmployeeService.DeleteAsync(employee.Id);
         employees.Remove(employee);
+        syncedEmployees.RemoveAll(e => e.Id == employee.Id);
+        enrollmentMap.Remove(employee.Id);
     }
 }

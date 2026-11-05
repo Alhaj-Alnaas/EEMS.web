@@ -4,6 +4,8 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Windows subsystem: launching PMS.web.exe does not open a console window. -->
+    <OutputType>WinExe</OutputType>
     <UserSecretsId>aspnet-PMS.web-1e7b9ca4-d907-4844-9a56-cbfc19369361</UserSecretsId>
     <!-- Prevent "file is locked by PMS.web" during rebuild while the app is running -->
     <ServerGarbageCollection>false</ServerGarbageCollection>

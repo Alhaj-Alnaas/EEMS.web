@@ -1,0 +1,26 @@
+@inject NavigationManager Navigation
+@inject IJSRuntime Js
+
+<a class="@Css" href="@Href" @onclick="GoAsync" @onclick:preventDefault="true">
+    @ChildContent
+</a>
+
+@code {
+    [Parameter] public string Fallback { get; set; } = "/dashboard";
+    [Parameter] public string Css { get; set; } = "btn btn-outline-secondary";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private string Href => ReturnUrl.Read(Navigation) ?? Fallback;
+
+    private async Task GoAsync()
+    {
+        var from = ReturnUrl.Read(Navigation);
+        if (from != null)
+        {
+            Navigation.NavigateTo(from);
+            return;
+        }
+
+        await Js.InvokeVoidAsync("pmsGoBack", Fallback);
+    }
+}

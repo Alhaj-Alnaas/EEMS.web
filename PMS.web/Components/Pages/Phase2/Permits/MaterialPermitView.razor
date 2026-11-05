@@ -1,6 +1,9 @@
 @page "/permits/materials/view/{Id:guid}"
 @rendermode InteractiveServer
 @inject IPermit PermitService
+@inject IMaterialPermitService MaterialPermits
+@inject IPermitExecutionService Execution
+@inject IWorkflowEngine Workflow
 @inject IProcedureMovment ProcedureMovmentService
 @inject IDepartmentService DepartmentService
 @inject UserManager<User> UserManager
@@ -8,6 +11,7 @@
 @inject NavigationManager Navigation
 @using Microsoft.AspNetCore.Identity
 @using Core.Extensions
+@using Services.Permits
 @using static Core.Enums.BaseEnums
 
 <PageTitle>عرض تصريح - PMS</PageTitle>
@@ -25,35 +29,72 @@ else
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <h3><i class="bi bi-eye-fill text-warning"></i> تصريح رقم: @permit.no</h3>
         <div class="d-flex gap-2 flex-wrap">
+            <BackLink Fallback="/permits">العودة للقائمة</BackLink>
             <a class="btn btn-outline-secondary" href="/legacy/Permit/PrintPermitPdf?permitId=@permit.Id" target="_blank">
                 <i class="bi bi-printer"></i> طباعة PDF
             </a>
-            @if (visibility.CanApprove)
+            @if (canSubmit)
             {
-                <button class="btn btn-success" @onclick='() => DoActionAsync("approve")'><i class="bi bi-check-circle"></i> اعتماد</button>
+                <button class="btn btn-warning" @onclick="SubmitForApprovalAsync">
+                    <i class="bi bi-send"></i> إحالة للاعتماد
+                </button>
             }
-            @if (visibility.CanReturn)
+            @if (canCancel)
             {
-                <button class="btn btn-secondary" @onclick='() => DoActionAsync("return")'><i class="bi bi-arrow-counterclockwise"></i> ترجيع</button>
-            }
-            @if (visibility.CanReject)
-            {
-                <button class="btn btn-danger" @onclick='() => DoActionAsync("reject")'><i class="bi bi-x-circle"></i> رفض</button>
-            }
-            @if (visibility.CanClose)
-            {
-                <button class="btn btn-dark" @onclick='() => DoActionAsync("close")'><i class="bi bi-lock"></i> إغلاق</button>
-            }
-            @if (visibility.CanDelete)
-            {
-                <button class="btn btn-outline-danger" @onclick='() => DoActionAsync("delete")'><i class="bi bi-trash"></i> حذف</button>
+                <button class="btn btn-outline-danger" @onclick="CancelAsync">
+                    <i class="bi bi-x-circle"></i> إلغاء التصريح
+                </button>
             }
         </div>
     </div>
 
     @if (!string.IsNullOrEmpty(actionMessage))
     {
-        <div class="alert alert-info">@actionMessage</div>
+        <div class="alert @(actionOk ? "alert-success" : "alert-danger")">@actionMessage</div>
+    }
+
+    @if (visibility.CanApprove || visibility.CanReject || visibility.CanReturn || visibility.CanClose || visibility.CanDelete)
+    {
+        <div class="card mb-3">
+            <div class="card-body d-flex flex-wrap gap-2 align-items-end">
+                @if (visibility.CanApprove && currentStep?.StepType == WorkflowStepType.GuardSection)
+                {
+                    <div style="min-width: 220px;">
+                        <label class="form-label mb-1">بوابة التنفيذ</label>
+                        <select class="form-select" @bind="executionGateId">
+                            <option value="">اختر البوابة</option>
+                            @foreach (var gate in gates)
+                            {
+                                <option value="@gate.Id">@GateText(gate)</option>
+                            }
+                        </select>
+                    </div>
+                }
+                @if (visibility.CanApprove || visibility.CanReject || visibility.CanReturn)
+                {
+                    <div class="flex-grow-1">
+                        <label class="form-label mb-1">ملاحظة القرار</label>
+                        <input class="form-control" @bind="decisionComment" placeholder="إلزامية عند الرفض" />
+                    </div>
+                }
+                @if (visibility.CanApprove)
+                {
+                    <button class="btn btn-success" @onclick='() => DoActionAsync("approve")'><i class="bi bi-check-circle"></i> اعتماد</button>
+                }
+                @if (visibility.CanReturn)
+                {
+                    <button class="btn btn-secondary" @onclick='() => DoActionAsync("return")'><i class="bi bi-arrow-counterclockwise"></i> ترجيع</button>
+                }
+                @if (visibility.CanReject)
+                {
+                    <button class="btn btn-danger" @onclick='() => DoActionAsync("reject")'><i class="bi bi-x-circle"></i> رفض</button>
+                }
+                @if (visibility.CanClose)
+                {
+                    <button class="btn btn-dark" @onclick='() => DoActionAsync("close")'><i class="bi bi-lock"></i> إغلاق</button>
+                }
+            </div>
+        </div>
     }
 
     <div class="row g-3">
@@ -62,7 +103,7 @@ else
                 <div class="card-header pms-header">البيانات الأساسية</div>
                 <div class="card-body">
                     <dl class="row mb-0">
-                        <dt class="col-6">التصنيف</dt><dd class="col-6">@PermitService.MappingAsync(permit.classification ?? "")</dd>
+                        <dt class="col-6">التصنيف</dt><dd class="col-6">تصريح مواد</dd>
                         <dt class="col-6">النوع</dt><dd class="col-6">@(permit.type?.ToEnumDescription<EnumPermitType>())</dd>
                         <dt class="col-6">الجهة الطالبة</dt><dd class="col-6">@departmentName</dd>
                         <dt class="col-6">الجهة المصرح لها</dt><dd class="col-6">@permit.OrgDescription</dd>
@@ -72,7 +113,14 @@ else
                         <dt class="col-6">قادم من</dt><dd class="col-6">@permit.moveFrom</dd>
                         <dt class="col-6">ذاهب إلى</dt><dd class="col-6">@permit.moveTo</dd>
                         <dt class="col-6">الهاتف</dt><dd class="col-6">@permit.phoneNo</dd>
-                        <dt class="col-6">الحالة</dt><dd class="col-6">@PermitService.MappingAsync(permit.status.ToString())</dd>
+                        <dt class="col-6">الحالة</dt><dd class="col-6">@StatusText()</dd>
+                        <dt class="col-6">بداية السريان</dt><dd class="col-6">@permit.ValidFrom?.ToString("yyyy/MM/dd")</dd>
+                        <dt class="col-6">نهاية السريان</dt><dd class="col-6">@permit.ValidTo?.ToString("yyyy/MM/dd")</dd>
+                        <dt class="col-6">الوقت المتوقع للتنفيذ</dt><dd class="col-6">@(string.IsNullOrWhiteSpace(permit.ExpectedExecutionTime) ? "—" : permit.ExpectedExecutionTime)</dd>
+                        <dt class="col-6">اعتماد مناوب</dt><dd class="col-6">@(permit.ShiftApproval ? "نعم" : "لا")</dd>
+                        <dt class="col-6">بوابة التنفيذ</dt><dd class="col-6">@GateText(permit.Gate)</dd>
+                        <dt class="col-6">الغرض من التصريح</dt><dd class="col-6">@(string.IsNullOrWhiteSpace(permit.EquipmentDetail?.Description) ? "—" : permit.EquipmentDetail!.Description)</dd>
+                        <dt class="col-6">خطوة الاعتماد</dt><dd class="col-6">@(currentStep == null ? "—" : currentStep.StepType.GetDescription())</dd>
                         <dt class="col-6">ملاحظات</dt><dd class="col-6">@permit.remarks</dd>
                     </dl>
                 </div>
@@ -88,7 +136,7 @@ else
                         <tbody>
                             @foreach (var e in permit.EquipmentsAndMatirials)
                             {
-                                <tr><td>@e.description</td><td>@e.qty</td><td>@e.unit</td></tr>
+                                <tr><td>@e.description</td><td>@e.qty</td><td>@Readable(e.unit)</td></tr>
                             }
                             @if (!permit.EquipmentsAndMatirials.Any())
                             {
@@ -99,6 +147,8 @@ else
                 </div>
             </div>
 
+            @if (permit.Cars.Any())
+            {
             <div class="card mb-3">
                 <div class="card-header pms-header">المركبات</div>
                 <div class="table-responsive">
@@ -107,31 +157,32 @@ else
                         <tbody>
                             @foreach (var c in permit.Cars)
                             {
-                                <tr><td>@c.carType</td><td>@c.carNo</td><td>@c.name</td><td>@c.nattiunality</td><td>@c.licenseNo</td></tr>
-                            }
-                            @if (!permit.Cars.Any())
-                            {
-                                <tr><td colspan="5" class="text-center text-muted">لا توجد مركبات</td></tr>
+                                <tr><td>@c.carType</td><td>@c.carNo</td><td>@c.name</td><td>@Readable(c.nattiunality)</td><td>@c.licenseNo</td></tr>
                             }
                         </tbody>
                     </table>
                 </div>
             </div>
+            }
 
             <div class="card">
-                <div class="card-header pms-header">الإجراءات المتخذة</div>
+                <div class="card-header pms-header">سجل الإجراءات</div>
                 <div class="table-responsive">
                     <table class="table mb-0">
-                        <thead><tr><th>الإجراء</th><th>بواسطة</th><th>الصفة</th><th>التاريخ</th></tr></thead>
+                        <thead><tr><th>الإجراء</th><th>بواسطة</th><th>التاريخ</th><th>ملاحظة</th></tr></thead>
                         <tbody>
-                            @foreach (var p in permit.Procedures.OrderBy(p => p.doneOn))
+                            @foreach (var row in actionRows)
                             {
                                 <tr>
-                                    <td>@PermitService.MappingAsync(p.procedureType ?? "")</td>
-                                    <td>@p.donedBy</td>
-                                    <td>@p.doneAs</td>
-                                    <td>@p.doneOn?.ToString("yyyy/MM/dd HH:mm")</td>
+                                    <td>@row.Action</td>
+                                    <td>@row.Who</td>
+                                    <td>@row.When</td>
+                                    <td>@row.Note</td>
                                 </tr>
+                            }
+                            @if (actionRows.Count == 0)
+                            {
+                                <tr><td colspan="4" class="text-center text-muted">لا توجد إجراءات بعد</td></tr>
                             }
                         </tbody>
                     </table>
@@ -150,6 +201,16 @@ else
     private User? currentUser;
     private string departmentName = "غير معروف";
     private string? actionMessage;
+    private bool actionOk;
+    private string decisionComment = "";
+    private string executionGateId = "";
+    private List<Gate> gates = new();
+    private WorkflowStep? currentStep;
+    private bool canCancel;
+    private bool canSubmit;
+    private List<ActionRow> actionRows = new();
+
+    private sealed record ActionRow(DateTime SortOn, string Action, string Who, string When, string Note);
 
     protected override async Task OnInitializedAsync()
     {
@@ -170,8 +231,46 @@ else
 
             if (currentUser != null)
             {
-                visibility = PermitService.GetVisibility(currentUser, permit);
+                var sameCenter = await MaterialPermits.GetSameCenterUserNamesAsync(currentUser);
+                var ownCenter = !string.IsNullOrWhiteSpace(permit.createdBy) && sameCenter.Contains(permit.createdBy);
+                var followOnly = !ownCenter && await MaterialPermits.WasApprovedByAsync(permit.Id, currentUser.Id);
+
+                if (followOnly)
+                {
+                    visibility = new PermitActionsVisibility();
+                    canSubmit = false;
+                    canCancel = false;
+                }
+                else
+                {
+                    visibility = PermitService.GetVisibility(currentUser, permit);
+                    if (permit.UnifiedStatus == nameof(UnifiedPermitStatus.Draft))
+                    {
+                        visibility.CanApprove = false;
+                        visibility.CanReject = false;
+                        visibility.CanReturn = false;
+                        visibility.CanClose = false;
+                    }
+                    else if (permit.WorkflowDefinitionId != null)
+                    {
+                        var canDecide = await Workflow.UserCanDecideAsync(permit.Id, currentUser);
+                        visibility.CanApprove = canDecide;
+                        visibility.CanReject = canDecide;
+                        visibility.CanReturn = canDecide;
+                    }
+
+                    canSubmit = MaterialPermitService.CanEdit(permit, currentUser, sameCenter);
+                    canCancel = !StatusMapper.IsApprovedOrExecuted(permit)
+                        && permit.UnifiedStatus != nameof(UnifiedPermitStatus.Cancelled)
+                        && permit.status != 'D'
+                        && ownCenter;
+                }
             }
+
+            actionRows = await BuildActionRowsAsync();
+            currentStep = await Workflow.GetCurrentStepAsync(permit.Id);
+            if (gates.Count == 0)
+                gates = await Execution.GetActiveGatesAsync();
         }
         loading = false;
     }
@@ -179,61 +278,204 @@ else
     private async Task DoActionAsync(string actionType)
     {
         if (permit == null || currentUser == null) return;
+        actionMessage = null;
+        actionOk = false;
 
-        var movement = new ProcedureMovment
+        try
         {
-            permitId = permit.Id,
-            permit = permit,
-            donedBy = currentUser.FullName,
-            doneAs = currentUser.JobtypeName,
-            shift = "A",
-            doneOn = DateTime.Now,
-            procedureType = actionType
-        };
+            if (actionType is "approve" or "reject" or "return")
+            {
+                var decision = actionType switch
+                {
+                    "reject" => ApprovalDecision.Rejected,
+                    "return" => ApprovalDecision.Returned,
+                    _ => ApprovalDecision.Approved
+                };
+                Guid? gateId = null;
+                if (decision == ApprovalDecision.Approved && currentStep?.StepType == WorkflowStepType.GuardSection)
+                {
+                    if (!Guid.TryParse(executionGateId, out var parsed))
+                        throw new InvalidOperationException("حدد بوابة التنفيذ قبل الاعتماد.");
+                    gateId = parsed;
+                }
 
-        await ProcedureMovmentService.InsertProcedureMovment(movement);
+                await MaterialPermits.DecideAsync(permit.Id, currentUser, decision, decisionComment, gateId);
+                decisionComment = "";
+            }
+            else
+            {
+                var movement = new ProcedureMovment
+                {
+                    permitId = permit.Id,
+                    donedBy = currentUser.FullName,
+                    doneAs = currentUser.JobtypeName,
+                    shift = "A",
+                    doneOn = DateTime.Now,
+                    procedureType = actionType
+                };
 
-        switch (actionType)
+                await ProcedureMovmentService.InsertProcedureMovment(movement);
+
+                switch (actionType)
+                {
+                    case "close":
+                        permit.status = 'C';
+                        permit.statusDescription = "مغلق / تم التنفيذ";
+                        permit.isClosed = true;
+                        permit.closeOn = DateTime.Now;
+                        break;
+                    case "delete":
+                        permit.status = 'D';
+                        permit.UnifiedStatus = nameof(UnifiedPermitStatus.Cancelled);
+                        permit.isDeleted = true;
+                        permit.deletedBy = currentUser.FullName;
+                        permit.deletedOn = DateTime.Now;
+                        break;
+                }
+
+                await PermitService.UpdatePermitAsync(permit);
+            }
+
+            actionOk = true;
+            actionMessage = actionType switch
+            {
+                "approve" => "تم اعتماد التصريح.",
+                "reject" => "تم رفض التصريح.",
+                "return" => "تم ترجيع التصريح.",
+                "close" => "تم إغلاق التصريح.",
+                "delete" => "تم حذف التصريح.",
+                _ => "تم تنفيذ العملية."
+            };
+        }
+        catch (Exception ex)
         {
-            case "approve":
-                if (currentUser.ResponsibilityCode == "45011") permit.PermintsSectionApproval = true;
-                else if (currentUser.ResponsibilityCode == "45012") permit.secuSectionApproval = true;
-                else permit.reqDepApproval = true;
-
-                if (permit.reqDepApproval && permit.secuSectionApproval)
-                    permit.status = 'A';
-                break;
-            case "reject":
-                permit.status = 'J';
-                break;
-            case "return":
-                permit.status = 'R';
-                break;
-            case "close":
-                permit.status = 'C';
-                permit.isClosed = true;
-                permit.closeOn = DateTime.Now;
-                break;
-            case "delete":
-                permit.status = 'D';
-                permit.isDeleted = true;
-                permit.deletedBy = currentUser.FullName;
-                permit.deletedOn = DateTime.Now;
-                break;
+            actionOk = false;
+            actionMessage = ex.Message;
         }
 
-        await PermitService.UpdatePermitAsync(permit);
+        await LoadAsync();
+    }
 
-        actionMessage = actionType switch
+    private async Task SubmitForApprovalAsync()
+    {
+        if (permit == null || currentUser == null) return;
+        actionMessage = null;
+        try
         {
-            "approve" => "تم اعتماد التصريح بنجاح.",
-            "reject" => "تم رفض التصريح.",
-            "return" => "تم ترجيع التصريح.",
-            "close" => "تم إغلاق التصريح.",
-            "delete" => "تم حذف التصريح.",
-            _ => "تم تنفيذ العملية."
-        };
+            await MaterialPermits.SubmitDraftAsync(permit.Id, currentUser);
+            actionOk = true;
+        }
+        catch (Exception ex)
+        {
+            actionOk = false;
+            actionMessage = ex.Message;
+        }
 
         await LoadAsync();
+        if (actionOk)
+        {
+            var label = permit == null ? "" : StatusMapper.ListStatus(permit).Label;
+            actionMessage = label == "معتمد"
+                ? "أُحيل التصريح وأصبح معتمداً لأن مساره لا يحتاج اعتماداً."
+                : "تمت إحالة التصريح للاعتماد.";
+        }
+    }
+
+    private string StatusText()
+    {
+        if (permit == null) return "";
+        return StatusMapper.ListStatus(permit).Label;
+    }
+
+    private async Task CancelAsync()
+    {
+        if (permit == null || currentUser == null) return;
+        actionMessage = null;
+        try
+        {
+            await MaterialPermits.CancelAsync(permit.Id, currentUser);
+            actionOk = true;
+            actionMessage = "تم إلغاء التصريح.";
+        }
+        catch (Exception ex)
+        {
+            actionOk = false;
+            actionMessage = ex.Message;
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task<List<ActionRow>> BuildActionRowsAsync()
+    {
+        var rows = new List<ActionRow>();
+        if (permit == null)
+            return rows;
+
+        foreach (var step in permit.Procedures)
+        {
+            rows.Add(new ActionRow(
+                step.doneOn ?? DateTime.MinValue,
+                ActionLabel(step.procedureType),
+                step.donedBy ?? "—",
+                step.doneOn?.ToString("yyyy/MM/dd HH:mm") ?? "",
+                step.remarks ?? ""));
+        }
+
+        foreach (var approval in permit.Approvals)
+        {
+            var verb = approval.Decision switch
+            {
+                ApprovalDecision.Approved => "اعتمده",
+                ApprovalDecision.Rejected => "رفضه",
+                ApprovalDecision.Returned => "أرجعه",
+                _ => approval.Decision.GetDescription()
+            };
+            var when = approval.DecidedOn.ToString("yyyy/MM/dd HH:mm");
+            if (rows.Any(r => r.Action == verb && Math.Abs((r.SortOn - approval.DecidedOn).TotalMinutes) < 2))
+                continue;
+
+            var who = "—";
+            if (!string.IsNullOrWhiteSpace(approval.ApproverUserId))
+            {
+                var approver = await UserManager.FindByIdAsync(approval.ApproverUserId);
+                who = string.IsNullOrWhiteSpace(approver?.FullName) ? approval.ApproverUserId : approver!.FullName;
+            }
+
+            rows.Add(new ActionRow(approval.DecidedOn, verb, who, when, approval.Comment ?? ""));
+        }
+
+        return rows.OrderBy(r => r.SortOn).ToList();
+    }
+
+    private static string ActionLabel(string? procedureType) => (procedureType ?? "").ToLowerInvariant() switch
+    {
+        "insert" => "أدخله",
+        "submit" => "أحاله للاعتماد",
+        "update" => "عدله",
+        "approve" => "اعتمده",
+        "reject" => "رفضه",
+        "return" => "أرجعه",
+        "delete" => "ألغاه",
+        "close" => "نفّذه",
+        "entry" => "سجّل دخوله",
+        "exit" => "سجّل خروجه",
+        _ => string.IsNullOrWhiteSpace(procedureType) ? "—" : procedureType
+    };
+
+    private static string Readable(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "—" : value.Replace('_', ' ');
+
+    private static string GateText(Gate? gate)
+    {
+        if (gate == null)
+            return "—";
+        var number = gate.no?.Trim() ?? "";
+        var description = gate.description?.Trim() ?? "";
+        if (number.Length == 0 && description.Length == 0)
+            return "—";
+        if (number.Length == 0)
+            return description;
+        return description.Length == 0 ? number : number + " - " + description;
     }
 }

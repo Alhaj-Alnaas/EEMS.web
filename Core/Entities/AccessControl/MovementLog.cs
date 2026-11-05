@@ -25,6 +25,9 @@ namespace Core.Entities
         /// <summary>ZKTeco device PIN / user id when employee is not mapped yet.</summary>
         public string? DevicePin { get; set; }
 
+        /// <summary>Acc transaction index from the reader (unique per device when set).</summary>
+        public int? DeviceTxnIndex { get; set; }
+
         public MovementDirection Direction { get; set; } = MovementDirection.In;
         public DateTime EventTime { get; set; } = DateTime.Now;
 

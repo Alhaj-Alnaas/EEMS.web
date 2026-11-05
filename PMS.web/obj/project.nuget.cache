@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "1txDuLwhXkU=",
+  "dgSpecHash": "VrOp0PLPs1Q=",
   "success": true,
   "projectFilePath": "D:\\EEMS Project\\PMS\\PMS.web\\PMS.web.csproj",
   "expectedPackageFiles": [
@@ -115,6 +115,7 @@
     "C:\\Users\\10067\\.nuget\\packages\\microsoft.extensions.hosting\\8.0.1\\microsoft.extensions.hosting.8.0.1.nupkg.sha512",
     "C:\\Users\\10067\\.nuget\\packages\\microsoft.extensions.hosting.abstractions\\8.0.1\\microsoft.extensions.hosting.abstractions.8.0.1.nupkg.sha512",
     "C:\\Users\\10067\\.nuget\\packages\\microsoft.extensions.hosting.windowsservices\\8.0.1\\microsoft.extensions.hosting.windowsservices.8.0.1.nupkg.sha512",
+    "C:\\Users\\10067\\.nuget\\packages\\microsoft.extensions.http\\8.0.1\\microsoft.extensions.http.8.0.1.nupkg.sha512",
     "C:\\Users\\10067\\.nuget\\packages\\microsoft.extensions.identity.core\\8.0.17\\microsoft.extensions.identity.core.8.0.17.nupkg.sha512",
     "C:\\Users\\10067\\.nuget\\packages\\microsoft.extensions.identity.stores\\8.0.17\\microsoft.extensions.identity.stores.8.0.17.nupkg.sha512",
     "C:\\Users\\10067\\.nuget\\packages\\microsoft.extensions.logging\\8.0.1\\microsoft.extensions.logging.8.0.1.nupkg.sha512",

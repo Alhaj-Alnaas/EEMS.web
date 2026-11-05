@@ -1,6 +1,8 @@
 @page "/permits/materials/edit/{Id:guid}"
 @rendermode InteractiveServer
 @inject IPermit PermitService
+@inject IMaterialPermitService MaterialPermits
+@inject IProcedureMovment ProcedureMovmentService
 @inject IDepartmentService DepartmentService
 @inject UserManager<User> UserManager
 @inject AuthenticationStateProvider AuthProvider
@@ -8,6 +10,7 @@
 @using Microsoft.AspNetCore.Identity
 @using Core.Entities.DTOs
 @using static Core.Enums.BaseEnums
+@using Services.Permits
 
 <PageTitle>تعديل تصريح مواد - PMS</PageTitle>
 
@@ -21,8 +24,17 @@ else if (notFound)
 {
     <div class="alert alert-danger">لم يتم العثور على التصريح.</div>
 }
+else if (editBlocked)
+{
+    <div class="alert alert-warning">التعديل متاح فقط لمركز المسؤولية الذي أدخل التصريح، وعندما تكون حالته مسودة.</div>
+    <BackLink Fallback="/permits">العودة للقائمة</BackLink>
+}
 else
 {
+    @if (!string.IsNullOrEmpty(saveError))
+    {
+        <div class="alert alert-danger">@saveError</div>
+    }
     <EditForm Model="model" OnValidSubmit="SaveAsync">
         <div class="row g-4">
             <div class="col-md-4">
@@ -123,7 +135,7 @@ else
                                                 <select class="form-select" @bind="model.EquipmentsAndMaterials[idx].Unit">
                                                     @foreach (var u in Enum.GetValues<UnitType>())
                                                     {
-                                                        <option value="@u">@u</option>
+                                                        <option value="@u">@u.ToString().Replace('_', ' ')</option>
                                                     }
                                                 </select>
                                             </td>
@@ -172,7 +184,7 @@ else
                                                 <select class="form-select" @bind="model.Cars[idx].driverNationality">
                                                     @foreach (var n in Enum.GetValues<Nationality>())
                                                     {
-                                                        <option value="@n">@n</option>
+                                                        <option value="@n">@n.ToString().Replace('_', ' ')</option>
                                                     }
                                                 </select>
                                             </td>
@@ -199,7 +211,7 @@ else
 
         <div class="mt-4 text-center">
             <button type="submit" class="btn btn-warning px-4"><i class="bi bi-save"></i> حفظ التعديلات</button>
-            <a href="/permits" class="btn btn-outline-secondary px-4">إلغاء</a>
+            <BackLink Fallback="/permits" Css="btn btn-outline-secondary px-4">إلغاء</BackLink>
         </div>
     </EditForm>
 }
@@ -209,6 +221,8 @@ else
 
     private bool loading = true;
     private bool notFound;
+    private bool editBlocked;
+    private string? saveError;
     private PermitViewModel model = new();
     private List<DepartmentDto> departments = new();
     private string selectedRespCode = "";
@@ -229,6 +243,21 @@ else
         if (permit == null)
         {
             notFound = true;
+            loading = false;
+            return;
+        }
+
+        if (currentUser == null)
+        {
+            editBlocked = true;
+            loading = false;
+            return;
+        }
+
+        var sameCenter = await MaterialPermits.GetSameCenterUserNamesAsync(currentUser);
+        if (!MaterialPermitService.CanEdit(permit, currentUser, sameCenter))
+        {
+            editBlocked = true;
             loading = false;
             return;
         }
@@ -274,8 +303,25 @@ else
 
     private async Task SaveAsync()
     {
+        saveError = null;
+        var namedItems = model.EquipmentsAndMaterials
+            .Where(e => !string.IsNullOrWhiteSpace(e.ItemName))
+            .ToList();
+        if (namedItems.Count == 0)
+        {
+            saveError = "أضف مادة أو معدة واحدة على الأقل.";
+            return;
+        }
+
         var permit = await PermitService.GetPermitByIdAsync(Id);
-        if (permit == null) return;
+        if (permit == null || currentUser == null) return;
+
+        var sameCenter = await MaterialPermits.GetSameCenterUserNamesAsync(currentUser);
+        if (!MaterialPermitService.CanEdit(permit, currentUser, sameCenter))
+        {
+            editBlocked = true;
+            return;
+        }
 
         permit.updatedBy = currentUser?.UserName;
         permit.updatedOn = DateTime.Now;
@@ -290,7 +336,7 @@ else
         permit.OrgDescription = model.OrgDescription;
         permit.remarks = model.Notes;
 
-        permit.EquipmentsAndMatirials = model.EquipmentsAndMaterials
+        permit.EquipmentsAndMatirials = namedItems
             .Select(e => new EquipMatiMovment { description = e.ItemName, qty = e.Quantity, unit = e.Unit.ToString() })
             .ToList();
 
@@ -306,6 +352,19 @@ else
             }).ToList();
 
         await PermitService.UpdatePermitAsync(permit);
-        Navigation.NavigateTo("/permits");
+        await ProcedureMovmentService.InsertProcedureMovment(new ProcedureMovment
+        {
+            Id = Guid.NewGuid(),
+            permitId = permit.Id,
+            procedureType = "Update",
+            donedBy = currentUser.FullName,
+            doneAs = currentUser.JobtypeName,
+            shift = "A",
+            doneOn = DateTime.Now,
+            remarks = "تعديل التصريح",
+            createdBy = currentUser.UserName,
+            createdOn = DateTime.Now
+        });
+        Navigation.NavigateTo(ReturnUrl.Read(Navigation) ?? "/permits");
     }
 }

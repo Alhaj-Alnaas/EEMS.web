@@ -409,11 +409,50 @@
     opacity: 0;
 }
 
-.pms-main-shell .sidebar.open .pms-profile-header-line {
+.pms-profile-name {
+    color: #ffd166;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0;
+}
+
+.pms-profile-role {
+    color: #c5c5d6;
+    font-size: 11px;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 4px;
+    opacity: 0;
+}
+
+.pms-profile-gate {
+    color: #9ec5fe;
+    font-size: 10px;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 6px;
+    opacity: 0;
+}
+
+.pms-main-shell .sidebar.open .pms-profile-header-line,
+.pms-main-shell .sidebar.open .pms-profile-name,
+.pms-main-shell .sidebar.open .pms-profile-role,
+.pms-main-shell .sidebar.open .pms-profile-gate {
     opacity: 1;
 }
 
-.pms-main-shell .sidebar:not(.open) .pms-profile-header-line {
+.pms-main-shell .sidebar:not(.open) .pms-profile-header-line,
+.pms-main-shell .sidebar:not(.open) .pms-profile-name,
+.pms-main-shell .sidebar:not(.open) .pms-profile-role,
+.pms-main-shell .sidebar:not(.open) .pms-profile-gate {
     display: none;
 }
 

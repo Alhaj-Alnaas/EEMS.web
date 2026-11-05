@@ -1,11 +1,207 @@
 @page "/permits/execute"
 @page "/gate-officer"
 @rendermode InteractiveServer
-@using PMS.web.Components.Shared
+@inject IPermitExecutionService Execution
+@inject IDepartmentService DepartmentService
+@inject AuthenticationStateProvider AuthProvider
+@inject NavigationManager Navigation
+@using Core.Common
+@using Core.Security
 
 <PageTitle>تنفيذ تصريح - PMS</PageTitle>
 
-<PlaceholderPage Title="تنفيذ تصريح"
-                 Icon="fas fa-qrcode"
-                 Description="واجهة ضابط البوابة: البحث عن تصريح نشط والتحقق منه وتسجيل حركة الدخول/الخروج."
-                 Message="الشاشة قيد التجهيز. تعادل دور Gate Officer في التحليل (المرحلة الثانية)، مع دعم التسجيل اليدوي الاحتياطي للمرحلة الأولى." />
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h3 class="mb-0"><i class="bi bi-qr-code-scan text-warning"></i> تنفيذ تصريح</h3>
+</div>
+
+@if (!string.IsNullOrEmpty(loadError))
+{
+    <div class="alert alert-danger">@loadError</div>
+}
+
+@if (loading)
+{
+    <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+}
+else if (gates.Count == 0)
+{
+    <div class="pms-placeholder">
+        <i class="bi bi-door-closed"></i>
+        <h5>لا توجد بوابات نشطة</h5>
+    </div>
+}
+else
+{
+    <div class="card shadow-sm mb-3">
+        <div class="card-body py-3">
+            <label class="form-label mb-1">البوابة</label>
+            @if (gateLocked)
+            {
+                <div class="fw-bold">@CurrentGateLabel()</div>
+            }
+            else
+            {
+                <select class="form-select" value="@selectedGateId" @onchange="ChangeGateAsync">
+                    <option value="">اختر البوابة</option>
+                    @foreach (var gate in gates)
+                    {
+                        <option value="@gate.Id">@GateText(gate)</option>
+                    }
+                </select>
+            }
+            <div class="text-muted small mt-2">
+                يظهر التصريح هنا إذا حُددت هذه البوابة عند اعتماد رئيس قسم الحراسة، أو إذا كان مساره لا يمر بالحراسة وهذه البوابة مربوطة بنوعه.
+            </div>
+        </div>
+    </div>
+
+    @if (string.IsNullOrWhiteSpace(selectedGateId))
+    {
+        <div class="pms-placeholder">
+            <i class="bi bi-door-open"></i>
+            <h5>اختر البوابة لعرض تصاريحها</h5>
+        </div>
+    }
+    else if (rows.Count == 0)
+    {
+        <div class="pms-placeholder">
+            <i class="bi bi-inbox"></i>
+            <h5>لا توجد تصاريح جاهزة للتنفيذ على هذه البوابة</h5>
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>رقم التصريح</th>
+                            <th>نوع التصريح</th>
+                            <th>الغرض</th>
+                            <th>الجهة الطالبة</th>
+                            <th>التاريخ</th>
+                            <th>خطوة التنفيذ</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in rows)
+                        {
+                            <tr>
+                                <td class="fw-bold">@row.Permit.no</td>
+                                <td>@TypeLabel(row.Permit.classification)</td>
+                                <td>@(string.IsNullOrWhiteSpace(row.Permit.EquipmentDetail?.Description) ? "—" : row.Permit.EquipmentDetail!.Description)</td>
+                                <td>@DepartmentName(row.Permit.reqDepartment)</td>
+                                <td>@row.Permit.date.ToString("yyyy/MM/dd")</td>
+                                <td>@(string.IsNullOrWhiteSpace(row.NextStep) ? "—" : row.NextStep)</td>
+                                <td>
+                                    <a class="btn btn-sm btn-warning" href="@ReturnUrl.Go(Navigation, $"/permits/execute/{row.Permit.Id}?gate={selectedGateId}")">تنفيذ</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private bool loading = true;
+    private bool gateLocked;
+    private string? loadError;
+    private string selectedGateId = "";
+    private List<Gate> gates = new();
+    private List<PermitExecutionRow> rows = new();
+    private Dictionary<string, string> departmentNames = new(StringComparer.OrdinalIgnoreCase);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            gates = await Execution.GetActiveGatesAsync();
+            var auth = await AuthProvider.GetAuthenticationStateAsync();
+            var claim = auth.User.FindFirst(SystemTaskCodes.SelectedGateIdClaimType)?.Value;
+            if (Guid.TryParse(claim, out var gateId) && gates.Any(g => g.Id == gateId))
+            {
+                selectedGateId = gateId.ToString();
+                gateLocked = true;
+                await LoadRowsAsync(gateId);
+            }
+        }
+        catch (Exception ex)
+        {
+            loadError = "تعذر تحميل تصاريح التنفيذ: " + ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task ChangeGateAsync(ChangeEventArgs args)
+    {
+        selectedGateId = args.Value?.ToString() ?? "";
+        rows = new();
+        if (!Guid.TryParse(selectedGateId, out var gateId))
+            return;
+
+        try
+        {
+            await LoadRowsAsync(gateId);
+            loadError = null;
+        }
+        catch (Exception ex)
+        {
+            loadError = "تعذر تحميل تصاريح التنفيذ: " + ex.Message;
+        }
+    }
+
+    private async Task LoadRowsAsync(Guid gateId)
+    {
+        rows = await Execution.GetExecutableAsync(gateId);
+        foreach (var code in rows
+            .Select(r => r.Permit.reqDepartment)
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Select(code => code!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (departmentNames.ContainsKey(code))
+                continue;
+            var department = await DepartmentService.GetSingleDepartmentByResponsibilityAsync(code);
+            departmentNames[code] = string.IsNullOrWhiteSpace(department?.DepartmentName) ? code : department!.DepartmentName;
+        }
+    }
+
+    private string CurrentGateLabel()
+    {
+        var gate = gates.FirstOrDefault(g => g.Id.ToString() == selectedGateId);
+        return gate == null ? "—" : GateText(gate);
+    }
+
+    private string DepartmentName(string? code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            return "—";
+        return departmentNames.TryGetValue(code.Trim(), out var name) && !string.IsNullOrWhiteSpace(name)
+            ? name
+            : code;
+    }
+
+    private static string TypeLabel(string? classification)
+    {
+        if (Enum.TryParse<PermitClassification>(classification, out var kind))
+            return ApprovalPathCatalog.ClassificationTitle(kind);
+        return string.IsNullOrWhiteSpace(classification) ? "—" : classification;
+    }
+
+    private static string GateText(Gate gate)
+    {
+        var number = gate.no?.Trim() ?? "";
+        var description = gate.description?.Trim() ?? "";
+        if (number.Length == 0)
+            return description;
+        return description.Length == 0 ? number : number + " - " + description;
+    }
+}

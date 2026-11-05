@@ -1,3 +1,6 @@
+C:\Users\10067\AppData\Local\Temp\pms-build-check\Services.deps.json
+C:\Users\10067\AppData\Local\Temp\pms-build-check\Services.dll
+C:\Users\10067\AppData\Local\Temp\pms-build-check\Services.pdb
 D:\EEMS Project\PMS\Services\bin\Debug\net8.0\Services.deps.json
 D:\EEMS Project\PMS\Services\bin\Debug\net8.0\Services.dll
 D:\EEMS Project\PMS\Services\bin\Debug\net8.0\Services.pdb

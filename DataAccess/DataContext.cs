@@ -1,5 +1,6 @@
 using Core.Entities;
 using Core.Entities.DTOs;
+using Core.Entities.Security;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
@@ -27,6 +28,7 @@ namespace DataAccess
         // ---------------- Phase 1: Access Control ----------------
         public DbSet<Department> Departments { get; set; }
         public DbSet<Employee> Employees { get; set; }
+        public DbSet<EmployeeCard> EmployeeCards { get; set; }
         public DbSet<BiometricTemplate> BiometricTemplates { get; set; }
         public DbSet<Reader> Readers { get; set; }
         public DbSet<ReaderDowntime> ReaderDowntimes { get; set; }
@@ -39,12 +41,18 @@ namespace DataAccess
         public DbSet<WorkflowDefinition> WorkflowDefinitions { get; set; }
         public DbSet<WorkflowStep> WorkflowSteps { get; set; }
         public DbSet<PermitApproval> PermitApprovals { get; set; }
+        public DbSet<PermitClassificationGate> PermitClassificationGates { get; set; }
         public DbSet<Notification> Notifications { get; set; }
 
         // ---------------- Phase 2: Unified permit details ----------------
         public DbSet<EquipmentPermitDetail> EquipmentPermitDetails { get; set; }
         public DbSet<VisitorPermitDetail> VisitorPermitDetails { get; set; }
         public DbSet<VehiclePermitDetail> VehiclePermitDetails { get; set; }
+
+        // ---------------- App authorization (access levels / tasks) ----------------
+        public DbSet<SystemTask> SystemTasks { get; set; }
+        public DbSet<AccessLevel> AccessLevels { get; set; }
+        public DbSet<AccessLevelTask> AccessLevelTasks { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -116,6 +124,10 @@ namespace DataAccess
 
             modelBuilder.Entity<Reader>()
                 .Property(r => r.Status)
+                .HasConversion<string>();
+
+            modelBuilder.Entity<Reader>()
+                .Property(r => r.Direction)
                 .HasConversion<string>();
 
             modelBuilder.Entity<Reader>()
@@ -218,6 +230,12 @@ namespace DataAccess
                 .Property(m => m.DevicePin)
                 .HasMaxLength(50);
 
+            // Acc transaction index — unique per reader when present (prevents re-import duplicates)
+            modelBuilder.Entity<MovementLog>()
+                .HasIndex(m => new { m.ReaderId, m.DeviceTxnIndex })
+                .IsUnique()
+                .HasFilter("[isDeleted] = 0 AND [DeviceTxnIndex] IS NOT NULL AND [ReaderId] IS NOT NULL");
+
             // ---- Phase 2: Workflow ----
             modelBuilder.Entity<WorkflowDefinition>()
                 .Property(w => w.PermitClassification)
@@ -299,6 +317,20 @@ namespace DataAccess
                 .HasForeignKey(p => p.GateId)
                 .OnDelete(DeleteBehavior.NoAction);
 
+            modelBuilder.Entity<PermitClassificationGate>()
+                .Property(x => x.Classification)
+                .HasMaxLength(64);
+
+            modelBuilder.Entity<PermitClassificationGate>()
+                .HasIndex(x => new { x.Classification, x.GateId })
+                .IsUnique();
+
+            modelBuilder.Entity<PermitClassificationGate>()
+                .HasOne(x => x.Gate)
+                .WithMany()
+                .HasForeignKey(x => x.GateId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             // ---- Phase 2: Unified permit details (1:1 with Permit) ----
             modelBuilder.Entity<EquipmentPermitDetail>()
                 .HasOne(d => d.Permit)
@@ -323,6 +355,9 @@ namespace DataAccess
                 .WithOne(p => p.VehicleDetail)
                 .HasForeignKey<VehiclePermitDetail>(d => d.PermitId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // Prefer IEntityTypeConfiguration classes for new entities/fields.
+            modelBuilder.ApplyConfigurationsFromAssembly(typeof(DataContext).Assembly);
         }
     }
 }

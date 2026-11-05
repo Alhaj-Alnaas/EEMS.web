@@ -29,7 +29,13 @@ namespace Core.Entities
         public string? OrgDescription { get; set; } = "";
         public bool IsTemp { get; set; } = false;
         public DateTime date { get; set; } = DateTime.Now;
-        public string? hourOfEntry { get; set; } = "00:00"; 
+        public string? hourOfEntry { get; set; } = "00:00";
+
+        /// <summary>Expected execution time on the materials permit, stored as HH:mm.</summary>
+        public string? ExpectedExecutionTime { get; set; }
+
+        /// <summary>Duty-officer approval. Turned on for night hours or Friday/Saturday, and can also be set manually.</summary>
+        public bool ShiftApproval { get; set; } 
         public ICollection<EquipMatiMovment> EquipmentsAndMatirials { get; set; } = new List<EquipMatiMovment>();
         public ICollection<CarMovment> Cars { get; set; } = new List<CarMovment>();
         public ICollection<ProcedureMovment> Procedures { get; set; } = new List<ProcedureMovment>();

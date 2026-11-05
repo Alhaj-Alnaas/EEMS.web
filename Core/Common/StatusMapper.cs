@@ -1,3 +1,4 @@
+using Core.Entities;
 using static Core.Enums.BaseEnums;
 
 namespace Core.Common
@@ -63,5 +64,45 @@ namespace Core.Common
             UnifiedPermitStatus.Cancelled => "ملغي",
             _ => "غير معروف",
         };
+
+        /// <summary>Status shown on the responsibility-center permit list.</summary>
+        public static (string Css, string Label) ListStatus(Permit permit)
+        {
+            if (permit.status == 'D'
+                || permit.UnifiedStatus == nameof(UnifiedPermitStatus.Cancelled))
+                return ("status-cancelled", "ملغي");
+
+            if (permit.isClosed || permit.status == 'C')
+                return ("status-closed", "منفذ");
+
+            if (permit.status == 'R')
+                return ("status-returned", "مرجع");
+
+            if (IsDraft(permit))
+                return ("status-draft", "مسودة");
+
+            if (permit.status == 'J' || permit.UnifiedStatus == nameof(UnifiedPermitStatus.Rejected))
+                return ("status-rejected", "مرفوض");
+
+            if (permit.status == 'A'
+                || permit.UnifiedStatus == nameof(UnifiedPermitStatus.Approved)
+                || permit.UnifiedStatus == nameof(UnifiedPermitStatus.Active))
+                return ("status-approved", "معتمد");
+
+            return ("status-pending", "تحت الاعتماد");
+        }
+
+        public static bool IsDraft(Permit permit) =>
+            string.Equals(permit.UnifiedStatus, nameof(UnifiedPermitStatus.Draft), StringComparison.Ordinal);
+
+        public static bool IsApprovedOrExecuted(Permit permit)
+        {
+            if (permit.isClosed || permit.status is 'A' or 'C')
+                return true;
+
+            return permit.UnifiedStatus is nameof(UnifiedPermitStatus.Approved)
+                or nameof(UnifiedPermitStatus.Active)
+                or nameof(UnifiedPermitStatus.Expired);
+        }
     }
 }

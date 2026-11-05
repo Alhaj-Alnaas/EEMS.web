@@ -57,7 +57,7 @@ else
 
                 <div class="mt-4 d-flex gap-2">
                     <button type="submit" class="btn btn-warning"><i class="bi bi-save"></i> حفظ</button>
-                    <a href="/admin/gates" class="btn btn-outline-secondary">إلغاء</a>
+                    <BackLink Fallback="/admin/gates">إلغاء</BackLink>
                 </div>
             </EditForm>
         </div>
@@ -115,6 +115,6 @@ else
             await GateService.UpdateAsync(gate, selectedPermitTypeIds);
         }
 
-        Navigation.NavigateTo("/admin/gates");
+        Navigation.NavigateTo(ReturnUrl.Read(Navigation) ?? "/admin/gates");
     }
 }

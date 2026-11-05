@@ -35,20 +35,20 @@ namespace Services.AccessControl
         }
 
         public async Task UpsertAsync(Guid readerId, string deviceSerial,
-            int userCount, int faceCount, int fingerprintCount,
-            int cardCount, int attLogCount, string? firmwareVersion)
+            int? userCount = null, int? faceCount = null, int? fingerprintCount = null,
+            int? cardCount = null, int? attLogCount = null, string? firmwareVersion = null)
         {
             var existing = await _unitOfWork.ReaderDeviceStats.GetQueryable()
                 .FirstOrDefaultAsync(s => s.ReaderId == readerId && !s.isDeleted);
 
             if (existing != null)
             {
-                existing.UserCount = userCount;
-                existing.FaceCount = faceCount;
-                existing.FingerprintCount = fingerprintCount;
-                existing.CardCount = cardCount;
-                existing.AttLogCount = attLogCount;
-                existing.FirmwareVersion = firmwareVersion;
+                if (userCount.HasValue) existing.UserCount = userCount.Value;
+                if (faceCount.HasValue) existing.FaceCount = faceCount.Value;
+                if (fingerprintCount.HasValue) existing.FingerprintCount = fingerprintCount.Value;
+                if (cardCount.HasValue) existing.CardCount = cardCount.Value;
+                if (attLogCount.HasValue) existing.AttLogCount = attLogCount.Value;
+                if (firmwareVersion != null) existing.FirmwareVersion = firmwareVersion;
                 existing.FetchedAt = DateTime.Now;
                 existing.updatedOn = DateTime.Now;
                 _unitOfWork.ReaderDeviceStats.Update(existing);
@@ -60,11 +60,11 @@ namespace Services.AccessControl
                     Id = Guid.NewGuid(),
                     ReaderId = readerId,
                     DeviceSerial = deviceSerial,
-                    UserCount = userCount,
-                    FaceCount = faceCount,
-                    FingerprintCount = fingerprintCount,
-                    CardCount = cardCount,
-                    AttLogCount = attLogCount,
+                    UserCount = userCount ?? 0,
+                    FaceCount = faceCount ?? 0,
+                    FingerprintCount = fingerprintCount ?? 0,
+                    CardCount = cardCount ?? 0,
+                    AttLogCount = attLogCount ?? 0,
                     FirmwareVersion = firmwareVersion,
                     FetchedAt = DateTime.Now,
                     createdOn = DateTime.Now
@@ -72,38 +72,33 @@ namespace Services.AccessControl
             }
 
             await _unitOfWork.SaveAsync();
+            var row = existing ?? await _unitOfWork.ReaderDeviceStats.GetQueryable()
+                .FirstAsync(s => s.ReaderId == readerId && !s.isDeleted);
             _logger.LogInformation(
                 "Stats updated reader={ReaderId} users={Users} faces={Faces} fp={FP} cards={Cards} att={Att}",
-                readerId, userCount, faceCount, fingerprintCount, cardCount, attLogCount);
+                readerId, row.UserCount, row.FaceCount, row.FingerprintCount, row.CardCount, row.AttLogCount);
         }
 
         public async Task EnqueueFullSyncAsync(Guid readerId)
         {
+            // INFO first — SpeedFace returns FaceCount + PvCount (palm) in INFO response body.
+            await EnqueueIfMissingAsync(readerId, DeviceCommandType.Sync, "INFO");
+            await EnqueueIfMissingAsync(readerId, DeviceCommandType.QueryDeviceInfo);
+            await EnqueueIfMissingAsync(readerId, DeviceCommandType.QueryAttLog);
+            await EnqueueIfMissingAsync(readerId, DeviceCommandType.QueryUserInfo);
+        }
+
+        private async Task EnqueueIfMissingAsync(
+            Guid readerId, DeviceCommandType type, string? payload = null)
+        {
             var pending = await _commands.GetPendingByReaderAsync(readerId, 50);
-            var types = pending.Select(c => c.CommandType).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var typeName = type.ToString();
+            if (pending.Any(c =>
+                    c.CommandType == typeName
+                    && string.Equals(c.Payload ?? "", payload ?? "", StringComparison.Ordinal)))
+                return;
 
-            var subCommands = new[]
-            {
-                DeviceCommandType.QueryDeviceInfo,
-                DeviceCommandType.QueryAttLog,
-                DeviceCommandType.QueryUserInfo,
-                DeviceCommandType.QueryFingerTmp,
-                DeviceCommandType.QueryBioData
-            };
-
-            var enqueued = 0;
-            foreach (var cmd in subCommands)
-            {
-                if (types.Contains(cmd.ToString()))
-                    continue;
-                await _commands.EnqueueAsync(readerId, cmd);
-                enqueued++;
-            }
-
-            if (!types.Contains(nameof(DeviceCommandType.Sync)))
-                await _commands.EnqueueAsync(readerId, DeviceCommandType.Sync, "INFO");
-
-            _logger.LogInformation("FullSync: enqueued {Count} sub-commands for reader {ReaderId}", enqueued, readerId);
+            await _commands.EnqueueAsync(readerId, type, payload);
         }
 
         public async Task EnqueueFullSyncAllAsync()
@@ -115,10 +110,18 @@ namespace Services.AccessControl
             }
         }
 
-        public async Task EnqueueCommandsAsync(Guid readerId, params DeviceCommandType[] types)
+        public async Task EnqueueCommandsAsync(Guid readerId, bool force = false, params DeviceCommandType[] types)
         {
-            var pending = await _commands.GetPendingByReaderAsync(readerId, 50);
-            var existingTypes = pending.Select(c => c.CommandType).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            HashSet<string> existingTypes;
+            if (force)
+            {
+                existingTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            }
+            else
+            {
+                var pending = await _commands.GetPendingByReaderAsync(readerId, 50);
+                existingTypes = pending.Select(c => c.CommandType).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            }
 
             var enqueued = new List<string>();
             var skipped = new List<string>();
@@ -146,19 +149,19 @@ namespace Services.AccessControl
                 string.Join(", ", pendingAfterTypes));
         }
 
-        public async Task EnqueueCommandsAllAsync(params DeviceCommandType[] types)
+        public async Task EnqueueCommandsAllAsync(bool force = false, params DeviceCommandType[] types)
         {
             var readers = await _readers.GetAllAsync();
             _logger.LogWarning(
-                "EnqueueCommandsAllAsync: totalReaders={Total} ids=[{Ids}] active=[{Active}] types=[{Types}]",
+                "EnqueueCommandsAllAsync: force={Force} totalReaders={Total} ids=[{Ids}] types=[{Types}]",
+                force,
                 readers.Count,
-                string.Join(", ", readers.Select(r => $"{r.DeviceSerial}:{r.Id}:{(r.IsActive ? "Y" : "N")}")),
-                readers.Count(r => r.IsActive),
+                string.Join(", ", readers.Select(r => $"{r.DeviceSerial}:{r.Id}")),
                 string.Join(", ", types));
 
             foreach (var reader in readers)
             {
-                await EnqueueCommandsAsync(reader.Id, types);
+                await EnqueueCommandsAsync(reader.Id, force, types);
             }
         }
     }

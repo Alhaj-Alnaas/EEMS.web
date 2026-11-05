@@ -5,20 +5,34 @@
 
 <PageTitle>البوابات - PMS</PageTitle>
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h3><i class="bi bi-door-open-fill text-warning"></i> إدارة البوابات</h3>
-    <a class="btn btn-warning" href="/admin/gates/edit/@Guid.Empty"><i class="bi bi-plus-circle"></i> إضافة بوابة</a>
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h3 class="mb-0"><i class="bi bi-door-open-fill text-warning"></i> إدارة البوابات</h3>
+    <a class="btn btn-warning" href="@ReturnUrl.Go(Navigation, $"/admin/gates/edit/{Guid.Empty}")"><i class="bi bi-plus-circle"></i> إضافة بوابة</a>
+</div>
+
+<div class="card shadow-sm mb-3">
+    <div class="card-body py-3">
+        <div class="pms-search-toolbar">
+            <div class="pms-search-actions ms-auto">
+                <div class="input-group input-group-sm pms-quick-search">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input class="form-control" placeholder="بحث سريع: رقم البوابة / الوصف..."
+                           @bind="quickSearch" @bind:event="oninput" />
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 @if (loading)
 {
     <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
 }
-else if (gates.Count == 0)
+else if (FilteredGates.Count == 0)
 {
     <div class="pms-placeholder">
         <i class="bi bi-door-closed"></i>
-        <h5>لا توجد بوابات مسجلة بعد</h5>
+        <h5>@(gates.Count == 0 ? "لا توجد بوابات مسجلة بعد" : "لا توجد نتائج مطابقة للبحث")</h5>
     </div>
 }
 else
@@ -36,7 +50,7 @@ else
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var g in gates)
+                    @foreach (var g in FilteredGates)
                     {
                         <tr>
                             <td class="fw-bold">@g.no</td>
@@ -53,7 +67,7 @@ else
                             </td>
                             <td>@g.remarks</td>
                             <td>
-                                <a class="btn btn-sm btn-outline-secondary" href="/admin/gates/edit/@g.Id"><i class="bi bi-pencil"></i> تعديل</a>
+                                <a class="btn btn-sm btn-outline-secondary" href="@ReturnUrl.Go(Navigation, $"/admin/gates/edit/{g.Id}")"><i class="bi bi-pencil"></i> تعديل</a>
                                 <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(g.Id)"><i class="bi bi-trash"></i> حذف</button>
                             </td>
                         </tr>
@@ -66,7 +80,22 @@ else
 
 @code {
     private bool loading = true;
+    private string quickSearch = "";
     private List<Gate> gates = new();
+
+    private List<Gate> FilteredGates
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(quickSearch))
+                return gates;
+            var q = quickSearch.Trim();
+            return gates.Where(g =>
+                Contains(g.no, q)
+                || Contains(g.description, q)
+                || Contains(g.remarks, q)).ToList();
+        }
+    }
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -76,6 +105,9 @@ else
         gates = (await GateService.GetAllAsync()).ToList();
         loading = false;
     }
+
+    private static bool Contains(string? value, string q) =>
+        !string.IsNullOrEmpty(value) && value.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0;
 
     private async Task DeleteAsync(Guid id)
     {

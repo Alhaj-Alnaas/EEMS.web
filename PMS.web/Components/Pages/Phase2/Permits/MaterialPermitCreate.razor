@@ -1,6 +1,7 @@
 @page "/permits/materials/create"
 @rendermode InteractiveServer
 @inject IPermit PermitService
+@inject IMaterialPermitService MaterialPermits
 @inject IDepartmentService DepartmentService
 @inject UserManager<User> UserManager
 @inject AuthenticationStateProvider AuthProvider
@@ -11,7 +12,8 @@
 
 <PageTitle>تصريح مواد جديد - PMS</PageTitle>
 
-<h3 class="mb-4"><i class="bi bi-box-arrow-in-down-right text-warning"></i> إضافة تصريح مواد جديد</h3>
+<h3 class="mb-1"><i class="bi bi-box-arrow-in-down-right text-warning"></i> إضافة تصريح مواد جديد</h3>
+<p class="text-muted small mb-4">  بعد اكتمال الاعتماد يصبح التصريح نشطاً</p>
 
 @if (loading)
 {
@@ -19,7 +21,7 @@
 }
 else
 {
-    <EditForm Model="model" OnValidSubmit="SaveAsync">
+    <EditForm Model="model" OnSubmit="PreventSubmit">
         <div class="row g-4">
             <div class="col-md-4">
                 <div class="card">
@@ -38,7 +40,7 @@ else
                         <div class="row g-2 mb-3">
                             <div class="col-7">
                                 <label class="form-label">تاريخ التصريح</label>
-                                <InputDate class="form-control" @bind-Value="model.Date" />
+                                <InputDate class="form-control" @bind-Value="model.Date" @bind-Value:after="ApplyShiftApproval" />
                             </div>
                             <div class="col-5">
                                 <label class="form-label">الوقت</label>
@@ -55,13 +57,28 @@ else
                             </InputSelect>
                         </div>
 
-                        @if (model.Type == EnumPermitType.ExtractAndInsert)
-                        {
-                            <div class="mb-3">
-                                <label class="form-label">تاريخ الترجيع</label>
-                                <InputDate class="form-control" @bind-Value="model.ReturnDate" />
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">ساري حتى</label>
+                            <InputDate class="form-control" @bind-Value="validTo" />
+                        </div>
+
+                        <div class="row g-2 mb-3 align-items-center">
+                            <div class="col-7">
+                                <label class="form-label fw-bold">الوقت المتوقع للتنفيذ</label>
+                                <InputText type="time" class="form-control" @bind-Value="expectedExecutionTime" @bind-Value:after="ApplyShiftApproval" />
                             </div>
-                        }
+                            <div class="col-5">
+                                <div class="form-check form-switch mt-4">
+                                    <InputCheckbox class="form-check-input" @bind-Value="shiftApproval" id="shiftApproval" />
+                                    <label class="form-check-label fw-bold" for="shiftApproval">اعتماد مناوب</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">الغرض</label>
+                            <InputTextArea class="form-control" rows="2" @bind-Value="purpose" placeholder="الغرض من الإخراج أو الإدخال" />
+                        </div>
 
                         <div class="mb-3">
                             <label class="form-label fw-bold">الجهة الطالبة</label>
@@ -100,7 +117,7 @@ else
             <div class="col-md-8">
                 <div class="card mb-3">
                     <div class="card-header pms-header d-flex justify-content-between align-items-center">
-                        <span>المواد والمعدات</span>
+                        <span>المواد والمعدات <span class="text-warning">*</span></span>
                         <button type="button" class="btn btn-sm btn-light" @onclick="AddEquipmentRow">
                             <i class="bi bi-plus-circle"></i> إضافة مادة
                         </button>
@@ -127,7 +144,7 @@ else
                                                 <select class="form-select" @bind="model.EquipmentsAndMaterials[idx].Unit">
                                                     @foreach (var u in Enum.GetValues<UnitType>())
                                                     {
-                                                        <option value="@u">@u</option>
+                                                        <option value="@u">@u.ToString().Replace('_', ' ')</option>
                                                     }
                                                 </select>
                                             </td>
@@ -180,7 +197,7 @@ else
                                                 <select class="form-select" @bind="model.Cars[idx].driverNationality">
                                                     @foreach (var n in Enum.GetValues<Nationality>())
                                                     {
-                                                        <option value="@n">@n</option>
+                                                        <option value="@n">@n.ToString().Replace('_', ' ')</option>
                                                     }
                                                 </select>
                                             </td>
@@ -215,96 +232,135 @@ else
         }
 
         <div class="mt-4 text-center">
-            <button type="submit" class="btn btn-warning px-4"><i class="bi bi-save"></i> حفظ</button>
-            <a href="/permits" class="btn btn-outline-secondary px-4">إلغاء</a>
+            <button type="button" class="btn btn-outline-secondary px-4" @onclick="() => SaveAsync(false)" disabled="@saving">
+                <i class="bi bi-save"></i> حفظ مسودة
+            </button>
+            <button type="button" class="btn btn-warning px-4" @onclick="() => SaveAsync(true)" disabled="@saving">
+                <i class="bi bi-send"></i> إرسال للاعتماد
+            </button>
+            <BackLink Fallback="/permits" Css="btn btn-outline-secondary px-4">إلغاء</BackLink>
         </div>
     </EditForm>
 }
 
 @code {
     private bool loading = true;
+    private bool saving;
     private string? errorMessage;
     private PermitViewModel model = new();
     private List<DepartmentDto> departments = new();
     private string selectedRespCode = "";
+    private string purpose = "";
+    private DateTime validTo = DateTime.Today;
+    private string expectedExecutionTime = "";
+    private bool shiftApproval;
     private User? currentUser;
 
     protected override async Task OnInitializedAsync()
     {
-        var authState = await AuthProvider.GetAuthenticationStateAsync();
-        var userName = authState.User.Identity?.Name;
-        currentUser = userName != null ? await UserManager.FindByNameAsync(userName) : null;
-
-        model.No = await PermitService.GeneratePermitSerialNumberAsync("Materials");
         model.Date = DateTime.Now;
+        validTo = DateTime.Today;
         model.HourOfEntry = DateTime.Now.ToString("HH:mm");
+        ApplyShiftApproval();
+        if (model.EquipmentsAndMaterials.Count == 0)
+            model.EquipmentsAndMaterials.Add(new EquipMatiMovmentViewModel());
 
-        if (currentUser != null)
+        try
         {
-            departments = await DepartmentService.GetDepartmentsByResponsibilityAsync(currentUser.ResponsibilityCode);
-        }
+            var authState = await AuthProvider.GetAuthenticationStateAsync();
+            var userName = authState.User.Identity?.Name;
+            currentUser = userName != null ? await UserManager.FindByNameAsync(userName) : null;
 
-        loading = false;
+            model.No = await PermitService.GeneratePermitSerialNumberAsync("Materials");
+
+            if (currentUser != null && !string.IsNullOrWhiteSpace(currentUser.ResponsibilityCode))
+            {
+                departments = await DepartmentService.GetDepartmentsByResponsibilityAsync(currentUser.ResponsibilityCode);
+                if (departments.Count == 0)
+                {
+                    departments.Add(new DepartmentDto
+                    {
+                        RespCode = currentUser.ResponsibilityCode,
+                        DepartmentName = string.IsNullOrWhiteSpace(currentUser.Department)
+                            ? currentUser.ResponsibilityCode
+                            : currentUser.Department
+                    });
+                }
+
+                if (departments.Count == 1)
+                    selectedRespCode = departments[0].RespCode ?? "";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "تعذر تحميل بيانات التصريح: " + ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void ApplyShiftApproval()
+    {
+        if (NeedsShiftApproval(model.Date, expectedExecutionTime))
+            shiftApproval = true;
+    }
+
+    private static bool NeedsShiftApproval(DateTime permitDate, string? expectedTime)
+    {
+        if (permitDate.DayOfWeek is DayOfWeek.Friday or DayOfWeek.Saturday)
+            return true;
+
+        if (!TimeSpan.TryParse(expectedTime, out var time))
+            return false;
+
+        return time >= TimeSpan.FromHours(15) || time <= TimeSpan.FromHours(8);
     }
 
     private void AddEquipmentRow() => model.EquipmentsAndMaterials.Add(new EquipMatiMovmentViewModel());
     private void AddCarRow() => model.Cars.Add(new CarMovmentViewModel());
 
-    private async Task SaveAsync()
+    private Task PreventSubmit(EditContext _) => SaveAsync(true);
+
+    private async Task SaveAsync(bool submit)
     {
-        if (string.IsNullOrEmpty(selectedRespCode))
+        if (saving) return;
+        errorMessage = null;
+        saving = true;
+        try
         {
-            errorMessage = "يرجى اختيار الجهة الطالبة.";
-            return;
+            var request = new MaterialPermitRequest
+            {
+                PermitNumber = model.No,
+                Type = model.Type,
+                IsTemp = model.IsTemp,
+                PermitDate = model.Date,
+                HourOfEntry = model.HourOfEntry,
+                ValidTo = validTo,
+                ExpectedExecutionTime = expectedExecutionTime,
+                ShiftApproval = shiftApproval,
+                RequestingDepartmentCode = selectedRespCode,
+                AuthorizedParty = model.OrgDescription,
+                Phone = model.PhoneNo,
+                MoveFrom = model.MoveFrom,
+                MoveTo = model.MoveTo,
+                Purpose = purpose,
+                Notes = model.Notes,
+                Items = model.EquipmentsAndMaterials,
+                Cars = model.Cars
+            };
+
+            var id = await MaterialPermits.SaveAsync(request, currentUser!, submit);
+            Navigation.NavigateTo(ReturnUrl.Read(Navigation) ?? "/permits");
         }
-
-        var permit = new Permit
+        catch (Exception ex)
         {
-            Id = Guid.NewGuid(),
-            createdBy = currentUser?.UserName,
-            createdOn = DateTime.Now,
-            no = model.No,
-            date = model.Date,
-            hourOfEntry = model.HourOfEntry,
-            type = model.Type.ToString(),
-            classification = "Materials",
-            IsTemp = model.IsTemp,
-            moveFrom = model.MoveFrom,
-            moveTo = model.MoveTo,
-            reqDepartment = selectedRespCode,
-            phoneNo = model.PhoneNo,
-            OrgDescription = model.OrgDescription,
-            remarks = model.Notes,
-        };
-
-        permit.EquipmentsAndMatirials = model.EquipmentsAndMaterials
-            .Select(e => new EquipMatiMovment { description = e.ItemName, qty = e.Quantity, unit = e.Unit.ToString() })
-            .ToList();
-
-        permit.Cars = model.Cars
-            .Select(c => new CarMovment
-            {
-                carType = c.CarType,
-                carNo = c.CarNo,
-                licenseNo = c.licenseNo,
-                name = c.DriverName,
-                nattiunality = c.driverNationality.ToString(),
-                orginaization = model.OrgDescription
-            }).ToList();
-
-        permit.Procedures = new List<ProcedureMovment>
+            errorMessage = ex.Message;
+        }
+        finally
         {
-            new ProcedureMovment
-            {
-                procedureType = ProcedureType.Insert.ToString(),
-                donedBy = currentUser?.FullName,
-                doneAs = currentUser?.JobtypeName,
-                shift = "A",
-                doneOn = DateTime.Now
-            }
-        };
-
-        await PermitService.InsertPermitAsync(permit);
-        Navigation.NavigateTo("/permits");
+            saving = false;
+        }
     }
 }

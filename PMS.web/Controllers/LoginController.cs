@@ -1,5 +1,6 @@
 ﻿using Core.Entities;
 using Core.Interfaces.Services;
+using Core.Interfaces.Services.Security;
 using PMS.web.ViewModels;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -20,15 +21,18 @@ namespace PMS.web.Controllers
         private readonly UserManager<User> _userManager;
         private readonly SignInManager<User> _signInManager;
         private readonly IGates _gateService;
+        private readonly IUserAccessService _userAccess;
 
         public LoginController(
             UserManager<User> userManager,
             SignInManager<User> signInManager,
-            IGates gateService)
+            IGates gateService,
+            IUserAccessService userAccess)
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _gateService = gateService;
+            _userAccess = userAccess;
         }
 
         [HttpGet]
@@ -56,7 +60,9 @@ namespace PMS.web.Controllers
                     return Json(new { success = false, message = "الحالة الوظيفية غير فعالة، لا يمكن الدخول." });
                 }
 
-                if (user.UserType == "SaftyUser")
+                var isGateOfficer = await _userAccess.IsGateOfficerAsync(user.Id)
+                    || string.Equals(user.UserType, "SaftyUser", StringComparison.OrdinalIgnoreCase);
+                if (isGateOfficer)
                 {
                     var gates = (await _gateService.GetAllAsync())
                                 .Select(g => new { value = g.Id.ToString(), text = g.no })
@@ -66,7 +72,7 @@ namespace PMS.web.Controllers
                         success = true,
                         isSafty = true,
                         gates,
-                        userName = user.FullName ?? user.UserName // استخدام FullName إذا موجود، وإلا UserName
+                        userName = user.FullName ?? user.UserName
                     });
                 }
                 return Json(new
@@ -100,8 +106,9 @@ namespace PMS.web.Controllers
                     return Json(new { success = false, message = "الحالة الوظيفية غير فعالة، لا يمكن الدخول." });
                 }
 
-                // لو مستخدم SaftyUser يجب أن يختار بوابة
-                if (user.UserType == "SaftyUser" && string.IsNullOrEmpty(model.SelectedGate))
+                var isGateOfficer = await _userAccess.IsGateOfficerAsync(user.Id)
+                    || string.Equals(user.UserType, "SaftyUser", StringComparison.OrdinalIgnoreCase);
+                if (isGateOfficer && string.IsNullOrEmpty(model.SelectedGate))
                 {
                     return Json(new { success = false, message = "يرجى اختيار البوابة." });
                 }
@@ -144,10 +151,10 @@ namespace PMS.web.Controllers
                     HttpContext.Session.SetString("ResponsibilityCode", user.ResponsibilityCode);
                     HttpContext.Session.SetString("UserName", user.UserName);
                     HttpContext.Session.SetString("FullName", user.FullName);
-                    HttpContext.Session.SetString("UserType", user.UserType);
-                    HttpContext.Session.SetString("JobStatus", user.JobStatus);
-                    HttpContext.Session.SetString("JobtypeName", user.JobtypeName);
-                    HttpContext.Session.SetString("JobCatId", user.JobCatId.ToString());
+                    HttpContext.Session.SetString("UserType", user.UserType ?? "");
+                    HttpContext.Session.SetString("JobStatus", user.JobStatus ?? "");
+                    HttpContext.Session.SetString("JobtypeName", user.JobtypeName ?? "");
+                    HttpContext.Session.SetString("JobCatId", (user.JobCatId ?? 0).ToString());
 
 
                     return Json(new { success = true, redirectUrl = Url.Action("PermitIndex", "Permit") });
@@ -182,12 +189,13 @@ namespace PMS.web.Controllers
 
       
         // ---------------- Logout ----------------
-        [Authorize]
+        [HttpGet("/logout")]
+        [AllowAnonymous]
         public async Task<IActionResult> Logout()
         {
             await _signInManager.SignOutAsync();
             HttpContext.Session.Clear();
-            return RedirectToAction("Login", "Login");
+            return Redirect("/login");
         }
 
         // ---------------- Access Denied ----------------

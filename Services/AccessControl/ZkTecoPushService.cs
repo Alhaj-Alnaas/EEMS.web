@@ -2,6 +2,7 @@ using Core.Interfaces.Services.AccessControl;
 using Core.Options;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Text.RegularExpressions;
 using static Core.Enums.BaseEnums;
 
 namespace Services.AccessControl
@@ -19,6 +20,7 @@ namespace Services.AccessControl
         private readonly IDevicePushLogService _pushLog;
         private readonly IReaderSyncStateService _syncState;
         private readonly IReaderDeviceStatsService _statsService;
+        private readonly IEmployeeDeviceSyncService _deviceSync;
         private readonly ZkTecoOptions _options;
         private readonly ILogger<ZkTecoPushService> _logger;
 
@@ -30,6 +32,7 @@ namespace Services.AccessControl
             IDevicePushLogService pushLog,
             IReaderSyncStateService syncState,
             IReaderDeviceStatsService statsService,
+            IEmployeeDeviceSyncService deviceSync,
             IOptions<ZkTecoOptions> options,
             ILogger<ZkTecoPushService> logger)
         {
@@ -40,6 +43,7 @@ namespace Services.AccessControl
             _pushLog = pushLog;
             _syncState = syncState;
             _statsService = statsService;
+            _deviceSync = deviceSync;
             _options = options.Value;
             _logger = logger;
         }
@@ -68,11 +72,18 @@ namespace Services.AccessControl
                 return "OK";
             }
 
+            // Stamp=0 يطلب إعادة إرسال كل السجلات. نستخدم آخر ختم محفوظ؛
+            // وإن لم يوجد نستخدم قيمة عالية حتى لا يُعاد تفريغ الحركة عند كل اتصال.
+            var attStamp = _syncState.GetStamp(sn, "ATTLOG");
+            var opStamp = _syncState.GetStamp(sn, "OPERLOG");
+            if (attStamp == "0") attStamp = "9999";
+            if (opStamp == "0") opStamp = "9999";
+
             var lines = new List<string>
             {
                 $"GET OPTION FROM: {sn}",
-                "Stamp=9999",
-                "OpStamp=9999",
+                $"Stamp={attStamp}",
+                $"OpStamp={opStamp}",
                 "ErrorDelay=30",
                 "Delay=10",
                 "TransTimes=00:00;14:00",
@@ -88,7 +99,7 @@ namespace Services.AccessControl
             {
                 lines.Add($"PushProtVer={proto}");
                 lines.Add("PushOptionsFlag=1");
-                lines.Add("PushOptions=UserCount,FPCount,FaceCount,FingerFunOn,FaceFunOn,~DeviceName,FirmVer");
+                lines.Add("PushOptions=UserCount,FPCount,FaceCount,PvCount,UserCardCount,FingerFunOn,FaceFunOn,PvFunOn,~DeviceName,FirmVer");
                 lines.Add("SupportPing=1");
             }
 
@@ -170,7 +181,7 @@ namespace Services.AccessControl
                 $"SessionID={session.SessionId}",
                 "TimeoutSec=10",
                 "PushOptionsFlag=1",
-                "PushOptions=UserCount,FPCount,FaceCount,FingerFunOn,FaceFunOn,~DeviceName,FirmVer"
+                "PushOptions=UserCount,FPCount,FaceCount,PvCount,UserCardCount,FingerFunOn,FaceFunOn,PvFunOn,~DeviceName,FirmVer"
             };
             return (string.Join("\n", lines) + "\n", session.SessionId);
         }
@@ -192,34 +203,36 @@ namespace Services.AccessControl
                 serial, table ?? "-", stamp ?? "-", body.Length);
 
             string outcome;
+            var importedRows = 0;
             if (string.Equals(table, "options", StringComparison.OrdinalIgnoreCase)
                 || ZkTecoInfoParser.LooksLikeInfo(body))
             {
-                _syncState.UpdateFromInfo(sn, body);
-                var snap = _syncState.GetSnapshot(sn);
-                var hasCounts = snap?.UserCount != null
-                    || snap?.FingerprintCount != null
-                    || snap?.FaceCount != null;
+                // Only persist counts that were present in THIS payload — never re-write
+                // stale FaceCount/FPCount from an older in-memory snapshot.
+                var fresh = _syncState.UpdateFromInfo(sn, body);
+                var hasCounts = fresh.UserCount != null
+                    || fresh.FingerprintCount != null
+                    || fresh.FaceCount != null;
                 outcome = hasCounts
-                    ? $"إحصائيات الجهاز: مستخدمون={snap!.UserCount} · بصمات={snap.FingerprintCount} · وجوه={snap.FaceCount}"
+                    ? $"إحصائيات الجهاز: مستخدمون={fresh.UserCount} · كف={fresh.FingerprintCount} · وجوه={fresh.FaceCount}"
                     : "خيارات الجهاز (اسم/إصدار فقط — بانتظار الأعداد)";
 
-                if (hasCounts && reader != null && snap != null)
-                {
-                    await _statsService.UpsertAsync(reader.Id, sn,
-                        snap.UserCount ?? 0, snap.FaceCount ?? 0,
-                        snap.FingerprintCount ?? 0, 0,
-                        snap.AttLogCount ?? 0, snap.FirmwareVersion);
-                }
+                if (hasCounts && reader != null)
+                    await ApplyDeviceStatsFromInfoAsync(reader, sn, body, "options");
 
                 if (!hasCounts && reader != null)
                     await EnsureDeviceInfoCommandAsync(reader.Id);
             }
             else if (IsAttLog(table, body) || IsRtLog(table))
             {
-                var imported = await _attLogIngest.ImportAttLogAsync(serial, body, ct);
-                outcome = $"ATTLOG: {imported} حركة";
-                _logger.LogInformation("ATTLOG import SN={Serial} rows={Count}", serial, imported);
+                importedRows = await _attLogIngest.ImportAttLogAsync(serial, body, ct);
+                // إصلاح سجلات قديمة/حالية لم يُربط فيها الموظف بسبب صيغة pin الخاطئة
+                var repaired = await _attLogIngest.RepairUnlinkedAsync(ct);
+                outcome = repaired > 0
+                    ? $"ATTLOG: {importedRows} حركة · إصلاح ربط: {repaired}"
+                    : $"ATTLOG: {importedRows} حركة";
+                _logger.LogInformation("ATTLOG import SN={Serial} rows={Count} repaired={Repaired}",
+                    serial, importedRows, repaired);
             }
             else if (IsRealtime(table))
             {
@@ -228,25 +241,23 @@ namespace Services.AccessControl
             else
             {
                 var bio = await _biometricIngest.ImportCombinedAsync(serial, table, body, ct);
+                importedRows = bio.UsersUpserted + bio.TemplatesSaved;
                 outcome = bio.UsersUpserted > 0 || bio.TemplatesSaved > 0
                     ? $"موظفون: {bio.UsersUpserted} · بصمات: {bio.TemplatesSaved}"
                     : body.Length == 0
                         ? "جسم الطلب فارغ"
-                        : "لم يُتعرَّف على أي سجل";
+                        : bio.UsersParsed > 0
+                            ? $"تحليل={bio.UsersParsed} مستخدم لكن لم يُحفظ أي تغيير"
+                            : "لم يُتعرَّف على أي سجل";
 
                 _logger.LogWarning(
-                    "Biometric import SN={Serial} table={Table} users={Users} templates={Templates} preview={Preview}",
-                    serial, table ?? "-", bio.UsersUpserted, bio.TemplatesSaved, Preview(body, 300));
-
-                if (reader != null && (bio.UsersUpserted > 0 || bio.TemplatesSaved > 0))
-                    await RefreshStatsFromDbAsync(reader.Id, sn);
+                    "Biometric import SN={Serial} table={Table} users={Users} parsed={Parsed} templates={Templates} preview={Preview}",
+                    serial, table ?? "-", bio.UsersUpserted, bio.UsersParsed, bio.TemplatesSaved, Preview(body, 300));
             }
 
-            // Some devices (incl. some SpeedFace firmwares) may not send `/iclock/devicecmd` ACK
-            // for every DATA QUERY result. When we receive recognizable data tables, mark the
-            // latest matching Sent command as acknowledged to prevent timeouts/retries.
+            // Auto-ACK only when actual payload rows were received/parsed — not on count-only announcements.
             if (reader != null)
-                await TryAcknowledgeLatestSentByTableAsync(reader.Id, table);
+                await TryAcknowledgeLatestSentByTableAsync(sn, table, body, importedRows);
 
             RecordPush(sn, table, body, outcome);
             return "OK";
@@ -269,20 +280,35 @@ namespace Services.AccessControl
             if (string.Equals(table, "ATTLOG", StringComparison.OrdinalIgnoreCase))
                 return true;
 
+            // Acc / SpeedFace: DATA QUERY tablename=transaction (مزامنة سجل الحركة)
+            if (string.Equals(table, "transaction", StringComparison.OrdinalIgnoreCase))
+                return true;
+
             // A named non-attendance table (OPERLOG, USERINFO, BIODATA, ...) is never attendance data.
             if (!string.IsNullOrWhiteSpace(table))
                 return false;
 
-            // Some firmware posts without table name — detect tab-separated attendance rows.
-            // Exclude USERINFO / FINGERTMP key=value formats.
+            // Some firmware posts without table name — detect attendance rows.
             if (string.IsNullOrWhiteSpace(body)) return false;
             var first = body.Split('\n', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim();
             if (first == null || !first.Contains('\t')) return false;
-            if (first.Contains("PIN=", StringComparison.OrdinalIgnoreCase)
-                || first.Contains("TMP=", StringComparison.OrdinalIgnoreCase)
-                || first.Contains("Name=", StringComparison.OrdinalIgnoreCase))
+
+            // Acc key=value attendance: time=...\tpin=... OR time_second=...\tpin=...
+            if (first.Contains("pin=", StringComparison.OrdinalIgnoreCase)
+                && (first.Contains("time=", StringComparison.OrdinalIgnoreCase)
+                    || first.Contains("time_second=", StringComparison.OrdinalIgnoreCase)
+                    || first.Contains("DateTime=", StringComparison.OrdinalIgnoreCase)
+                    || first.Contains("inoutstatus=", StringComparison.OrdinalIgnoreCase)
+                    || first.Contains("inoutstate=", StringComparison.OrdinalIgnoreCase)))
+                return true;
+
+            // Exclude USERINFO / FINGERTMP key=value formats (not attendance).
+            if (first.Contains("TMP=", StringComparison.OrdinalIgnoreCase)
+                || first.Contains("Name=", StringComparison.OrdinalIgnoreCase)
+                || first.Contains("Privilege=", StringComparison.OrdinalIgnoreCase))
                 return false;
 
+            // Classic positional ATTLOG: PIN\tTime\tStatus...
             var parts = first.Split('\t');
             return parts.Length >= 2 && !parts[0].Contains('=');
         }
@@ -304,20 +330,40 @@ namespace Services.AccessControl
 
             if (!string.IsNullOrWhiteSpace(info))
             {
-                _syncState.UpdateFromInfo(serial.Trim(), info);
+                var fresh = _syncState.UpdateFromInfo(serial.Trim(), info);
                 _logger.LogInformation("ZKTeco INFO from {Serial}: {Info}", serial, info);
 
-                var snap = _syncState.GetSnapshot(serial.Trim());
-                if (snap != null && (snap.UserCount != null || snap.FingerprintCount != null || snap.FaceCount != null))
+                // Positional INFO=users,fp,att,... must not overwrite palm (PvCount)
+                // stored from GET OPTION. Only named FPCount/PvCount update that column.
+                var namedPalm = info.Contains("PvCount=", StringComparison.OrdinalIgnoreCase)
+                    || info.Contains("FPCount=", StringComparison.OrdinalIgnoreCase)
+                    || info.Contains("FingerPrintCount=", StringComparison.OrdinalIgnoreCase);
+                var cardCount = ZkTecoInfoParser.TryCardCount(info);
+                var namedLogs = ZkTecoInfoParser.TryCount(info, "TransactionCount", "AttLogCount");
+                var attCount = namedLogs ?? fresh.AttLogCount;
+                if (fresh.UserCount != null || fresh.FaceCount != null || namedPalm || cardCount != null || attCount is > 0)
                 {
                     await _statsService.UpsertAsync(reader.Id, serial.Trim(),
-                        snap.UserCount ?? 0, snap.FaceCount ?? 0,
-                        snap.FingerprintCount ?? 0, 0,
-                        snap.AttLogCount ?? 0, snap.FirmwareVersion);
+                        userCount: fresh.UserCount,
+                        faceCount: fresh.FaceCount,
+                        fingerprintCount: namedPalm ? fresh.FingerprintCount : null,
+                        cardCount: cardCount,
+                        attLogCount: attCount is > 0 ? attCount : null,
+                        firmwareVersion: fresh.FirmwareVersion);
                 }
             }
 
+            await EnsureStatsRefreshAsync(reader.Id);
             return await DeliverPendingCommandsAsync(reader, serial, ct);
+        }
+
+        private async Task EnsureStatsRefreshAsync(Guid readerId)
+        {
+            var stats = await _statsService.GetByReaderAsync(readerId);
+            if (stats != null && stats.FetchedAt > DateTime.Now.AddMinutes(-5))
+                return;
+
+            await EnsureDeviceInfoCommandAsync(readerId);
         }
 
         private async Task EnsureDeviceInfoCommandAsync(Guid readerId)
@@ -347,14 +393,28 @@ namespace Services.AccessControl
 
         private async Task<string> DeliverPendingCommandsAsync(Core.Entities.Reader reader, string serial, CancellationToken ct)
         {
-            var pending = (await _commands.GetPendingByReaderAsync(reader.Id, 500))
+            var deviceSerial = serial.Trim();
+            var allReadersForSerial = (await _readers.GetAllAsync())
+                .Where(r => !r.isDeleted && string.Equals(r.DeviceSerial, deviceSerial, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            var pending = new List<Core.Entities.DeviceCommand>();
+            foreach (var r in allReadersForSerial)
+            {
+                pending.AddRange(await _commands.GetPendingByReaderAsync(r.Id, 500));
+            }
+
+            pending = pending
                 .OrderBy(c => CommandPriority(c.CommandType))
                 .ThenBy(c => c.createdOn)
                 .ToList();
 
             _logger.LogInformation(
-                "DeliverPending SN={Serial} readerId={ReaderId} pendingCount={Count} types=[{Types}]",
-                serial, reader.Id, pending.Count,
+                "DeliverPending SN={Serial} readerId={ReaderId} matchingReaderIds={MatchingReaderIds} pendingCount={Count} types=[{Types}]",
+                serial,
+                reader.Id,
+                string.Join(", ", allReadersForSerial.Select(r => r.Id)),
+                pending.Count,
                 string.Join(", ", pending.Select(c => c.CommandType)));
 
             var lines = new List<string>();
@@ -369,6 +429,9 @@ namespace Services.AccessControl
                     continue;
                 }
 
+                if (ZkTecoAccUserCommand.IsWaitForUid(cmd.Payload))
+                    continue;
+
                 if (IsUnsafeAccUserUpdate(cmd.CommandType, cmd.Payload))
                 {
                     await _commands.UpdateStatusAsync(cmd.Id, DeviceCommandStatus.Failed,
@@ -380,12 +443,22 @@ namespace Services.AccessControl
                 }
 
                 var protocolId = DeviceCommandService.NextProtocolCommandId();
-                var line = FormatCommand(protocolId, cmd.CommandType, cmd.Payload);
+                var payload = cmd.Payload;
+                if (string.Equals(cmd.CommandType, nameof(DeviceCommandType.QueryAttLog), StringComparison.OrdinalIgnoreCase)
+                    && string.IsNullOrWhiteSpace(payload))
+                {
+                    // Acc Security PUSH: NewRecord = حركات لم تُرحَّل بعد فقط
+                    payload = "NewRecord";
+                }
+
+                var line = FormatCommand(protocolId, cmd.CommandType, payload);
                 await _commands.MarkSentAsync(cmd.Id, protocolId);
                 lines.Add(line);
                 _logger.LogInformation(
-                    "ZKTeco command sent SN={Serial} id={Id} type={Type} line={Line}",
-                    serial, protocolId, cmd.CommandType, line);
+                    "ZKTeco command sent SN={Serial} commandId={CommandId} protocolId={Id} type={Type} payload={Payload} line={Line}",
+                    serial, cmd.Id, protocolId, cmd.CommandType,
+                    (cmd.Payload ?? "-").Replace("\t", "\\t"),
+                    line.Replace("\t", "\\t"));
             }
 
             if (lines.Count == 0)
@@ -437,7 +510,16 @@ namespace Services.AccessControl
             var reader = await TouchDeviceAsync(serial);
             if (reader == null) return "OK";
 
-            _logger.LogWarning("ZKTeco devicecmd SN={Serial} body={Body}", serial, body);
+            body ??= string.Empty;
+            _logger.LogWarning(
+                "ZKTeco devicecmd SN={Serial} bodyLen={Len} preview={Preview}",
+                serial, body.Length, Preview(body, 180));
+
+            // Counts may sit on the ACK line itself: ID=1&Return=0&CMD=GET OPTION&UserCount=12&FaceCount=5
+            if (ZkTecoInfoParser.LooksLikeInfo(body)
+                || body.Contains("CMD=INFO", StringComparison.OrdinalIgnoreCase)
+                || body.Contains("CMD=GET OPTION", StringComparison.OrdinalIgnoreCase))
+                await ApplyDeviceStatsFromInfoAsync(reader, serial.Trim(), body, "devicecmd");
 
             foreach (var line in body.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
             {
@@ -460,6 +542,32 @@ namespace Services.AccessControl
                     await _commands.UpdateStatusAsync(cmd.Id, DeviceCommandStatus.Acknowledged);
                     await _readers.MarkSyncAsync(reader.Id);
                 }
+                else if (int.TryParse(returnCode, out var recordCount)
+                         && recordCount > 0
+                         && IsFullUserListQuery(cmd))
+                {
+                    // This firmware reports the user-table size as Return=N, not as an error.
+                    await _statsService.UpsertAsync(reader.Id, serial.Trim(), userCount: recordCount);
+                    await _commands.UpdateStatusAsync(cmd.Id, DeviceCommandStatus.Acknowledged);
+                    await _readers.MarkSyncAsync(reader.Id);
+                    _logger.LogWarning(
+                        "Query user count SN={Serial} Return={Count} stored as UserCount",
+                        serial, recordCount);
+                }
+                else if (returnCode == "-1004"
+                         && string.Equals(cmd.CommandType, nameof(DeviceCommandType.UpdateUserInfo), StringComparison.OrdinalIgnoreCase)
+                         && !ZkTecoAccUserCommand.IsCreateUserLine(cmd.Payload))
+                {
+                    await _commands.UpdateStatusAsync(cmd.Id, DeviceCommandStatus.Failed, "Device Return=-1004");
+                    await _deviceSync.BeginCreateAfterMissingUserAsync(reader.Id, cmd.Payload, ct);
+                    _logger.LogWarning(
+                        "User missing on SN={Serial} — queued create after Return=-1004 payload={Payload}",
+                        serial, (cmd.Payload ?? "").Replace("\t", "\\t"));
+                }
+                else if (returnCode == "-1004" && IsStatsQuery(cmd.CommandType))
+                {
+                    await _commands.UpdateStatusAsync(cmd.Id, DeviceCommandStatus.Failed, "Device Return=-1004");
+                }
                 else
                 {
                     await _commands.UpdateStatusAsync(cmd.Id, DeviceCommandStatus.Failed, $"Device Return={returnCode}");
@@ -480,32 +588,40 @@ namespace Services.AccessControl
                 DeviceCommandType.TestConnection => "CHECK",
                 DeviceCommandType.Reboot => "REBOOT",
                 DeviceCommandType.Sync => string.IsNullOrWhiteSpace(payload) ? "INFO" : payload,
-                DeviceCommandType.QueryAttLog =>
-                    "DATA QUERY tablename=transaction,fielddesc=*",
+                DeviceCommandType.QueryAttLog => FormatQueryAttLog(payload),
                 DeviceCommandType.QueryUserInfo => FormatQueryUserInfo(payload),
-                DeviceCommandType.QueryFingerTmp => string.IsNullOrWhiteSpace(payload)
-                    ? "DATA QUERY tablename=templatev10,fielddesc=*"
-                    : $"DATA QUERY tablename=templatev10,fielddesc=*,filter=pin={payload.Trim()}",
-                DeviceCommandType.QueryBioData => string.IsNullOrWhiteSpace(payload)
-                    ? "DATA QUERY tablename=biodata,fielddesc=*,filter=Type=1"
-                    : $"DATA QUERY tablename=biodata,fielddesc=*,filter=Type=1\tPin={payload.Trim()}",
+                DeviceCommandType.QueryFingerTmp => FormatQueryFingerTmp(payload),
+                DeviceCommandType.QueryBioData => FormatQueryBioData(payload),
                 DeviceCommandType.QueryDeviceInfo =>
-                    "GET OPTION FROM: UserCount,FPCount,FaceCount,~DeviceName,FirmVer",
+                    "GET OPTION FROM UserCount,FPCount,FaceCount,PvCount,UserCardCount,~DeviceName,FirmVer",
                 DeviceCommandType.UpdateUserInfo => FormatUserInfoUpdate(payload),
                 DeviceCommandType.SyncAllData => "CHECK",
                 DeviceCommandType.FullSync => "CHECK",
-                DeviceCommandType.AddTemplate => string.IsNullOrWhiteSpace(payload) ? "DATA UPDATE USERINFO" : $"DATA {payload}",
-                DeviceCommandType.RemoveTemplate => string.IsNullOrWhiteSpace(payload) ? "DATA DELETE USERINFO" : $"DATA {payload}",
-                DeviceCommandType.AddPermission => string.IsNullOrWhiteSpace(payload) ? "DATA UPDATE USERINFO" : $"DATA {payload}",
-                DeviceCommandType.RemovePermission => string.IsNullOrWhiteSpace(payload) ? "DATA DELETE USERINFO" : $"DATA {payload}",
+                DeviceCommandType.AddTemplate => FormatDataCommand(payload),
+                DeviceCommandType.RemoveTemplate => FormatDataCommand(payload),
+                DeviceCommandType.AddPermission => string.IsNullOrWhiteSpace(payload) ? "CHECK" : $"DATA {payload}",
+                DeviceCommandType.RemovePermission => string.IsNullOrWhiteSpace(payload) ? "CHECK" : $"DATA {payload}",
                 _ => payload ?? "INFO"
             };
 
             return $"C:{protocolCommandId}:{body}";
         }
 
+        private static string FormatDataCommand(string? payload)
+        {
+            if (string.IsNullOrWhiteSpace(payload))
+                return "CHECK";
+            var text = payload.Trim();
+            return text.StartsWith("DATA ", StringComparison.OrdinalIgnoreCase) ? text : "DATA " + text;
+        }
+
         private static int CommandPriority(string commandType)
         {
+            // Stats must leave on the next poll even when user commands are queued.
+            if (string.Equals(commandType, nameof(DeviceCommandType.QueryDeviceInfo), StringComparison.OrdinalIgnoreCase)
+                || string.Equals(commandType, nameof(DeviceCommandType.Sync), StringComparison.OrdinalIgnoreCase))
+                return -1;
+
             if (string.Equals(commandType, nameof(DeviceCommandType.UpdateUserInfo), StringComparison.OrdinalIgnoreCase)
                 || string.Equals(commandType, nameof(DeviceCommandType.QueryUserInfo), StringComparison.OrdinalIgnoreCase)
                 || string.Equals(commandType, nameof(DeviceCommandType.AddTemplate), StringComparison.OrdinalIgnoreCase)
@@ -516,16 +632,99 @@ namespace Services.AccessControl
             return 1;
         }
 
+        private static bool IsFullUserListQuery(Core.Entities.DeviceCommand cmd)
+        {
+            if (!string.Equals(cmd.CommandType, nameof(DeviceCommandType.QueryUserInfo), StringComparison.OrdinalIgnoreCase))
+                return false;
+            var payload = cmd.Payload?.Trim();
+            return string.IsNullOrEmpty(payload) || payload == "*";
+        }
+
+        private static bool IsStatsQuery(string commandType)
+        {
+            return string.Equals(commandType, nameof(DeviceCommandType.QueryDeviceInfo), StringComparison.OrdinalIgnoreCase)
+                || string.Equals(commandType, nameof(DeviceCommandType.QueryUserInfo), StringComparison.OrdinalIgnoreCase)
+                || string.Equals(commandType, nameof(DeviceCommandType.QueryAttLog), StringComparison.OrdinalIgnoreCase)
+                || string.Equals(commandType, nameof(DeviceCommandType.QueryBioData), StringComparison.OrdinalIgnoreCase)
+                || string.Equals(commandType, nameof(DeviceCommandType.QueryFingerTmp), StringComparison.OrdinalIgnoreCase)
+                || string.Equals(commandType, nameof(DeviceCommandType.Sync), StringComparison.OrdinalIgnoreCase);
+        }
+
         private static bool IsUnsafeAccUserUpdate(string commandType, string? payload)
         {
             if (!string.Equals(commandType, nameof(DeviceCommandType.UpdateUserInfo), StringComparison.OrdinalIgnoreCase))
                 return false;
             if (string.IsNullOrWhiteSpace(payload))
                 return true;
+
             var text = payload.Trim();
-            if (!text.Contains("UPDATE user", StringComparison.OrdinalIgnoreCase))
+            // Classic USERINFO without fields inserts blank users on Acc/SpeedFace.
+            if (text.Equals("DATA UPDATE USERINFO", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            // Attendance USERINFO without PIN inserts a blank user.
+            // ZAM180-NF accepts DATA UPDATE USERINFO PIN=... as add-or-update.
+            if (text.Contains("USERINFO", StringComparison.OrdinalIgnoreCase))
+                return !Regex.IsMatch(text, @"\bPIN=\S+");
+            if (text.StartsWith("PIN=", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            if (text.Contains("userauthorize", StringComparison.OrdinalIgnoreCase))
+                return !Regex.IsMatch(text, @"Pin=\S+");
+
+            var isAccUser = Regex.IsMatch(text, @"UPDATE user[\t ]", RegexOptions.IgnoreCase);
+            if (!isAccUser)
                 return false;
-            return !text.Contains("uid=", StringComparison.OrdinalIgnoreCase);
+
+            // uid= without Pin= creates a blank Acc slot + default palm.
+            // uid= together with Pin= is the create path for a missing user.
+            if (Regex.IsMatch(text, @"uid=", RegexOptions.IgnoreCase)
+                && !Regex.IsMatch(text, @"Pin=\S+"))
+                return true;
+            // Acc Push V.3 key is Pin= (case-sensitive).
+            if (!Regex.IsMatch(text, @"Pin=\S+"))
+                return true;
+
+            return false;
+        }
+
+        private static string FormatQueryAttLog(string? payload)
+        {
+            // Acc Security PUSH: filter=NewRecord = الحركات الجديدة فقط؛
+            // أو filter=index>N بعد آخر فهرس محفوظ؛ أو starttime=...\tendtime=...
+            if (!string.IsNullOrWhiteSpace(payload))
+            {
+                var p = payload.Trim();
+                if (p.StartsWith("DATA ", StringComparison.OrdinalIgnoreCase))
+                    return p;
+                if (p.Contains("tablename=", StringComparison.OrdinalIgnoreCase))
+                    return p.StartsWith("DATA", StringComparison.OrdinalIgnoreCase) ? p : $"DATA QUERY {p}";
+                return $"DATA QUERY tablename=transaction,fielddesc=*,filter={p}";
+            }
+
+            return "DATA QUERY tablename=transaction,fielddesc=*,filter=NewRecord";
+        }
+
+        private static string FormatQueryFingerTmp(string? payload)
+        {
+            // SpeedFace: fingerprints may be biodata Type=1/7 OR classic templatev10.
+            // Query all biodata first path is handled by QueryBioData; this keeps templatev10
+            // as a secondary source for older firmware.
+            if (string.IsNullOrWhiteSpace(payload))
+                return "DATA QUERY tablename=templatev10,fielddesc=*";
+            return $"DATA QUERY tablename=templatev10,fielddesc=*,filter=pin={payload.Trim()}";
+        }
+
+        private static string FormatQueryBioData(string? payload)
+        {
+            if (string.IsNullOrWhiteSpace(payload))
+                return "DATA QUERY tablename=biodata,fielddesc=*";
+            var p = payload.Trim();
+            if (p.StartsWith("DATA ", StringComparison.OrdinalIgnoreCase))
+                return p;
+            if (p.StartsWith("Type=", StringComparison.OrdinalIgnoreCase))
+                return $"DATA QUERY tablename=biodata,fielddesc=*,filter={p}";
+            return $"DATA QUERY tablename=biodata,fielddesc=*,filter=pin={p}";
         }
 
         private static string FormatQueryUserInfo(string? payload)
@@ -542,12 +741,47 @@ namespace Services.AccessControl
 
         private static string FormatUserInfoUpdate(string? payload)
         {
+            // Never emit bare DATA UPDATE USERINFO — SpeedFace creates a blank user.
             if (string.IsNullOrWhiteSpace(payload))
-                return "DATA UPDATE USERINFO";
+                return "CHECK";
             var text = payload.Trim();
-            if (text.StartsWith("DATA ", StringComparison.OrdinalIgnoreCase))
+            if (ZkTecoAccUserCommand.IsWaitForUid(text))
+                return "CHECK";
+            if (Regex.IsMatch(text, @"\bTIMEZONE\b", RegexOptions.IgnoreCase)
+                || Regex.IsMatch(text, @"\btimezone[\t ]", RegexOptions.IgnoreCase)
+                || Regex.IsMatch(text, @"UPDATE\s+AccGroup", RegexOptions.IgnoreCase)
+                || Regex.IsMatch(text, @"UPDATE\s+accgroup", RegexOptions.IgnoreCase))
+            {
+                return text.StartsWith("DATA ", StringComparison.OrdinalIgnoreCase)
+                    ? text
+                    : "DATA " + text;
+            }
+            if (text.Contains("userauthorize", StringComparison.OrdinalIgnoreCase)
+                && Regex.IsMatch(text, @"Pin=\S+"))
+            {
+                return text.StartsWith("DATA ", StringComparison.OrdinalIgnoreCase)
+                    ? text
+                    : "DATA UPDATE userauthorize " + text;
+            }
+            if (text.Contains("USERINFO", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!Regex.IsMatch(text, @"\bPIN=\S+"))
+                    return "CHECK";
+                return text.StartsWith("DATA ", StringComparison.OrdinalIgnoreCase)
+                    ? text
+                    : "DATA UPDATE USERINFO " + text;
+            }
+            if (Regex.IsMatch(text, @"uid=", RegexOptions.IgnoreCase)
+                && !Regex.IsMatch(text, @"Pin=\S+"))
+                return "CHECK";
+            if (text.StartsWith("DATA ", StringComparison.OrdinalIgnoreCase)
+                && Regex.IsMatch(text, @"Pin=\S+"))
                 return text;
-            return $"DATA UPDATE USERINFO {text}";
+            if (Regex.IsMatch(text, @"Pin=\S+"))
+                return text.StartsWith("UPDATE ", StringComparison.OrdinalIgnoreCase)
+                    ? "DATA " + text
+                    : "DATA UPDATE user " + text;
+            return "CHECK";
         }
 
         private async Task<Core.Entities.Reader?> TouchDeviceAsync(string serial)
@@ -569,7 +803,8 @@ namespace Services.AccessControl
             await _readers.UpdateAsync(reader);
         }
 
-        public async Task UpdateQueryDataCountAsync(string serial, string tableName, int count)
+        public async Task UpdateQueryDataCountAsync(
+            string serial, string tableName, int count, int? protocolCommandId = null)
         {
             var sn = serial.Trim();
             var reader = await _readers.GetBySerialAsync(sn);
@@ -578,27 +813,197 @@ namespace Services.AccessControl
             var tbl = tableName.ToLowerInvariant();
             var existing = await _statsService.GetByReaderAsync(reader.Id);
 
-            var userCount = existing?.UserCount ?? 0;
-            var faceCount = existing?.FaceCount ?? 0;
-            var fpCount = existing?.FingerprintCount ?? 0;
-            var attCount = existing?.AttLogCount ?? 0;
+            int? userCount = null;
+            int? faceCount = null;
+            int? fpCount = null;
+            int? attCount = null;
             var fw = existing?.FirmwareVersion;
+
+            // When biodata is used for both FP (Type=1) and Face (Type=9), resolve via cmd payload.
+            string? cmdType = null;
+            string? cmdPayload = null;
+            if (protocolCommandId is > 0)
+            {
+                var cmd = await _commands.GetByProtocolIdAsync(reader.Id, protocolCommandId.Value);
+                cmdType = cmd?.CommandType;
+                cmdPayload = cmd?.Payload;
+            }
 
             switch (tbl)
             {
-                case "user": userCount = count; break;
-                case "templatev10": fpCount = count; break;
-                case "biodata": faceCount = count; break;
-                case "transaction": attCount = count; break;
+                case "user":
+                    userCount = count;
+                    break;
+                case "templatev10":
+                case "fingertmp":
+                    if (count > 0) fpCount = count;
+                    break;
+                case "biodata":
+                case "biophoto":
+                case "face":
+                case "tabledata":
+                    if (IsBioFilter(cmdPayload, 9) || IsBioFilter(cmdPayload, 8))
+                    {
+                        if (count > 0) faceCount = count;
+                    }
+                    else if (IsBioFilter(cmdPayload, 7) || IsBioFilter(cmdPayload, 10)
+                             || IsBioFilter(cmdPayload, 1) || IsBioFilter(cmdPayload, 2))
+                    {
+                        if (count > 0) fpCount = count;
+                    }
+                    else if (string.Equals(cmdType, nameof(DeviceCommandType.QueryFingerTmp), StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (count > 0) fpCount = count;
+                    }
+                    else if (string.IsNullOrWhiteSpace(cmdPayload)
+                             && string.Equals(cmdType, nameof(DeviceCommandType.QueryBioData), StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Unfiltered biodata count is total records — do not map to face/fp stats.
+                        _logger.LogInformation(
+                            "biodata unfiltered count={Count} SN={Serial} — stats come from body parsing",
+                            count, sn);
+                    }
+                    else if (count > 0)
+                    {
+                        _logger.LogInformation(
+                            "biodata count={Count} SN={Serial} payload={Payload} — not mapped to face/fp stats",
+                            count, sn, cmdPayload ?? "-");
+                    }
+                    else
+                    {
+                        _logger.LogDebug(
+                            "biodata count=0 SN={Serial} payload={Payload} — skipped (SpeedFace filter often returns 0)",
+                            sn, cmdPayload ?? "-");
+                    }
+                    break;
+                case "transaction":
+                case "attlog":
+                    attCount = count;
+                    break;
                 case "options":
-                    var snap = _syncState.GetSnapshot(sn);
-                    fw = snap?.FirmwareVersion ?? fw;
-                    return; // options don't carry a meaningful count
+                    // querydata options body may include counts when GET OPTION FROM requests them.
+                    return;
             }
 
-            await _statsService.UpsertAsync(reader.Id, sn, userCount, faceCount, fpCount, 0, attCount, fw);
-            _logger.LogInformation(
-                "Stats from querydata SN={Serial} table={Table} count={Count}", sn, tableName, count);
+            await _statsService.UpsertAsync(reader.Id, sn,
+                userCount: userCount,
+                faceCount: faceCount,
+                fingerprintCount: fpCount,
+                attLogCount: attCount,
+                firmwareVersion: fw);
+
+            // Keep in-memory snapshot in sync so later INFO heartbeats cannot resurrect stale values.
+            if (userCount != null || faceCount != null || fpCount != null || attCount != null)
+                _syncState.SetCounts(sn, userCount, faceCount, fpCount, attCount, fw);
+
+            _logger.LogWarning(
+                "Stats from querydata SN={Serial} table={Table} count={Count} cmdType={CmdType} payload={Payload} → face={Face} fp={Fp}",
+                sn, tableName, count, cmdType ?? "-", cmdPayload ?? "-", faceCount, fpCount);
+
+            // Count response means the DATA QUERY ran successfully — ACK the matching Sent command.
+            if (protocolCommandId is > 0)
+            {
+                var cmd = await _commands.GetByProtocolIdAsync(reader.Id, protocolCommandId.Value);
+                if (cmd != null && cmd.Status == DeviceCommandStatus.Sent)
+                {
+                    await _commands.UpdateStatusAsync(cmd.Id, DeviceCommandStatus.Acknowledged);
+                    _logger.LogWarning(
+                        "Auto-ACK via querydata count SN={Serial} protocolId={Id} type={Type} count={Count}",
+                        sn, protocolCommandId, cmd.CommandType, count);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Persist FaceCount / PvCount (palm) / UserCount from device INFO or options payload.
+        /// SpeedFace reports authoritative bio counts here — not in filtered biodata querydata.
+        /// </summary>
+        private async Task ApplyDeviceStatsFromInfoAsync(
+            Core.Entities.Reader reader, string serial, string body, string source)
+        {
+            var infoPayload = ExtractInfoPayload(body);
+            if (string.IsNullOrWhiteSpace(infoPayload)) return;
+
+            var fresh = _syncState.UpdateFromInfo(serial, infoPayload);
+            var cardCount = ZkTecoInfoParser.TryCardCount(infoPayload);
+            var reportedLogs = ZkTecoInfoParser.TryCount(infoPayload, "TransactionCount", "AttLogCount");
+            var hasCounts = fresh.UserCount != null
+                || fresh.FingerprintCount != null
+                || fresh.FaceCount != null
+                || cardCount != null
+                || reportedLogs is > 0;
+
+            if (!hasCounts)
+            {
+                _logger.LogInformation(
+                    "INFO/options SN={Serial} source={Source} — no counts in payload (len={Len})",
+                    serial, source, infoPayload.Length);
+                return;
+            }
+
+            // TransactionCount=0 on SpeedFace is the unsynced buffer, not the stored total.
+            await _statsService.UpsertAsync(reader.Id, serial,
+                userCount: fresh.UserCount,
+                faceCount: fresh.FaceCount,
+                fingerprintCount: fresh.FingerprintCount,
+                cardCount: cardCount,
+                attLogCount: reportedLogs is > 0 ? reportedLogs : null,
+                firmwareVersion: fresh.FirmwareVersion);
+
+            _syncState.SetCounts(serial,
+                fresh.UserCount, fresh.FaceCount, fresh.FingerprintCount, firmwareVersion: fresh.FirmwareVersion);
+
+            _logger.LogWarning(
+                "Stats from {Source} SN={Serial} users={Users} face={Face} palm(Pv)={Palm} cards={Cards} logs={Logs}",
+                source, serial, fresh.UserCount, fresh.FaceCount, fresh.FingerprintCount, cardCount, reportedLogs);
+        }
+
+        private static string ExtractInfoPayload(string body)
+        {
+            if (string.IsNullOrWhiteSpace(body)) return "";
+
+            var kept = new List<string>();
+            foreach (var raw in body.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var line = raw.Trim();
+                if (line.Length == 0) continue;
+
+                if (line.Contains('&') || line.Contains("CMD=", StringComparison.OrdinalIgnoreCase))
+                {
+                    foreach (var part in line.Split('&', StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        if (IsStatToken(part))
+                            kept.Add(part.Trim());
+                    }
+                    continue;
+                }
+
+                kept.Add(line);
+            }
+
+            return string.Join('\n', kept);
+        }
+
+        private static bool IsStatToken(string token)
+        {
+            var eq = token.IndexOf('=');
+            if (eq <= 0) return false;
+            var key = token[..eq].Trim().TrimStart('~');
+            return key.Equals("UserCount", StringComparison.OrdinalIgnoreCase)
+                || key.Equals("Users", StringComparison.OrdinalIgnoreCase)
+                || key.Equals("FPCount", StringComparison.OrdinalIgnoreCase)
+                || key.Equals("FingerPrintCount", StringComparison.OrdinalIgnoreCase)
+                || key.Equals("FingerprintCount", StringComparison.OrdinalIgnoreCase)
+                || key.Equals("PvCount", StringComparison.OrdinalIgnoreCase)
+                || key.Equals("FaceCount", StringComparison.OrdinalIgnoreCase)
+                || key.Equals("CardCount", StringComparison.OrdinalIgnoreCase)
+                || key.Equals("UserCardCount", StringComparison.OrdinalIgnoreCase)
+                || key.Equals("FirmVer", StringComparison.OrdinalIgnoreCase)
+                || key.Equals("FWVersion", StringComparison.OrdinalIgnoreCase)
+                || key.Equals("FirmwareVersion", StringComparison.OrdinalIgnoreCase)
+                || key.Equals("DeviceName", StringComparison.OrdinalIgnoreCase)
+                || key.Equals("TransactionCount", StringComparison.OrdinalIgnoreCase)
+                || key.Equals("AttLogCount", StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool IsRtLog(string? table)
@@ -607,32 +1012,19 @@ namespace Services.AccessControl
         private static bool IsRealtime(string? table)
             => string.Equals(table, "rtstate", StringComparison.OrdinalIgnoreCase);
 
-        private async Task RefreshStatsFromDbAsync(Guid readerId, string serial)
+        private async Task TryAcknowledgeLatestSentByTableAsync(
+            string deviceSerial, string? table, string body, int importedRows)
         {
-            try
-            {
-                var snap = _syncState.GetSnapshot(serial);
-                if (snap != null && (snap.UserCount != null || snap.FingerprintCount != null || snap.FaceCount != null))
-                {
-                    await _statsService.UpsertAsync(readerId, serial,
-                        snap.UserCount ?? 0,
-                        snap.FaceCount ?? 0,
-                        snap.FingerprintCount ?? 0,
-                        0,
-                        snap.AttLogCount ?? 0,
-                        snap.FirmwareVersion);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to refresh stats from DB for {Serial}", serial);
-            }
-        }
-
-        private async Task TryAcknowledgeLatestSentByTableAsync(Guid readerId, string? table)
-        {
-            if (readerId == Guid.Empty || string.IsNullOrWhiteSpace(table))
+            if (string.IsNullOrWhiteSpace(deviceSerial) || string.IsNullOrWhiteSpace(table))
                 return;
+
+            if (string.IsNullOrWhiteSpace(body) && importedRows <= 0)
+            {
+                _logger.LogInformation(
+                    "Auto-ACK skipped SN={Serial} table={Table} — empty body (count-only announcement?)",
+                    deviceSerial, table);
+                return;
+            }
 
             var t = table.Trim().ToLowerInvariant();
 
@@ -640,28 +1032,63 @@ namespace Services.AccessControl
             {
                 "user" or "userinfo" => DeviceCommandType.QueryUserInfo,
                 "templatev10" or "fingertmp" => DeviceCommandType.QueryFingerTmp,
-                "biodata" => DeviceCommandType.QueryBioData,
+                "biophoto" or "face" => DeviceCommandType.QueryBioData,
+                "biodata" => InferBiodataCommandType(body),
                 "transaction" or "attlog" => DeviceCommandType.QueryAttLog,
                 _ => null
             };
 
             if (expected == null) return;
 
-            var recent = await _commands.GetByReaderAsync(readerId);
-            var cmd = recent
-                .Where(c =>
-                    !c.isDeleted
-                    && c.Status == DeviceCommandStatus.Sent
-                    && string.Equals(c.CommandType, expected.Value.ToString(), StringComparison.OrdinalIgnoreCase))
-                .OrderByDescending(c => c.SentOn ?? c.createdOn)
-                .FirstOrDefault();
+            if (expected == DeviceCommandType.QueryUserInfo && importedRows <= 0)
+            {
+                var parsed = ZkTecoUserInfoParser.Parse(body, table);
+                if (parsed.Count == 0)
+                {
+                    _logger.LogWarning(
+                        "Auto-ACK skipped SN={Serial} table={Table} — body received but no user rows parsed",
+                        deviceSerial, table);
+                    return;
+                }
+            }
 
-            if (cmd == null) return;
+            var readers = await _readers.GetAllAsync();
+            var matches = readers
+                .Where(r => !r.isDeleted && string.Equals(r.DeviceSerial, deviceSerial.Trim(), StringComparison.OrdinalIgnoreCase))
+                .ToList();
 
-            await _commands.UpdateStatusAsync(cmd.Id, DeviceCommandStatus.Acknowledged);
-            _logger.LogWarning(
-                "Auto-ACK: Marked {CommandType} as Acknowledged due to received table={Table}",
-                expected.Value, table);
+            foreach (var r in matches)
+            {
+                var recent = await _commands.GetByReaderAsync(r.Id);
+                var cmd = recent
+                    .Where(c =>
+                        !c.isDeleted
+                        && c.Status == DeviceCommandStatus.Sent
+                        && string.Equals(c.CommandType, expected.Value.ToString(), StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(c => c.SentOn ?? c.createdOn)
+                    .FirstOrDefault();
+
+                if (cmd == null) continue;
+
+                await _commands.UpdateStatusAsync(cmd.Id, DeviceCommandStatus.Acknowledged);
+                _logger.LogWarning(
+                    "Auto-ACK: Marked {CommandType} as Acknowledged (readerId={ReaderId}) due to received table={Table}",
+                    expected.Value, r.Id, table);
+            }
+        }
+
+        private static bool IsBioFilter(string? payload, int type)
+        {
+            if (string.IsNullOrWhiteSpace(payload)) return false;
+            return payload.Contains($"Type={type}", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static DeviceCommandType InferBiodataCommandType(string body)
+        {
+            if (body.Contains("type=1", StringComparison.OrdinalIgnoreCase)
+                || body.Contains("Type=1", StringComparison.OrdinalIgnoreCase))
+                return DeviceCommandType.QueryFingerTmp;
+            return DeviceCommandType.QueryBioData;
         }
 
         private static Dictionary<string, string> ParseKeyValues(string line)

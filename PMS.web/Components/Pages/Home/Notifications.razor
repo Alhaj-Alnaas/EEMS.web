@@ -17,8 +17,8 @@
                 <i class="bi bi-check2-all"></i> تعليم الكل كمقروء
             </button>
         }
-        <button class="btn btn-outline-secondary btn-sm" @onclick="LoadAsync" disabled="@loading">
-            <i class="bi bi-arrow-clockwise"></i> تحديث
+        <button type="button" class="btn pms-btn-refresh" @onclick="LoadAsync" disabled="@loading">
+            <i class="bi bi-arrow-clockwise@(loading ? " pms-spin" : "")"></i> تحديث
         </button>
     </div>
 </div>

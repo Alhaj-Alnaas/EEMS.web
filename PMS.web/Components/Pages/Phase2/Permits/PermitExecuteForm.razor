@@ -1,0 +1,386 @@
+@page "/permits/execute/{PermitId:guid}"
+@rendermode InteractiveServer
+@inject IPermitExecutionService Execution
+@inject UserManager<User> UserManager
+@inject AuthenticationStateProvider AuthProvider
+@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.Identity
+@using Core.Extensions
+@using Core.Security
+@using static Core.Enums.BaseEnums
+
+<PageTitle>تنفيذ تصريح - PMS</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h3 class="mb-0"><i class="bi bi-check2-square text-warning"></i> تنفيذ تصريح</h3>
+    <BackLink Fallback="/permits/execute">العودة للقائمة</BackLink>
+</div>
+
+@if (!string.IsNullOrEmpty(message))
+{
+    <div class="alert @(messageOk ? "alert-success" : "alert-danger")">@message</div>
+}
+
+@if (loading)
+{
+    <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+}
+else if (permit == null || step == null)
+{
+    <div class="alert alert-danger">تعذر عرض التصريح.</div>
+}
+else
+{
+    <div class="row g-3">
+        <div class="col-lg-5">
+            <div class="card">
+                <div class="card-header pms-header">بيانات التصريح</div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-5">الرقم</dt><dd class="col-7">@permit.no</dd>
+                        <dt class="col-5">النوع</dt><dd class="col-7">@KindLabel(permit)</dd>
+                        <dt class="col-5">التصنيف</dt><dd class="col-7">@TypeLabel(permit)</dd>
+                        <dt class="col-5">التاريخ</dt><dd class="col-7">@permit.date.ToString("yyyy/MM/dd")</dd>
+                        <dt class="col-5">الحالة</dt><dd class="col-7">@step.Progress</dd>
+                        @if (permit.VehicleDetail != null && permit.VehicleDetail.InternalUse)
+                        {
+                            <dt class="col-5">عدد الرحلات</dt><dd class="col-7">@Math.Max(1, permit.VehicleDetail.TripCount)</dd>
+                        }
+                    </dl>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header pms-header">@SubjectTitle(permit)</div>
+                @if (IsVisitors(permit))
+                {
+                    <div class="table-responsive">
+                        <table class="table mb-0">
+                            <thead><tr><th>الاسم</th><th>رقم الإثبات</th><th>الجنسية</th><th>الهاتف</th><th>الغرض</th></tr></thead>
+                            <tbody>
+                                @if (permit.VisitorDetail == null || string.IsNullOrWhiteSpace(permit.VisitorDetail.VisitorName))
+                                {
+                                    <tr><td colspan="5" class="text-center text-muted">لا توجد بيانات زوار</td></tr>
+                                }
+                                else
+                                {
+                                    <tr>
+                                        <td>@permit.VisitorDetail.VisitorName</td>
+                                        <td>@Show(permit.VisitorDetail.IdNumber)</td>
+                                        <td>@Show(permit.VisitorDetail.Nationality)</td>
+                                        <td>@Show(permit.VisitorDetail.Phone)</td>
+                                        <td>@Show(permit.VisitorDetail.Purpose)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else if (IsCars(permit))
+                {
+                    <div class="table-responsive">
+                        <table class="table mb-0">
+                            <thead><tr><th>النوع</th><th>رقم اللوحة</th><th>السائق</th><th>الرخصة</th></tr></thead>
+                            <tbody>
+                                @if (permit.VehicleDetail != null && !string.IsNullOrWhiteSpace(permit.VehicleDetail.PlateNumber))
+                                {
+                                    <tr>
+                                        <td>@Show(permit.VehicleDetail.VehicleType)</td>
+                                        <td>@permit.VehicleDetail.PlateNumber</td>
+                                        <td>@Show(permit.VehicleDetail.DriverName)</td>
+                                        <td>@Show(permit.VehicleDetail.LicenseNo)</td>
+                                    </tr>
+                                }
+                                @foreach (var car in permit.Cars.Where(c => !c.isDeleted))
+                                {
+                                    <tr>
+                                        <td>@Show(car.carType)</td>
+                                        <td>@Show(car.carNo)</td>
+                                        <td>@Show(car.name)</td>
+                                        <td>@Show(car.licenseNo)</td>
+                                    </tr>
+                                }
+                                @if ((permit.VehicleDetail == null || string.IsNullOrWhiteSpace(permit.VehicleDetail.PlateNumber)) && !permit.Cars.Any(c => !c.isDeleted))
+                                {
+                                    <tr><td colspan="4" class="text-center text-muted">لا توجد بيانات مركبة</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table mb-0">
+                            <thead><tr><th>البيان</th><th>الكمية</th><th>الوحدة</th></tr></thead>
+                            <tbody>
+                                @foreach (var item in permit.EquipmentsAndMatirials.Where(e => !e.isDeleted && !string.IsNullOrWhiteSpace(e.description)))
+                                {
+                                    <tr><td>@item.description</td><td>@item.qty</td><td>@Readable(item.unit)</td></tr>
+                                }
+                                @if (!permit.EquipmentsAndMatirials.Any(e => !e.isDeleted && !string.IsNullOrWhiteSpace(e.description)))
+                                {
+                                    <tr><td colspan="3" class="text-center text-muted">لا توجد مواد أو معدات</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+
+            <div class="card mt-3 pms-fold-card">
+                <button type="button" class="pms-fold-header @(approvalsOpen ? "open" : "")" @onclick="() => approvalsOpen = !approvalsOpen">
+                    <span>
+                        <i class="bi bi-stamp"></i>
+                        الاعتمادات
+                        <span class="pms-fold-count">@approvals.Count</span>
+                    </span>
+                    <i class="bi @(approvalsOpen ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                </button>
+                @if (approvalsOpen)
+                {
+                    @if (approvals.Count == 0)
+                    {
+                        <div class="card-body text-muted">لا توجد اعتمادات مسجلة.</div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table mb-0">
+                                <thead><tr><th>الخطوة</th><th>القرار</th><th>المعتمد</th><th>التاريخ</th><th>ملاحظة</th></tr></thead>
+                                <tbody>
+                                    @foreach (var approval in approvals)
+                                    {
+                                        <tr>
+                                            <td>@approval.Step</td>
+                                            <td>@approval.Decision</td>
+                                            <td>@approval.Who</td>
+                                            <td>@approval.When</td>
+                                            <td>@approval.Note</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+        <div class="col-lg-7">
+            <div class="card mb-3">
+                <div class="card-header pms-header">@step.ActionLabel</div>
+                <div class="card-body">
+                    <p class="text-muted">@step.Hint</p>
+                    @if (step.Completed || permit.isClosed)
+                    {
+                        <div class="alert alert-success mb-0">اكتمل تنفيذ هذا التصريح.</div>
+                    }
+                    else
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">@(step.Direction == MovementDirection.In ? "ساعة الدخول" : "ساعة الخروج")</label>
+                            <input type="datetime-local" class="form-control" @bind="whenLocal" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">ملاحظات</label>
+                            <textarea class="form-control" rows="3" @bind="notes"></textarea>
+                        </div>
+                        <button class="btn btn-warning" disabled="@busy" @onclick="ExecuteAsync">
+                            @step.ActionLabel
+                        </button>
+                    }
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header pms-header">حركات التنفيذ</div>
+                @if (history.Count == 0)
+                {
+                    <div class="card-body text-muted">لا توجد حركات مسجلة بعد.</div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table mb-0">
+                            <thead>
+                                <tr>
+                                    <th>الوقت</th>
+                                    <th>الحركة</th>
+                                    <th>البوابة</th>
+                                    <th>ملاحظات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in history)
+                                {
+                                    <tr>
+                                        <td>@item.When.ToString("yyyy/MM/dd HH:mm")</td>
+                                        <td>@item.Action</td>
+                                        <td>@(string.IsNullOrWhiteSpace(item.Gate) ? "—" : item.Gate)</td>
+                                        <td>@(string.IsNullOrWhiteSpace(item.Notes) ? "—" : item.Notes)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid PermitId { get; set; }
+    [SupplyParameterFromQuery(Name = "gate")] public string? Gate { get; set; }
+
+    private bool loading = true;
+    private bool busy;
+    private bool messageOk;
+    private string? message;
+    private DateTime whenLocal = DateTime.Now;
+    private string notes = "";
+    private Guid gateId;
+    private Permit? permit;
+    private PermitExecutionStep? step;
+    private List<PermitExecutionEventRow> history = new();
+    private bool approvalsOpen;
+    private List<ApprovalLine> approvals = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        whenLocal = DateTime.Now;
+        if (!Guid.TryParse(Gate, out gateId))
+        {
+            var auth = await AuthProvider.GetAuthenticationStateAsync();
+            var claim = auth.User.FindFirst(SystemTaskCodes.SelectedGateIdClaimType)?.Value;
+            Guid.TryParse(claim, out gateId);
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            var result = await Execution.GetExecutionAsync(PermitId);
+            permit = result.Permit;
+            step = result.Step;
+            history = result.History;
+            approvals = await BuildApprovalsAsync(permit);
+        }
+        catch (Exception ex)
+        {
+            messageOk = false;
+            message = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task ExecuteAsync()
+    {
+        if (busy || permit == null)
+            return;
+        if (gateId == Guid.Empty)
+        {
+            messageOk = false;
+            message = "حدد البوابة من شاشة تنفيذ التصريح.";
+            return;
+        }
+
+        busy = true;
+        message = null;
+        try
+        {
+            var auth = await AuthProvider.GetAuthenticationStateAsync();
+            var userName = auth.User.Identity?.Name;
+            var user = userName == null ? null : await UserManager.FindByNameAsync(userName);
+            if (user == null)
+                throw new InvalidOperationException("تعذر تحديد المستخدم الحالي.");
+
+            await Execution.ExecuteAsync(permit.Id, gateId, whenLocal, notes, user);
+            notes = "";
+            whenLocal = DateTime.Now;
+            messageOk = true;
+            message = "تم تسجيل التنفيذ.";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            messageOk = false;
+            message = ex.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private static string KindLabel(Permit permit)
+    {
+        if (Enum.TryParse<PermitClassification>(permit.classification, out var kind))
+            return ApprovalPathCatalog.ClassificationTitle(kind);
+        return string.IsNullOrWhiteSpace(permit.classification) ? "—" : permit.classification;
+    }
+
+    private static string TypeLabel(Permit permit)
+    {
+        if (Enum.TryParse<EnumPermitType>(permit.type, out var type))
+            return type.GetDescription();
+        return string.IsNullOrWhiteSpace(permit.type) ? "—" : permit.type;
+    }
+
+    private async Task<List<ApprovalLine>> BuildApprovalsAsync(Permit source)
+    {
+        var lines = new List<ApprovalLine>();
+        foreach (var approval in source.Approvals.OrderBy(a => a.DecidedOn))
+        {
+            var who = "—";
+            if (!string.IsNullOrWhiteSpace(approval.ApproverUserId))
+            {
+                var approver = await UserManager.FindByIdAsync(approval.ApproverUserId);
+                who = string.IsNullOrWhiteSpace(approver?.FullName) ? approval.ApproverUserId : approver!.FullName;
+            }
+
+            var stepName = approval.WorkflowStep == null
+                ? "—"
+                : ApprovalPathCatalog.Label(approval.WorkflowStep.StepType);
+            lines.Add(new ApprovalLine(
+                stepName,
+                approval.Decision.GetDescription(),
+                who,
+                approval.DecidedOn.ToString("yyyy/MM/dd HH:mm"),
+                string.IsNullOrWhiteSpace(approval.Comment) ? "—" : approval.Comment));
+        }
+
+        return lines;
+    }
+
+    private static string SubjectTitle(Permit permit)
+    {
+        if (IsVisitors(permit))
+            return "الزوار المصرح لهم";
+        if (IsCars(permit))
+            return "المركبة المصرح لها";
+        return "المواد والمعدات المصرح بها";
+    }
+
+    private static bool IsVisitors(Permit permit) =>
+        string.Equals(permit.classification, nameof(PermitClassification.Visitors), StringComparison.OrdinalIgnoreCase)
+        || permit.classification is "زوار" or "تصريح زوار";
+
+    private static bool IsCars(Permit permit) =>
+        string.Equals(permit.classification, nameof(PermitClassification.Cars), StringComparison.OrdinalIgnoreCase)
+        || permit.classification is "سيارات" or "مركبات" or "تصريح سيارات";
+
+    private static string Show(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "—" : value.Trim();
+
+    private static string Readable(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "—" : value.Replace('_', ' ');
+
+    private sealed record ApprovalLine(string Step, string Decision, string Who, string When, string Note);
+}

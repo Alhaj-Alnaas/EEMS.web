@@ -31,13 +31,24 @@
                     <label class="form-label">رقم رخصة القيادة</label>
                     <InputText class="form-control" @bind-Value="model.LicenseNo" />
                 </div>
+                <div class="col-md-4">
+                    <div class="form-check form-switch mt-4">
+                        <InputCheckbox class="form-check-input" @bind-Value="model.InternalUse" id="internalUse" />
+                        <label class="form-check-label" for="internalUse">استخدام داخلي</label>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">عدد الرحلات</label>
+                    <InputNumber class="form-control" @bind-Value="model.TripCount" min="1" />
+                    <div class="form-text">في الاستخدام الداخلي تُسجل كل رحلة خروجاً ثم عودة على نفس التصريح.</div>
+                </div>
             </div>
 
             <div class="mt-4 text-center">
                 <button type="button" class="btn btn-warning px-4" disabled title="سيتم تفعيله عند اكتمال مسار الاعتماد">
                     <i class="bi bi-save"></i> حفظ (قيد التطوير)
                 </button>
-                <a href="/permits" class="btn btn-outline-secondary px-4">رجوع</a>
+                <BackLink Fallback="/permits" Css="btn btn-outline-secondary px-4">رجوع</BackLink>
             </div>
         </EditForm>
     </div>

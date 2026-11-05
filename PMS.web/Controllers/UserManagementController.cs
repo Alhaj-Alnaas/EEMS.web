@@ -1,12 +1,10 @@
-﻿using Core.Entities;
-using Core.Entities.DTOs;
+using Core.Entities;
+using Core.Interfaces.Services.Organization;
 using PMS.web.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Templates.BlazorIdentity.Pages.Manage;
-using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -16,14 +14,17 @@ public class UserManagementController : Controller
     private readonly UserManager<User> _userManager;
     private readonly SignInManager<User> _signInManager;
     private readonly RoleManager<IdentityRole> _roleManager;
+    private readonly IHrEmployeeLookupService _hrLookup;
 
     public UserManagementController(UserManager<User> userManager,
                                     SignInManager<User> signInManager,
-                                    RoleManager<IdentityRole> roleManager)
+                                    RoleManager<IdentityRole> roleManager,
+                                    IHrEmployeeLookupService hrLookup)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _roleManager = roleManager;
+        _hrLookup = hrLookup;
     }
 
    
@@ -41,58 +42,31 @@ public class UserManagementController : Controller
         {
             return Json(new { exists = true });
         }
-        // إذا لم يكن موجودًاكمستخدم API لجلب بيانات الموظف
-        try
+
+        var data = await _hrLookup.LookupAsync(empNo);
+        if (!data.Success)
+            return Json(new { error = data.Error ?? "لم يتم العثور على بيانات الموظف" });
+
+        return Json(new
         {
-                using var client = new HttpClient();
-                var url = $"http://10.10.102.16:8080/api/Employee/{empNo}";
-                var response = await client.GetAsync(url);
-
-                if (!response.IsSuccessStatusCode)
-                    return Json(new { error = "لم يتم العثور على بيانات الموظف" });
-
-                var data = await response.Content.ReadFromJsonAsync<EmployeeApiModel>();
-
-            
-            return Json(new
-                {
-                empName = data.empName,
-                perRespCodeNoName = data.perRespCodeNoName,
-                jobtypeName = data.jobtypeName,
-                empEmail = data.empEmail,
-                jobStatus = data.jobStatus,
-                empPhone = data.empPhone,
-                respCodeId = data.respCodeId,
-                empResponsibilitycode = data.empResponsibilitycode,
-                jobCatId = data.jobCatId,
-                designationId = data.designationId
-            });
-            }
-            catch (Exception ex)
-            {
-                return Json(new { error = "حدث خطأ أثناء جلب بيانات الموظف" });
-            }
+            empName = data.FullName,
+            perRespCodeNoName = data.DepartmentName,
+            jobtypeName = data.JobTitle,
+            empEmail = data.Email,
+            jobStatus = data.JobStatus,
+            empPhone = data.Phone,
+            respCodeId = data.RespCodeId?.ToString(),
+            empResponsibilitycode = data.ResponsibilityCode,
+            jobCatId = data.JobCatId,
+            designationId = data.DesignationId,
+            empAddress = data.Address,
+            address = data.Address,
+            nationality = data.Nationality,
+            empNationality = data.Nationality,
+            bloodType = data.BloodType,
+            bloodGroup = data.BloodType
+        });
         }
-    
-
-    // نموذج البيانات المستلمة من الـ API
-    public class EmployeeApiModel
-    {
-        public string empFileNo { get; set; }
-        public string empName { get; set; }
-        public string empPhone { get; set; }
-        public string empEmail { get; set; }
-        public string respCodeId { get; set; }
-        public string empResponsibilitycode { get; set; }
-        public string perRespCodeNoName { get; set; }
-        public int jobCatId { get; set; }
-        public string jobStatus { get; set; }
-        public int designationId { get; set; }
-        public string jobtypeName { get; set; }
-    }
-
-
-    // GET: CreateUser
     public IActionResult CreateUser()
     {
         var vm = new CreateUserViewModel();

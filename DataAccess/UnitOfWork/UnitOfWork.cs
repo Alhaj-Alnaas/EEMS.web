@@ -19,6 +19,7 @@ namespace DataAccess.UnitOfWork
 
         private IGenericRepository<Department> _departments;
         private IGenericRepository<Employee> _employees;
+        private IGenericRepository<EmployeeCard> _employeeCards;
         private IGenericRepository<Reader> _readers;
         private IGenericRepository<ReaderDowntime> _readerDowntimes;
         private IGenericRepository<MovementLog> _movementLogs;
@@ -49,6 +50,7 @@ namespace DataAccess.UnitOfWork
 
         public IGenericRepository<Department> Departments => _departments ??= new GenericRepository<Department>(_context);
         public IGenericRepository<Employee> Employees => _employees ??= new GenericRepository<Employee>(_context);
+        public IGenericRepository<EmployeeCard> EmployeeCards => _employeeCards ??= new GenericRepository<EmployeeCard>(_context);
         public IGenericRepository<Reader> Readers => _readers ??= new GenericRepository<Reader>(_context);
         public IGenericRepository<ReaderDowntime> ReaderDowntimes => _readerDowntimes ??= new GenericRepository<ReaderDowntime>(_context);
         public IGenericRepository<MovementLog> MovementLogs => _movementLogs ??= new GenericRepository<MovementLog>(_context);

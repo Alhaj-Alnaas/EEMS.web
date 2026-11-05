@@ -1,6 +1,8 @@
 @inherits LayoutComponentBase
 @using Microsoft.AspNetCore.Components.Routing
+@using System.Security.Claims
 @using Core.Interfaces.Services.Workflow
+@using Core.Security
 @inject NavigationManager Navigation
 @inject IConfiguration Configuration
 @inject IServiceScopeFactory ScopeFactory
@@ -40,7 +42,13 @@
                 <span class="tooltip">التصاريح</span>
                 <ul class="nav-sublist">
                     <li>
-                        <NavLink href="/permits/employee/create" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
+                        <NavLink href="/permits" class="nav-link-item sub" Match="NavLinkMatch.All">
+                            <i class="fas fa-list" aria-hidden="true"></i>
+                            <span class="links_name">قائمة التصاريح</span>
+                        </NavLink>
+                    </li>
+                    <li>
+                        <NavLink href="@ReturnUrl.Go(Navigation, "/permits/employee/create")" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
                             <i class="fas fa-user-check" aria-hidden="true"></i>
                             <span class="links_name">إصدار تصريح موظف</span>
                         </NavLink>
@@ -52,19 +60,19 @@
                         </NavLink>
                     </li>
                     <li>
-                        <NavLink href="/permits/visitors/create" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
+                        <NavLink href="@ReturnUrl.Go(Navigation, "/permits/visitors/create")" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
                             <i class="fas fa-user-tag" aria-hidden="true"></i>
                             <span class="links_name">تصريح زوار</span>
                         </NavLink>
                     </li>
                     <li>
-                        <NavLink href="/permits/materials/create" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
+                        <NavLink href="@ReturnUrl.Go(Navigation, "/permits/materials/create")" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
                             <i class="fas fa-boxes" aria-hidden="true"></i>
                             <span class="links_name">تصريح مواد</span>
                         </NavLink>
                     </li>
                     <li>
-                        <NavLink href="/permits/vehicles/create" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
+                        <NavLink href="@ReturnUrl.Go(Navigation, "/permits/vehicles/create")" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
                             <i class="fas fa-truck" aria-hidden="true"></i>
                             <span class="links_name">تصريح مركبات</span>
                         </NavLink>
@@ -97,6 +105,12 @@
                         <NavLink href="/reports/active-permits" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
                             <i class="fas fa-bolt" aria-hidden="true"></i>
                             <span class="links_name">التصاريح النشطة</span>
+                        </NavLink>
+                    </li>
+                    <li>
+                        <NavLink href="/reports/open-permits" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
+                            <i class="fas fa-hourglass-split" aria-hidden="true"></i>
+                            <span class="links_name">تصاريح مفتوحة</span>
                         </NavLink>
                     </li>
                     <li>
@@ -141,12 +155,14 @@
                             <span class="links_name">إدارة القارئات</span>
                         </NavLink>
                     </li>
+                    @* مؤقتاً: إخفاء استيراد البصمات من القائمة
                     <li>
                         <NavLink href="/devices/biometrics" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
                             <i class="fas fa-id-badge" aria-hidden="true"></i>
                             <span class="links_name">استيراد البصمات</span>
                         </NavLink>
                     </li>
+                    *@
                     <li>
                         <NavLink href="/employees" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
                             <i class="fas fa-users" aria-hidden="true"></i>
@@ -168,7 +184,13 @@
                     <li>
                         <NavLink href="/admin/workflows" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
                             <i class="fas fa-project-diagram" aria-hidden="true"></i>
-                            <span class="links_name">إدارة مسارات الاعتماد</span>
+                            <span class="links_name">إعدادات التصريح</span>
+                        </NavLink>
+                    </li>
+                    <li>
+                        <NavLink href="/admin/access-levels" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
+                            <i class="fas fa-shield-alt" aria-hidden="true"></i>
+                            <span class="links_name">مستويات الدخول</span>
                         </NavLink>
                     </li>
                     <li>
@@ -183,11 +205,21 @@
             <li class="profile">
                 <div class="profile-details pms-profile-block">
                     <div class="name_job">
-                        <div class="pms-profile-header-line" title="@_profileLine">@_profileLine</div>
+                        <div class="pms-profile-name" title="@_userDisplayName">@_userDisplayName</div>
+                        <div class="pms-profile-role" title="@_userRoleLine">@_userRoleLine</div>
+                        @if (!string.IsNullOrWhiteSpace(_selectedGateLabel))
+                        {
+                            <div class="pms-profile-gate" title="@_selectedGateLabel">
+                                <i class="fas fa-door-open" aria-hidden="true"></i> @_selectedGateLabel
+                            </div>
+                        }
                         <div class="pms-profile-actions-bar">
                             @if (!_designMode)
                             {
-                                <a href="/logout" class="pms-action-btn pms-action-btn-danger" title="تسجيل خروج">
+                                <a href="@ReturnUrl.Go(Navigation, "/account/change-password")" class="pms-action-btn" title="تغيير كلمة المرور">
+                                    <i class="fa fa-key" aria-hidden="true"></i>
+                                </a>
+                                <a href="/logout" data-enhance-nav="false" class="pms-action-btn pms-action-btn-danger" title="تسجيل خروج">
                                     <i class="fa fa-power-off" aria-hidden="true"></i>
                                 </a>
                             }
@@ -217,9 +249,11 @@
 @code {
     private bool _sidebarOpen = true;
     private bool _designMode;
-    private string _profileLine = "وضع التصميم — زائر";
+    private string _userDisplayName = "زائر";
+    private string _userRoleLine = "";
+    private string _selectedGateLabel = "";
 
-    private bool _openPermits = true;
+    private bool _openPermits;
     private bool _openReports;
     private bool _openAdmin;
     private int _unreadNotifications;
@@ -228,7 +262,10 @@
     {
         _designMode = Configuration.GetValue("DesignMode:DisableAuthentication", false);
         if (_designMode)
-            _profileLine = "وضع التصميم — بدون مصادقة";
+        {
+            _userDisplayName = "وضع التصميم";
+            _userRoleLine = "بدون مصادقة";
+        }
 
         Navigation.LocationChanged += OnLocationChanged;
         ExpandGroupForCurrentPath(Navigation.ToBaseRelativePath(Navigation.Uri));
@@ -236,7 +273,46 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadProfileAsync();
         await RefreshUnreadAsync();
+    }
+
+    private async Task LoadProfileAsync()
+    {
+        if (_designMode) return;
+
+        try
+        {
+            var auth = await AuthProvider.GetAuthenticationStateAsync();
+            var user = auth.User;
+            if (user.Identity?.IsAuthenticated != true)
+            {
+                _userDisplayName = "زائر";
+                _userRoleLine = "";
+                _selectedGateLabel = "";
+                return;
+            }
+
+            _userDisplayName =
+                user.FindFirst(SystemTaskCodes.FullNameClaimType)?.Value
+                ?? user.FindFirst(ClaimTypes.Name)?.Value
+                ?? user.Identity?.Name
+                ?? "مستخدم";
+
+            var accessLevel = user.FindFirst(SystemTaskCodes.AccessLevelNameClaimType)?.Value;
+            var jobTitle = user.FindFirst(SystemTaskCodes.JobTitleClaimType)?.Value;
+            _userRoleLine = !string.IsNullOrWhiteSpace(accessLevel)
+                ? accessLevel!
+                : (!string.IsNullOrWhiteSpace(jobTitle) ? jobTitle! : "مستخدم النظام");
+
+            _selectedGateLabel = user.FindFirst(SystemTaskCodes.SelectedGateNameClaimType)?.Value ?? "";
+        }
+        catch
+        {
+            _userDisplayName = "مستخدم";
+            _userRoleLine = "";
+            _selectedGateLabel = "";
+        }
     }
 
     private void OpenNotifications() => Navigation.NavigateTo("/notifications");
@@ -246,6 +322,7 @@
         ExpandGroupForCurrentPath(Navigation.ToBaseRelativePath(e.Location));
         _ = InvokeAsync(async () =>
         {
+            await LoadProfileAsync();
             await RefreshUnreadAsync();
             StateHasChanged();
         });
@@ -259,7 +336,7 @@
             var notifications = scope.ServiceProvider.GetRequiredService<INotificationService>();
             var auth = await AuthProvider.GetAuthenticationStateAsync();
             var userId = auth.User.Identity?.IsAuthenticated == true
-                ? auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                ? auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                 : null;
 
             if (!string.IsNullOrEmpty(userId))

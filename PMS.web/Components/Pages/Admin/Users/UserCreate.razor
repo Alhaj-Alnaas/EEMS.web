@@ -1,138 +1,329 @@
 @page "/admin/users/create"
 @rendermode InteractiveServer
-@inject UserManager<User> UserManager
-@inject NavigationManager Navigation
-@using Microsoft.AspNetCore.Identity
+@attribute [Authorize(Policy = TaskPolicies.AdminUsers)]
+@using Core.Interfaces.Services.Organization
+@using Core.Interfaces.Services.Security
+@using Core.Models.Security
+@using Core.Security
+@using PMS.web.Authorization
+@inject IUserAccountService Users
+@inject IAccessLevelService AccessLevels
+@inject IHrEmployeeLookupService HrLookup
 
 <PageTitle>إضافة مستخدم - PMS</PageTitle>
 
-<h3 class="mb-4"><i class="bi bi-person-plus-fill text-warning"></i> إضافة مستخدم جديد</h3>
-
-<div class="card">
-    <div class="card-body">
-        @if (!string.IsNullOrEmpty(successMessage))
-        {
-            <div class="alert alert-success">@successMessage</div>
-        }
-        @if (errors.Count > 0)
-        {
-            <div class="alert alert-danger">
-                <ul class="mb-0">
-                    @foreach (var err in errors)
-                    {
-                        <li>@err</li>
-                    }
-                </ul>
-            </div>
-        }
-
-        <EditForm Model="model" OnValidSubmit="CreateUserAsync">
-            <DataAnnotationsValidator />
-            <ValidationSummary />
-
-            <div class="row g-3">
-                <div class="col-md-4">
-                    <label class="form-label">الرقم الوظيفي</label>
-                    <InputText class="form-control" @bind-Value="model.EmpFileNo" />
-                </div>
-                <div class="col-md-8">
-                    <label class="form-label">الاسم الكامل</label>
-                    <InputText class="form-control" @bind-Value="model.EmpName" />
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">الإدارة</label>
-                    <InputText class="form-control" @bind-Value="model.Department" />
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">البريد الإلكتروني</label>
-                    <InputText class="form-control" @bind-Value="model.EmpEmail" />
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">الهاتف</label>
-                    <InputText class="form-control" @bind-Value="model.EmpPhone" />
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">الحالة الوظيفية</label>
-                    <InputText class="form-control" @bind-Value="model.JobStatus" placeholder="AE" />
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">نوع الوظيفة</label>
-                    <InputText class="form-control" @bind-Value="model.JobTypeName" />
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">تصنيف المستخدم</label>
-                    <InputSelect class="form-select" @bind-Value="model.UserType">
-                        <option value="">-- اختر --</option>
-                        <option value="BaseUser">مستخدم عادي</option>
-                        <option value="SaftyUser">ضابط أمن (بوابة)</option>
-                        <option value="ApplicationUser">مستخدم تطبيق</option>
-                        <option value="Admin">مدير نظام</option>
-                    </InputSelect>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">كلمة المرور</label>
-                    <InputText type="password" class="form-control" @bind-Value="model.Password" />
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">تأكيد كلمة المرور</label>
-                    <InputText type="password" class="form-control" @bind-Value="model.ConfirmPassword" />
-                </div>
-            </div>
-
-            <div class="mt-4 d-flex gap-2">
-                <button type="submit" class="btn btn-warning"><i class="bi bi-save"></i> حفظ</button>
-                <a href="/admin/users" class="btn btn-outline-secondary">إلغاء</a>
-            </div>
-        </EditForm>
+<div class="user-mgmt" dir="rtl">
+    <div class="header-info mb-3">
+        <h1>إدارة حسابات المستخدمين</h1>
+        <p>إضافة مستخدم جديد وربطه بمستوى دخول</p>
     </div>
+
+    @if (!string.IsNullOrEmpty(error))
+    {
+        <div class="alert alert-danger">@error</div>
+    }
+    @if (!string.IsNullOrEmpty(success))
+    {
+        <div class="alert alert-success">@success</div>
+    }
+
+    <EditForm EditContext="_editContext" OnSubmit="HandleSubmitAsync">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="text-danger mb-3" />
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-header bg-light fw-bold">البيانات الأساسية</div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">الرقم الوظيفي</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-person-vcard"></i></span>
+                                <InputText class="form-control" @bind-Value="model.EmpFileNo" placeholder="الرقم الوظيفي" disabled="@hrLocked" />
+                                <button type="button" class="btn btn-warning" @onclick="FetchHrAsync" disabled="@fetching">
+                                    <i class="bi bi-search"></i> عرض
+                                </button>
+                            </div>
+                            <ValidationMessage For="() => model.EmpFileNo" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">الاسم الكامل</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-person"></i></span>
+                                <InputText class="form-control" @bind-Value="model.EmpName" readonly />
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">الإدارة</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-building"></i></span>
+                                <InputText class="form-control" @bind-Value="model.Department" readonly />
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">الوظيفة</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-briefcase"></i></span>
+                                <InputText class="form-control" @bind-Value="model.JobTypeName" readonly />
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">البريد الإلكتروني</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                                <InputText class="form-control" @bind-Value="model.EmpEmail" readonly />
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">الحالة الوظيفية</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-person-check"></i></span>
+                                <InputText class="form-control" @bind-Value="model.JobStatus" readonly />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card mb-3 shadow-sm">
+                    <div class="card-header bg-light fw-bold">مستوى الدخول</div>
+                    <div class="card-body">
+                        @if (levels.Count == 0)
+                        {
+                            <div class="alert alert-warning mb-2 py-2 small">
+                                لا توجد مستويات دخول نشطة. أضف مستوى من شاشة مستويات الدخول أولاً.
+                            </div>
+                        }
+                        <InputSelect class="form-select" @bind-Value="selectedAccessLevelId" @bind-Value:after="SyncAccessLevel">
+                            <option value="">-- اختر مستوى الدخول --</option>
+                            @foreach (var l in levels)
+                            {
+                                <option value="@l.Id.ToString()">@l.Name@(string.IsNullOrEmpty(l.Description) ? "" : $" — {l.Description}")</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="() => model.AccessLevelId" />
+                        <div class="form-text mt-2">تُمنح للمستخدم تلقائياً كل مهام المستوى المختار.</div>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm">
+                    <div class="card-header bg-light fw-bold">كلمة المرور</div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                                <InputText type="password" class="form-control" @bind-Value="model.Password"
+                                           @bind-Value:after="UpdateStrength" placeholder="كلمة المرور" />
+                            </div>
+                            <ValidationMessage For="() => model.Password" />
+                        </div>
+                        <div class="mb-3">
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-key"></i></span>
+                                <InputText type="password" class="form-control" @bind-Value="model.ConfirmPassword" placeholder="تأكيد كلمة المرور" />
+                            </div>
+                            <ValidationMessage For="() => model.ConfirmPassword" />
+                        </div>
+                        <div class="progress" style="height:8px;">
+                            <div class="progress-bar @strengthClass" style="width:@strengthPct%"></div>
+                        </div>
+                        <small class="form-text">@strengthText</small>
+                        <div class="form-text text-muted mt-1">يجب أن تحتوي على حرف كبير ورقم، و6 أحرف على الأقل.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-center gap-3 mt-4">
+            <button type="submit" class="btn btn-warning px-5 fw-bold" disabled="@saving">
+                @if (saving)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                else
+                {
+                    <i class="bi bi-floppy"></i>
+                }
+                حفظ البيانات
+            </button>
+            <BackLink Fallback="/admin/users" Css="btn btn-outline-secondary px-4">رجوع</BackLink>
+            @if (hrLocked)
+            {
+                <button type="button" class="btn btn-outline-secondary" @onclick="UnlockHr">تغيير الرقم</button>
+            }
+        </div>
+    </EditForm>
 </div>
 
 @code {
-    private CreateUserViewModel model = new();
-    private List<string> errors = new();
-    private string? successMessage;
+    private CreateUserAccountModel model = new();
+    private EditContext _editContext = default!;
+    private List<Core.Entities.Security.AccessLevel> levels = new();
+    private string selectedAccessLevelId = "";
+    private string? error;
+    private string? success;
+    private bool fetching;
+    private bool saving;
+    private bool hrLocked;
+    private int strengthPct;
+    private string strengthClass = "bg-danger";
+    private string strengthText = "";
 
-    private async Task CreateUserAsync()
+    protected override void OnInitialized()
     {
-        errors.Clear();
-        successMessage = null;
+        _editContext = new EditContext(model);
+    }
 
-        if (string.IsNullOrWhiteSpace(model.UserType))
+    protected override async Task OnInitializedAsync()
+    {
+        try
         {
-            errors.Add("يجب اختيار تصنيف المستخدم");
+            levels = await AccessLevels.GetAllAsync();
+            if (levels.Count == 0)
+                error = "لا توجد مستويات دخول. أنشئ مستوى من شاشة مستويات الدخول قبل إضافة مستخدم.";
+        }
+        catch (Exception ex)
+        {
+            error = "تعذر تحميل مستويات الدخول. تأكد من تطبيق ترحيل AccessLevels ثم أعد تشغيل النظام. " + ex.Message;
+        }
+    }
+
+    private void SyncAccessLevel()
+    {
+        model.AccessLevelId = Guid.TryParse(selectedAccessLevelId, out var id) ? id : null;
+        _editContext.NotifyFieldChanged(_editContext.Field(nameof(CreateUserAccountModel.AccessLevelId)));
+    }
+
+    private async Task FetchHrAsync()
+    {
+        error = null;
+        success = null;
+        if (string.IsNullOrWhiteSpace(model.EmpFileNo))
+        {
+            error = "أدخل الرقم الوظيفي أولاً.";
             return;
         }
 
-        var user = new User
+        fetching = true;
+        try
         {
-            UserName = model.EmpFileNo,
-            NormalizedUserName = model.EmpEmail?.ToUpper(),
-            Email = model.EmpEmail,
-            NormalizedEmail = model.EmpEmail?.ToUpper(),
-            PhoneNumber = model.EmpPhone,
-            FileNumber = model.EmpFileNo,
-            FullName = model.EmpName,
-            ResponsibilityCode = model.EmpResponsibilityCode,
-            Department = model.Department,
-            RespCodeId = model.RespCodeId ?? 0,
-            JobCatId = model.JobCatId ?? 0,
-            JobStatus = model.JobStatus,
-            DesignationId = model.DesignationId ?? 0,
-            JobtypeName = model.JobTypeName,
-            Discriminator = model.UserType,
-            UserType = model.UserType
-        };
+            if (await Users.ExistsByFileNumberAsync(model.EmpFileNo.Trim()))
+            {
+                error = "المستخدم موجود مسبقاً!";
+                return;
+            }
 
-        var result = await UserManager.CreateAsync(user, model.Password);
+            var hr = await HrLookup.LookupAsync(model.EmpFileNo.Trim());
+            if (!hr.Success)
+            {
+                error = hr.Error ?? "تعذر جلب بيانات الموظف من الموارد البشرية.";
+                return;
+            }
 
-        if (result.Succeeded)
-        {
-            successMessage = "تم إضافة المستخدم بنجاح!";
-            model = new CreateUserViewModel();
+            model.EmpFileNo = hr.FileNumber ?? model.EmpFileNo;
+            model.EmpName = hr.FullName ?? "";
+            model.Department = hr.DepartmentName ?? "";
+            model.JobTypeName = hr.JobTitle ?? "";
+            model.EmpEmail = hr.Email ?? "";
+            model.EmpPhone = hr.Phone ?? "";
+            model.JobStatus = hr.JobStatus ?? "AE";
+            model.EmpResponsibilityCode = hr.ResponsibilityCode ?? "";
+            model.RespCodeId = hr.RespCodeId;
+            model.JobCatId = hr.JobCatId;
+            model.DesignationId = hr.DesignationId;
+            hrLocked = true;
         }
-        else
+        catch (Exception ex)
         {
-            errors = result.Errors.Select(e => e.Description).ToList();
+            error = "خطأ أثناء جلب بيانات الموظف: " + ex.Message;
+        }
+        finally
+        {
+            fetching = false;
+        }
+    }
+
+    private void UnlockHr()
+    {
+        hrLocked = false;
+        var fileNo = model.EmpFileNo;
+        model = new CreateUserAccountModel { EmpFileNo = fileNo };
+        selectedAccessLevelId = "";
+        _editContext = new EditContext(model);
+    }
+
+    private void UpdateStrength()
+    {
+        var p = model.Password ?? "";
+        var score = 0;
+        if (p.Length >= 6) score++;
+        if (p.Length >= 10) score++;
+        if (p.Any(char.IsUpper)) score++;
+        if (p.Any(char.IsDigit)) score++;
+        if (p.Any(ch => !char.IsLetterOrDigit(ch))) score++;
+
+        strengthPct = score switch { 0 => 0, 1 => 20, 2 => 40, 3 => 60, 4 => 80, _ => 100 };
+        (strengthClass, strengthText) = score switch
+        {
+            <= 1 => ("bg-danger", "ضعيفة"),
+            2 or 3 => ("bg-warning", "متوسطة"),
+            _ => ("bg-success", "قوية")
+        };
+    }
+
+    private async Task HandleSubmitAsync()
+    {
+        error = null;
+        success = null;
+        SyncAccessLevel();
+
+        if (!_editContext.Validate())
+        {
+            error = "يرجى تصحيح الحقول المطلوبة قبل الحفظ (مستوى الدخول، كلمة المرور، …).";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(model.EmpName))
+        {
+            error = "اجلب بيانات الموظف من الموارد البشرية عبر زر «عرض» قبل الحفظ.";
+            return;
+        }
+
+        if (!model.AccessLevelId.HasValue)
+        {
+            error = "يجب اختيار مستوى الدخول.";
+            return;
+        }
+
+        saving = true;
+        try
+        {
+            var (ok, msg, _) = await Users.CreateAsync(model);
+            if (ok)
+            {
+                success = msg;
+                model = new CreateUserAccountModel();
+                selectedAccessLevelId = "";
+                hrLocked = false;
+                strengthPct = 0;
+                strengthText = "";
+                _editContext = new EditContext(model);
+            }
+            else
+            {
+                error = msg;
+            }
+        }
+        catch (Exception ex)
+        {
+            error = "فشل حفظ المستخدم: " + ex.Message;
+        }
+        finally
+        {
+            saving = false;
         }
     }
 }

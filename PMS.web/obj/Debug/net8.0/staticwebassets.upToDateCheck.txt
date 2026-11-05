@@ -13,7 +13,12 @@ wwwroot\js\UserManagement\alerts.js
 wwwroot\js\UserManagement\create.js
 wwwroot\js\UserManagement\employee.js
 wwwroot\js\UserManagement\passwordStrength.js
+wwwroot\js\employee-camera.js
+wwwroot\js\employee-register.js
 wwwroot\js\login.js
+wwwroot\js\pms-login.js
+wwwroot\js\pms-nav.js
+wwwroot\js\pms-toast.js
 wwwroot\js\site.js
 wwwroot\lib\bootstrap\LICENSE
 wwwroot\lib\bootstrap\dist\css\bootstrap-grid.css
@@ -72,3 +77,4 @@ wwwroot\lib\jquery\LICENSE.txt
 wwwroot\lib\jquery\dist\jquery.js
 wwwroot\lib\jquery\dist\jquery.min.js
 wwwroot\lib\jquery\dist\jquery.min.map
+wwwroot\uploads\employees\.gitkeep

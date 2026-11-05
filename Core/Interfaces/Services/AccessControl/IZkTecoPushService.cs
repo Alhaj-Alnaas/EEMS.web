@@ -41,6 +41,6 @@ namespace Core.Interfaces.Services.AccessControl
         string FormatCommand(int protocolCommandId, string commandType, string? payload);
 
         /// <summary>Updates stats from querydata count parameter.</summary>
-        Task UpdateQueryDataCountAsync(string serial, string tableName, int count);
+        Task UpdateQueryDataCountAsync(string serial, string tableName, int count, int? protocolCommandId = null);
     }
 }

@@ -24,6 +24,12 @@ namespace Core.Entities
 
         public string? Model { get; set; }
 
+        /// <summary>
+        /// Dedicated entry/exit role of this reader. Used when recording biometric movements
+        /// so Direction on MovementLog matches the physical terminal (دخول / خروج).
+        /// </summary>
+        public MovementDirection Direction { get; set; } = MovementDirection.In;
+
         public ReaderStatus Status { get; set; } = ReaderStatus.Offline;
 
         public DateTime? LastHeartbeat { get; set; }

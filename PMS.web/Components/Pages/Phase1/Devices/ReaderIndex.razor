@@ -2,55 +2,79 @@
 @rendermode InteractiveServer
 @inject IReaderService ReaderService
 @inject IDeviceCommandService CommandService
+@inject NavigationManager Navigation
 
 <PageTitle>إدارة القارئات - PMS</PageTitle>
 
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <h3 class="mb-0"><i class="bi bi-hdd-network-fill text-warning"></i> إدارة القارئات</h3>
-    <a class="btn btn-warning" href="/devices/readers/edit/@Guid.Empty">
+    <a class="btn btn-warning" href="@ReturnUrl.Go(Navigation, $"/devices/readers/edit/{Guid.Empty}")">
         <i class="bi bi-plus-circle"></i> إضافة قارئة
     </a>
 </div>
 
-<div class="card mb-3">
-    <div class="card-body py-2">
-        <div class="row g-2 align-items-center">
-            <div class="col-md-6">
-                <div class="input-group">
+<div class="card shadow-sm mb-3">
+    <div class="card-body py-3">
+        <div class="pms-search-toolbar">
+            <div class="pms-search-actions ms-auto">
+                <div class="input-group input-group-sm pms-quick-search">
                     <span class="input-group-text"><i class="bi bi-search"></i></span>
-                    <input class="form-control" placeholder="بحث سريع (الاسم، الرقم التسلسلي، IP، البوابة)..."
+                    <input class="form-control" placeholder="بحث سريع: الاسم، الرقم التسلسلي، IP، البوابة..."
                            @bind="quickSearch" @bind:event="oninput" />
                 </div>
-            </div>
-            <div class="col-md-3">
-                <select class="form-select" @bind="statusFilter">
-                    <option value="">كل الحالات</option>
-                    <option value="Online">متصل</option>
-                    <option value="Offline">غير متصل</option>
-                    <option value="Faulty">معطل / خطأ</option>
-                </select>
-            </div>
-            <div class="col-md-3 text-md-end">
-                <button class="btn btn-outline-secondary btn-sm" type="button" @onclick="ToggleAdvanced">
-                    <i class="bi bi-funnel"></i> بحث متقدم
+                <button type="button"
+                        class="btn btn-sm pms-btn-advanced @(showAdvanced ? "is-open" : "")"
+                        @onclick="ToggleAdvanced"
+                        title="بحث متقدم">
+                    <i class="bi bi-sliders"></i>
+                    <span class="ms-1">بحث متقدم</span>
+                    <i class="bi @(showAdvanced ? "bi-chevron-up" : "bi-chevron-down") ms-1"></i>
                 </button>
             </div>
         </div>
+
         @if (showAdvanced)
         {
-            <div class="row g-2 mt-2">
-                <div class="col-md-4">
-                    <input class="form-control form-control-sm" placeholder="الموديل" @bind="advModel" />
-                </div>
-                <div class="col-md-4">
-                    <input class="form-control form-control-sm" placeholder="رقم البوابة" @bind="advGate" />
-                </div>
-                <div class="col-md-4">
-                    <select class="form-select form-select-sm" @bind="advActive">
-                        <option value="">النشاط: الكل</option>
-                        <option value="true">نشطة فقط</option>
-                        <option value="false">غير نشطة</option>
-                    </select>
+            <div class="pms-search-advanced">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-6 col-lg-2">
+                        <label class="form-label small mb-1">الحالة</label>
+                        <select class="form-select form-select-sm" @bind="statusFilter">
+                            <option value="">كل الحالات</option>
+                            <option value="Online">متصل</option>
+                            <option value="Offline">غير متصل</option>
+                            <option value="Faulty">معطل / خطأ</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 col-lg-2">
+                        <label class="form-label small mb-1">النوع</label>
+                        <select class="form-select form-select-sm" @bind="directionFilter">
+                            <option value="">الكل</option>
+                            <option value="In">دخول</option>
+                            <option value="Out">خروج</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 col-lg-2">
+                        <label class="form-label small mb-1">الموديل</label>
+                        <input class="form-control form-control-sm" placeholder="الموديل" @bind="advModel" @bind:event="oninput" />
+                    </div>
+                    <div class="col-md-6 col-lg-2">
+                        <label class="form-label small mb-1">رقم البوابة</label>
+                        <input class="form-control form-control-sm" placeholder="رقم البوابة" @bind="advGate" @bind:event="oninput" />
+                    </div>
+                    <div class="col-md-6 col-lg-2">
+                        <label class="form-label small mb-1">النشاط</label>
+                        <select class="form-select form-select-sm" @bind="advActive">
+                            <option value="">الكل</option>
+                            <option value="true">نشطة فقط</option>
+                            <option value="false">غير نشطة</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 col-lg-1">
+                        <button type="button" class="btn btn-sm btn-outline-secondary w-100" @onclick="ClearAdvanced" title="مسح البحث المتقدم">
+                            <i class="bi bi-x-circle"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         }
@@ -75,7 +99,7 @@ else if (!Filtered.Any())
         <i class="bi bi-hdd-network"></i>
         <h5>لا توجد أجهزة قراءة مطابقة</h5>
         <p>أضف قارئة جديدة واربطها ببوابة، ثم وجّه جهاز ZKTeco إلى مسار Push: <code>/iclock</code></p>
-        <a class="btn btn-warning mt-2" href="/devices/readers/edit/@Guid.Empty">
+        <a class="btn btn-warning mt-2" href="@ReturnUrl.Go(Navigation, $"/devices/readers/edit/{Guid.Empty}")">
             <i class="bi bi-plus-circle"></i> إضافة قارئة
         </a>
     </div>
@@ -90,6 +114,7 @@ else
                         <th>الاسم</th>
                         <th>الرقم التسلسلي</th>
                         <th>البوابة</th>
+                        <th>النوع</th>
                         <th>الموديل</th>
                         <th>عنوان IP</th>
                         <th>المنفذ</th>
@@ -106,6 +131,11 @@ else
                             <td class="fw-semibold">@(string.IsNullOrWhiteSpace(r.Name) ? "-" : r.Name)</td>
                             <td><code>@r.DeviceSerial</code></td>
                             <td>@(r.Gate?.no ?? "-")</td>
+                            <td>
+                                <span class="badge @(r.Direction == MovementDirection.In ? "status-approved" : "bg-secondary")">
+                                    @DirectionLabel(r.Direction)
+                                </span>
+                            </td>
                             <td>@(r.Model ?? "-")</td>
                             <td>@(r.IpAddress ?? "-")</td>
                             <td>@(r.Port?.ToString() ?? "-")</td>
@@ -124,7 +154,7 @@ else
                                         @onclick="() => TestPushAsync(r)">
                                     <i class="bi bi-broadcast-pin"></i>
                                 </button>
-                                <a class="btn btn-sm btn-outline-secondary" href="/devices/readers/edit/@r.Id" title="تعديل">
+                                <a class="btn btn-sm btn-outline-secondary" href="@ReturnUrl.Go(Navigation, $"/devices/readers/edit/{r.Id}")" title="تعديل">
                                     <i class="bi bi-pencil"></i>
                                 </a>
                                 <button class="btn btn-sm btn-outline-danger" title="حذف"
@@ -147,6 +177,7 @@ else
     private bool messageIsError;
     private string quickSearch = "";
     private string statusFilter = "";
+    private string directionFilter = "";
     private string advModel = "";
     private string advGate = "";
     private string advActive = "";
@@ -160,14 +191,30 @@ else
     private async Task LoadAsync()
     {
         loading = true;
-        readers = await ReaderService.GetAllAsync();
-        loading = false;
+        try
+        {
+            readers = await ReaderService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            readers = new();
+            messageIsError = true;
+            message = ex.InnerException?.Message ?? ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
     }
 
     private bool Matches(Reader r)
     {
         if (!string.IsNullOrWhiteSpace(statusFilter)
             && !string.Equals(r.Status.ToString(), statusFilter, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (!string.IsNullOrWhiteSpace(directionFilter)
+            && !string.Equals(r.Direction.ToString(), directionFilter, StringComparison.OrdinalIgnoreCase))
             return false;
 
         if (!string.IsNullOrWhiteSpace(advModel)
@@ -188,13 +235,23 @@ else
             || Contains(r.IpAddress, q)
             || Contains(r.Model, q)
             || Contains(r.Gate?.no, q)
-            || Contains(r.Gate?.description, q);
+            || Contains(r.Gate?.description, q)
+            || Contains(DirectionLabel(r.Direction), q);
     }
 
     private static bool Contains(string? value, string q) =>
         !string.IsNullOrEmpty(value) && value.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0;
 
     private void ToggleAdvanced() => showAdvanced = !showAdvanced;
+
+    private void ClearAdvanced()
+    {
+        statusFilter = "";
+        directionFilter = "";
+        advModel = "";
+        advGate = "";
+        advActive = "";
+    }
 
     private async Task TestPushAsync(Reader r)
     {
@@ -218,9 +275,22 @@ else
 
     private async Task DeleteAsync(Guid id)
     {
-        await ReaderService.DeleteAsync(id);
-        await LoadAsync();
+        try
+        {
+            await ReaderService.DeleteAsync(id);
+            await LoadAsync();
+            messageIsError = false;
+            message = "تم حذف القارئة.";
+        }
+        catch (Exception ex)
+        {
+            messageIsError = true;
+            message = ex.InnerException?.Message ?? ex.Message;
+        }
     }
+
+    private static string DirectionLabel(MovementDirection d) =>
+        d == MovementDirection.Out ? "خروج" : "دخول";
 
     private static string StatusLabel(ReaderStatus s) => s switch
     {

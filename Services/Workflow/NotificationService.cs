@@ -8,8 +8,6 @@ namespace Services.Workflow
 {
     public class NotificationService : INotificationService
     {
-        private static readonly string[] DeviceAdminUserTypes = { "Admin", "SaftyUser" };
-
         private readonly IUnitOfWork _unitOfWork;
         private readonly IDbContextFactory<DataContext> _dbFactory;
 
@@ -69,9 +67,18 @@ namespace Services.Workflow
         {
             await using var db = await _dbFactory.CreateDbContextAsync();
             var adminIds = await db.Users
-                .Where(u => DeviceAdminUserTypes.Contains(u.UserType))
+                .Where(u => u.AccessLevel != null && u.AccessLevel.ReceivesDeviceAlerts && !u.AccessLevel.isDeleted)
                 .Select(u => u.Id)
                 .ToListAsync();
+
+            if (adminIds.Count == 0)
+            {
+                // Fallback for pre-migration data still keyed by legacy UserType.
+                adminIds = await db.Users
+                    .Where(u => u.UserType == "Admin" || u.UserType == "SaftyUser")
+                    .Select(u => u.Id)
+                    .ToListAsync();
+            }
 
             if (adminIds.Count == 0)
             {

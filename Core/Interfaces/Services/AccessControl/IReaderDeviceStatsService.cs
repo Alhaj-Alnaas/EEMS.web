@@ -7,15 +7,15 @@ namespace Core.Interfaces.Services.AccessControl
     {
         Task<ReaderDeviceStats?> GetByReaderAsync(Guid readerId);
         Task UpsertAsync(Guid readerId, string deviceSerial,
-            int userCount, int faceCount, int fingerprintCount,
-            int cardCount, int attLogCount, string? firmwareVersion);
+            int? userCount = null, int? faceCount = null, int? fingerprintCount = null,
+            int? cardCount = null, int? attLogCount = null, string? firmwareVersion = null);
         Task EnqueueFullSyncAsync(Guid readerId);
         Task EnqueueFullSyncAllAsync();
 
         /// <summary>Enqueue specific command types for one reader.</summary>
-        Task EnqueueCommandsAsync(Guid readerId, params DeviceCommandType[] types);
+        Task EnqueueCommandsAsync(Guid readerId, bool force = false, params DeviceCommandType[] types);
 
-        /// <summary>Enqueue specific command types for all active readers.</summary>
-        Task EnqueueCommandsAllAsync(params DeviceCommandType[] types);
+        /// <summary>Enqueue specific command types for all readers.</summary>
+        Task EnqueueCommandsAllAsync(bool force = false, params DeviceCommandType[] types);
     }
 }

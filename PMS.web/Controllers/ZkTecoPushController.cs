@@ -94,7 +94,7 @@ namespace PMS.web.Controllers
             return DeviceReply(result);
         }
 
-        private ContentResult DeviceReply(string text, bool forcePush = false)
+        private IActionResult DeviceReply(string text, bool forcePush = false)
         {
             var body = text.Replace("\r\n", "\n");
             var accept = Request.Headers.Accept.ToString();
@@ -102,7 +102,12 @@ namespace PMS.web.Controllers
             var usePush = forcePush
                 || accept.Contains("application/push", StringComparison.OrdinalIgnoreCase)
                 || agent.Contains("iClock", StringComparison.OrdinalIgnoreCase);
-            return Content(body, usePush ? "application/push; charset=UTF-8" : "text/plain");
+            var contentType = usePush ? "application/push; charset=UTF-8" : "text/plain; charset=UTF-8";
+            var bytes = System.Text.Encoding.UTF8.GetBytes(body);
+            // iClock Proxy mis-parses chunked responses as an empty user create.
+            Response.ContentType = contentType;
+            Response.ContentLength = bytes.Length;
+            return File(bytes, contentType);
         }
 
         /// <summary>Modern firmware posts DATA QUERY results here.</summary>
@@ -132,15 +137,8 @@ namespace PMS.web.Controllers
 
             if (int.TryParse(count, out var rowCount) && !string.IsNullOrWhiteSpace(tablename))
             {
-                await _push.UpdateQueryDataCountAsync(sn, tablename, rowCount);
-            }
-
-            // count-only announcement (no body) — just acknowledge, data comes in subsequent posts
-            if (false && string.IsNullOrWhiteSpace(body))
-            {
-                _logger.LogInformation("QUERYDATA count-only SN={SN} table={TN} count={Cnt} — awaiting data posts",
-                    sn, effectiveTable ?? "-", count ?? "-");
-                return DeviceReply("OK");
+                int? protocolId = int.TryParse(cmdId, out var cid) ? cid : null;
+                await _push.UpdateQueryDataCountAsync(sn, tablename, rowCount, protocolId);
             }
 
             var result = await _push.HandleQueryDataAsync(sn, effectiveTable, type, body, ct);

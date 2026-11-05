@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "M72lBw8fFts=",
+  "dgSpecHash": "DaCxEsY8P4A=",
   "success": true,
   "projectFilePath": "D:\\EEMS Project\\PMS\\Services\\Services.csproj",
   "expectedPackageFiles": [
@@ -35,12 +35,14 @@
     "C:\\Users\\10067\\.nuget\\packages\\microsoft.extensions.dependencyinjection\\8.0.1\\microsoft.extensions.dependencyinjection.8.0.1.nupkg.sha512",
     "C:\\Users\\10067\\.nuget\\packages\\microsoft.extensions.dependencyinjection.abstractions\\8.0.2\\microsoft.extensions.dependencyinjection.abstractions.8.0.2.nupkg.sha512",
     "C:\\Users\\10067\\.nuget\\packages\\microsoft.extensions.dependencymodel\\8.0.2\\microsoft.extensions.dependencymodel.8.0.2.nupkg.sha512",
+    "C:\\Users\\10067\\.nuget\\packages\\microsoft.extensions.diagnostics\\8.0.1\\microsoft.extensions.diagnostics.8.0.1.nupkg.sha512",
     "C:\\Users\\10067\\.nuget\\packages\\microsoft.extensions.diagnostics.abstractions\\8.0.1\\microsoft.extensions.diagnostics.abstractions.8.0.1.nupkg.sha512",
     "C:\\Users\\10067\\.nuget\\packages\\microsoft.extensions.fileproviders.abstractions\\8.0.0\\microsoft.extensions.fileproviders.abstractions.8.0.0.nupkg.sha512",
     "C:\\Users\\10067\\.nuget\\packages\\microsoft.extensions.fileproviders.embedded\\8.0.17\\microsoft.extensions.fileproviders.embedded.8.0.17.nupkg.sha512",
     "C:\\Users\\10067\\.nuget\\packages\\microsoft.extensions.fileproviders.physical\\8.0.0\\microsoft.extensions.fileproviders.physical.8.0.0.nupkg.sha512",
     "C:\\Users\\10067\\.nuget\\packages\\microsoft.extensions.filesystemglobbing\\8.0.0\\microsoft.extensions.filesystemglobbing.8.0.0.nupkg.sha512",
     "C:\\Users\\10067\\.nuget\\packages\\microsoft.extensions.hosting.abstractions\\8.0.1\\microsoft.extensions.hosting.abstractions.8.0.1.nupkg.sha512",
+    "C:\\Users\\10067\\.nuget\\packages\\microsoft.extensions.http\\8.0.1\\microsoft.extensions.http.8.0.1.nupkg.sha512",
     "C:\\Users\\10067\\.nuget\\packages\\microsoft.extensions.identity.core\\8.0.17\\microsoft.extensions.identity.core.8.0.17.nupkg.sha512",
     "C:\\Users\\10067\\.nuget\\packages\\microsoft.extensions.identity.stores\\8.0.17\\microsoft.extensions.identity.stores.8.0.17.nupkg.sha512",
     "C:\\Users\\10067\\.nuget\\packages\\microsoft.extensions.logging\\8.0.1\\microsoft.extensions.logging.8.0.1.nupkg.sha512",

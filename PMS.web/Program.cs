@@ -5,6 +5,7 @@ using Core.Interfaces.Services;
 using Core.Interfaces.Services.AccessControl;
 using Core.Interfaces.Services.Organization;
 using Core.Interfaces.Services.Workflow;
+using Core.Interfaces.Services.Permits;
 using DataAccess;
 using DataAccess.Repositories;
 using DataAccess.UnitOfWork;
@@ -19,6 +20,10 @@ using Core.Options;
 using Services;
 using Services.AccessControl;
 using Services.AccessControl.Workers;
+using Services.Security;
+using Core.Interfaces.Services.Security;
+using Core.Security;
+using PMS.web.Authorization;
 using PMS.web.Hosting;
 
 // When hosted as a Windows Service, default cwd is System32 — pin to the publish folder.
@@ -60,11 +65,11 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
 builder.Services.AddDbContextFactory<DataContext>(options =>
-    options.UseSqlServer(connectionString));
+    options.UseSqlServer(connectionString, sql => sql.UseCompatibilityLevel(110)));
 
 // Identity and some MVC paths still use a scoped DataContext.
 builder.Services.AddDbContext<DataContext>(options =>
-    options.UseSqlServer(connectionString));
+    options.UseSqlServer(connectionString, sql => sql.UseCompatibilityLevel(110)));
 
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
@@ -79,11 +84,13 @@ builder.Services.AddIdentity<User, IdentityRole>(options =>
     options.Password.RequiredLength = 6;
 })
 .AddEntityFrameworkStores<DataContext>()
-.AddDefaultTokenProviders();
+.AddDefaultTokenProviders()
+.AddClaimsPrincipalFactory<PmsUserClaimsPrincipalFactory>();
 
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<IAuthorizationHandler, TaskAuthorizationHandler>();
 
 // ---------------- Authentication & Authorization ----------------
 builder.Services.ConfigureApplicationCookie(options =>
@@ -98,6 +105,8 @@ var disableAuthentication = builder.Configuration.GetValue("DesignMode:DisableAu
 
 builder.Services.AddAuthorization(options =>
 {
+    TaskPolicies.Register(options);
+
     // Design Mode: open the UI without login so shell/layout can be iterated freely.
     // Re-enable by setting DesignMode:DisableAuthentication = false in appsettings.
     if (!disableAuthentication)
@@ -122,9 +131,28 @@ builder.Services.AddScoped<IDepartmentService, DepartmentService>();
 builder.Services.AddScoped<IProcedureMovment, ProcedureMovmentService>();
 builder.Services.AddScoped<IUserProvider, UserProvider>();
 
+// App authorization: access levels + user accounts
+builder.Services.AddScoped<ISystemTaskQueryService, SystemTaskQueryService>();
+builder.Services.AddScoped<IAccessLevelService, AccessLevelService>();
+builder.Services.AddScoped<IUserAccountService, UserAccountService>();
+builder.Services.AddScoped<IUserAccessService, UserAccessService>();
+builder.Services.AddHostedService<SecuritySeedHostedService>();
+
 // Phase 1: Organization / Access Control services
+builder.Services.AddScoped<PMS.web.Notifications.IUiToast, PMS.web.Notifications.UiToast>();
 builder.Services.AddScoped<IEmployeeService, Services.Organization.EmployeeService>();
+builder.Services.AddScoped<IEmployeeEnrollmentService, Services.Organization.EmployeeEnrollmentService>();
 builder.Services.AddScoped<IDepartmentMasterService, Services.Organization.DepartmentMasterService>();
+builder.Services.AddScoped<IHrEmployeeLookupService, Services.Organization.HrEmployeeLookupService>();
+builder.Services.AddScoped<IEmployeePhotoService, Services.Organization.EmployeePhotoService>();
+builder.Services.AddScoped<IEmployeeCardService, Services.Organization.EmployeeCardService>();
+builder.Services.Configure<Core.Options.HrEmployeeApiOptions>(
+    builder.Configuration.GetSection(Core.Options.HrEmployeeApiOptions.SectionName));
+builder.Services.AddHttpClient("HrEmployeeApi", (sp, client) =>
+{
+    var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Core.Options.HrEmployeeApiOptions>>().Value;
+    client.Timeout = TimeSpan.FromSeconds(Math.Clamp(opts.TimeoutSeconds, 5, 120));
+});
 builder.Services.AddTransient<IBiometricTemplateService, Services.AccessControl.BiometricTemplateService>();
 builder.Services.AddTransient<IBiometricIngestService, Services.AccessControl.BiometricIngestService>();
 builder.Services.AddTransient<IReaderService, Services.AccessControl.ReaderService>();
@@ -136,6 +164,7 @@ builder.Services.AddTransient<IMovementLogService, Services.AccessControl.Moveme
 builder.Services.AddTransient<IMovementLogIngestService, Services.AccessControl.MovementLogIngestService>();
 builder.Services.AddTransient<IZkTecoPushService, ZkTecoPushService>();
 builder.Services.AddTransient<IReaderDeviceStatsService, Services.AccessControl.ReaderDeviceStatsService>();
+builder.Services.AddTransient<IReaderSyncDiagnosticService, Services.AccessControl.ReaderSyncDiagnosticService>();
 builder.Services.AddSingleton<IReaderConnectionLogService, ReaderConnectionLogService>();
 builder.Services.AddSingleton<IDevicePushLogService, DevicePushLogService>();
 builder.Services.AddSingleton<IReaderSyncStateService, ReaderSyncStateService>();
@@ -144,9 +173,13 @@ builder.Services.Configure<ZkTecoOptions>(builder.Configuration.GetSection(ZkTec
 builder.Services.AddHostedService<DeviceCommandWorker>();
 builder.Services.AddHostedService<DeviceHealthMonitorWorker>();
 builder.Services.AddHostedService<Services.AccessControl.Workers.ReaderSyncSchedulerWorker>();
+builder.Services.AddHostedService<Services.Permits.PermitExecutionMaintenanceWorker>();
 
 // Phase 2: Workflow services
 builder.Services.AddScoped<IWorkflowEngine, Services.Workflow.WorkflowEngine>();
+builder.Services.AddScoped<IApprovalPathService, Services.Workflow.ApprovalPathService>();
+builder.Services.AddScoped<IMaterialPermitService, Services.Permits.MaterialPermitService>();
+builder.Services.AddScoped<IPermitExecutionService, Services.Permits.PermitExecutionService>();
 builder.Services.AddTransient<INotificationService, Services.Workflow.NotificationService>();
 
 // ---------------- Blazor Server ----------------
@@ -213,8 +246,7 @@ app.Use(async (context, next) =>
             ip?.ToString() ?? "unknown",
             context.Request.Headers.UserAgent.ToString() is { Length: > 0 } ua ? ua : "-");
 
-        // Also record into the same in-memory log used by /devices/monitor.
-        // This ensures we see endpoints even if they were routed as "unhandled /iclock/*".
+        
         try
         {
             var connectionLog = context.RequestServices.GetRequiredService<Core.Interfaces.Services.AccessControl.IReaderConnectionLogService>();
@@ -289,9 +321,28 @@ app.Lifetime.ApplicationStarted.Register(() =>
         log.LogInformation("Reader ADMS URL candidate: http://{Ip}:{Port}/iclock", ip, port);
 });
 
-// Clean up stale commands from previous runs
+// Apply pending EF migrations (incl. AccessLevelsAndSystemTasks) before seed/UI hit the DB.
 using (var startupScope = app.Services.CreateScope())
 {
+    try
+    {
+        var dbFactory = startupScope.ServiceProvider.GetRequiredService<IDbContextFactory<DataContext>>();
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var pending = (await db.Database.GetPendingMigrationsAsync()).ToList();
+        if (pending.Count > 0)
+        {
+            app.Logger.LogWarning("Applying {Count} pending EF migration(s): {Migrations}",
+                pending.Count, string.Join(", ", pending));
+            await db.Database.MigrateAsync();
+            app.Logger.LogInformation("EF migrations applied successfully");
+        }
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex,
+            "Failed to apply EF migrations — User Management / Access Levels will break until schema is fixed");
+    }
+
     var cmdSvc = startupScope.ServiceProvider.GetRequiredService<IDeviceCommandService>();
     var cancelled = await cmdSvc.CancelStaleAsync(TimeSpan.FromMinutes(10));
     if (cancelled > 0)

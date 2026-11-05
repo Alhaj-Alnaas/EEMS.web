@@ -17,6 +17,7 @@ namespace Core.Interfaces.UnitOfWork
         // Phase 1: Access Control repositories
         IGenericRepository<Department> Departments { get; }
         IGenericRepository<Employee> Employees { get; }
+        IGenericRepository<EmployeeCard> EmployeeCards { get; }
         IGenericRepository<Reader> Readers { get; }
         IGenericRepository<ReaderDowntime> ReaderDowntimes { get; }
         IGenericRepository<MovementLog> MovementLogs { get; }

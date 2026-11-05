@@ -1,6 +1,7 @@
 @page "/devices/monitor/{Id:guid}"
 @rendermode InteractiveServer
 @inject IServiceScopeFactory ScopeFactory
+@inject NavigationManager Navigation
 @inject IReaderConnectionLogService ConnectionLog
 @implements IDisposable
 
@@ -13,15 +14,15 @@
 else if (reader == null)
 {
     <div class="alert alert-danger">لم يتم العثور على الجهاز.</div>
-    <a class="btn btn-outline-secondary" href="/devices/monitor">العودة إلى حالة الأجهزة</a>
+    <BackLink Fallback="/devices/monitor">العودة للقائمة</BackLink>
 }
 else
 {
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <div>
-            <a class="small text-muted d-inline-block mb-1" href="/devices/monitor">
+            <BackLink Fallback="/devices/monitor" Css="small text-muted d-inline-block mb-1">
                 <i class="bi bi-arrow-right"></i> حالة الأجهزة
-            </a>
+            </BackLink>
             <h3 class="mb-0">
                 <i class="bi bi-hdd-network-fill text-warning"></i>
                 @(string.IsNullOrWhiteSpace(reader.Name) ? reader.DeviceSerial : reader.Name)
@@ -32,10 +33,10 @@ else
                 <input class="form-check-input" type="checkbox" id="autoRefreshDetails" @bind="autoRefresh" />
                 <label class="form-check-label small" for="autoRefreshDetails">تحديث تلقائي</label>
             </div>
-            <button class="btn btn-outline-secondary btn-sm" @onclick="() => RefreshStatsAsync()" disabled="@refreshing">
-                <i class="bi bi-arrow-clockwise@(refreshing ? " spin" : "")"></i> تحديث
+            <button type="button" class="btn pms-btn-refresh" @onclick="() => RefreshStatsAsync()" disabled="@refreshing">
+                <i class="bi bi-arrow-clockwise@(refreshing ? " pms-spin" : "")"></i> تحديث
             </button>
-            <a class="btn btn-outline-secondary btn-sm" href="/devices/readers/edit/@reader.Id">
+            <a class="btn pms-btn-refresh" href="@ReturnUrl.Go(Navigation, $"/devices/readers/edit/{reader.Id}")">
                 <i class="bi bi-pencil"></i> تعديل
             </a>
         </div>
@@ -70,6 +71,8 @@ else
                         <dd class="col-7"><code>@reader.DeviceSerial</code></dd>
                         <dt class="col-5 text-muted">البوابة</dt>
                         <dd class="col-7">@(reader.Gate?.no ?? "-") @(reader.Gate?.description)</dd>
+                        <dt class="col-5 text-muted">النوع</dt>
+                        <dd class="col-7">@(reader.Direction == MovementDirection.Out ? "خروج" : "دخول")</dd>
                         <dt class="col-5 text-muted">الموديل</dt>
                         <dd class="col-7">@(reader.Model ?? "-")</dd>
                         <dt class="col-5 text-muted">عنوان IP</dt>
@@ -112,7 +115,7 @@ else
                             </div>
                             <div class="col-4 col-md">
                                 <div class="fs-3 fw-bold">@stats.FingerprintCount</div>
-                                <div class="text-muted small">بصمات اليد</div>
+                                <div class="text-muted small">بصمة الكف</div>
                             </div>
                             <div class="col-4 col-md">
                                 <div class="fs-3 fw-bold">@stats.CardCount</div>
@@ -172,11 +175,6 @@ else
         }
     </div>
 }
-
-<style>
-    .spin { animation: spin 1s linear infinite; display: inline-block; }
-    @@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-</style>
 
 @code {
     [Parameter] public Guid Id { get; set; }

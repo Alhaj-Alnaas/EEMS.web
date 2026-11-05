@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @inject IEmployeeService EmployeeService
 @inject IDepartmentMasterService DepartmentService
+@inject IReaderService ReaderService
 @inject NavigationManager Navigation
 
 <PageTitle>بيانات الموظف - PMS</PageTitle>
@@ -18,14 +19,14 @@
 else
 {
     @if (!string.IsNullOrEmpty(saveMessage))
-{
-    <div class="alert @(saveOk ? "alert-success" : "alert-warning") alert-dismissible fade show">
-        @saveMessage
-        <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
-    </div>
-}
+    {
+        <div class="alert @(saveOk ? "alert-success" : "alert-warning") alert-dismissible fade show">
+            @saveMessage
+            <button type="button" class="btn-close" @onclick="() => saveMessage = null"></button>
+        </div>
+    }
 
-<div class="card">
+    <div class="card">
         <div class="card-body">
             <EditForm Model="model" OnValidSubmit="SaveAsync">
                 <DataAnnotationsValidator />
@@ -34,6 +35,7 @@ else
                     <div class="col-md-4">
                         <label class="form-label">الرقم الوظيفي</label>
                         <InputText class="form-control" @bind-Value="model.FileNumber" />
+                        <div class="form-text">يجب أن يطابق PIN على القارئة</div>
                     </div>
                     <div class="col-md-8">
                         <label class="form-label">الاسم الكامل</label>
@@ -69,11 +71,47 @@ else
                             <label class="form-check-label" for="hostCapable">يمكنه استضافة زوار</label>
                         </div>
                     </div>
+
+                    <div class="col-12">
+                            <label class="form-label fw-semibold">القارئات المستهدفة (تسجيل على الجهاز)</label>
+                            @if (readers.Count == 0)
+                            {
+                                <div class="text-muted small">لا توجد قارئات مسجّلة.</div>
+                            }
+                            else
+                            {
+                                <div class="border rounded p-3 bg-light">
+                                    @foreach (var r in readers)
+                                    {
+                                        var rid = r.Id;
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox"
+                                                   id="reader-@rid"
+                                                   checked="@selectedReaderIds.Contains(rid)"
+                                                   @onchange="e => ToggleReader(rid, ToBool(e.Value))" />
+                                            <label class="form-check-label" for="reader-@rid">
+                                                @(string.IsNullOrWhiteSpace(r.Name) ? r.DeviceSerial : r.Name)
+                                                <code class="small text-muted">@r.DeviceSerial</code>
+                                                @if (!r.IsActive)
+                                                {
+                                                    <span class="badge bg-secondary">غير نشطة</span>
+                                                }
+                                            </label>
+                                        </div>
+                                    }
+                                </div>
+                                <div class="form-text">
+                                    على SpeedFace M4: Access Control Role = Access Group + Time Period (Time Rule 1–24).
+                                    نشط: Access Group = enable و Time Rule [1] محدّد.
+                                    غير نشط: Access Group = disable و Time Rule [1] غير محدّد. البصمة لا تُحذف.
+                                </div>
+                            }
+                        </div>
                 </div>
 
                 <div class="mt-4 d-flex gap-2">
                     <button type="submit" class="btn btn-warning"><i class="bi bi-save"></i> حفظ</button>
-                    <a href="/employees" class="btn btn-outline-secondary">إلغاء</a>
+                    <BackLink Fallback="/employees">إلغاء</BackLink>
                 </div>
             </EditForm>
         </div>
@@ -89,11 +127,17 @@ else
     private bool saveOk;
     private Employee model = new();
     private List<Department> departments = new();
+    private List<Reader> readers = new();
+    private HashSet<Guid> selectedReaderIds = new();
     private string selectedDepartmentId = "";
 
     protected override async Task OnInitializedAsync()
     {
         departments = await DepartmentService.GetAllAsync();
+        readers = (await ReaderService.GetAllAsync())
+            .Where(r => !r.isDeleted)
+            .OrderBy(r => r.Name ?? r.DeviceSerial)
+            .ToList();
 
         if (!IsNew)
         {
@@ -102,33 +146,74 @@ else
             {
                 model = existing;
                 selectedDepartmentId = existing.DepartmentId?.ToString() ?? "";
+                foreach (var sn in Services.AccessControl.ZkTecoAccUserCommand.TryGetEnrolledSerials(existing.remarks))
+                {
+                    var match = readers.FirstOrDefault(r =>
+                        string.Equals(r.DeviceSerial, sn, StringComparison.OrdinalIgnoreCase));
+                    if (match != null)
+                        selectedReaderIds.Add(match.Id);
+                }
             }
+        }
+        else if (readers.Count(r => r.IsActive) == 1)
+        {
+            selectedReaderIds.Add(readers.First(r => r.IsActive).Id);
         }
 
         loading = false;
     }
 
+    private static bool ToBool(object? value)
+        => value is bool b ? b : string.Equals(value?.ToString(), "true", StringComparison.OrdinalIgnoreCase);
+
+    private void ToggleReader(Guid readerId, bool on)
+    {
+        if (on) selectedReaderIds.Add(readerId);
+        else selectedReaderIds.Remove(readerId);
+    }
+
     private async Task SaveAsync()
     {
+        if (string.IsNullOrWhiteSpace(model.FileNumber))
+        {
+            saveOk = false;
+            saveMessage = "الرقم الوظيفي مطلوب (PIN على القارئة).";
+            return;
+        }
+
         model.DepartmentId = Guid.TryParse(selectedDepartmentId, out var depId) ? depId : null;
         saveMessage = null;
+        var readerList = selectedReaderIds.ToList();
 
-        int queued;
-        if (IsNew)
+        try
         {
-            model.Id = Guid.NewGuid();
-            model.createdOn = DateTime.Now;
-            queued = await EmployeeService.InsertAsync(model);
-        }
-        else
-        {
-            model.updatedOn = DateTime.Now;
-            queued = await EmployeeService.UpdateAsync(model);
-        }
+            int queued;
+            if (IsNew)
+            {
+                model.Id = Guid.NewGuid();
+                model.createdOn = DateTime.Now;
+                queued = await EmployeeService.InsertAsync(model, readerList);
+            }
+            else
+            {
+                model.updatedOn = DateTime.Now;
+                queued = await EmployeeService.UpdateAsync(model, readerList.Count > 0 ? readerList : null);
+            }
 
-        saveOk = queued > 0;
-        saveMessage = queued > 0
-            ? $"تم الحفظ. أُرسل أمر للقارئة (PIN={model.FileNumber}). انتظر حتى تستعلم القارئة (~30–60 ثانية) ثم حدّث قائمة المستخدمين على الجهاز. الرقم الوظيفي يجب أن يطابق pin وليس uid الداخلي."
-            : "تم الحفظ في النظام، لكن لم يُدرج أمر للقارئة. تحقق أن الرقم الوظيفي يطابق PIN على الجهاز وأن القارئة متصلة.";
+            saveOk = queued > 0 || readerList.Count == 0;
+            if (readerList.Count == 0)
+                saveMessage = "تم الحفظ في النظام فقط (لم تُحدَّد قارئات).";
+            else if (queued > 0)
+                saveMessage = model.IsActive
+                    ? "تم الحفظ. أُرسل تمكين: Access Group=1 (ضمن توليفة فتح الباب)."
+                    : "تم الحفظ. أُرسل تعطيل: Access Group=99 (خارج توليفة الباب الافتراضية). لا يُحذف المستخدم أو البصمة.";
+            else
+                saveMessage = "تم الحفظ في النظام، لكن لم يُدرج أمر للقارئة (القارئة غير موجودة أو غير نشطة).";
+        }
+        catch (Exception ex)
+        {
+            saveOk = false;
+            saveMessage = "فشل إرسال الأمر للقارئة: " + ex.Message;
+        }
     }
 }

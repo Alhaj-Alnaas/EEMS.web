@@ -20,8 +20,35 @@ namespace Services
 
         public async Task<List<DepartmentDto>> GetDepartmentsByResponsibilityAsync(string responsibilityCode)
         {
-            string storedProcedure = "EXEC sp_show_Req_dep {0}";
-            return await _unitOfWork.StoredProcedures.ExecuteStoredProcedureAsync<DepartmentDto>(storedProcedure, responsibilityCode);
+            if (string.IsNullOrWhiteSpace(responsibilityCode))
+                return new List<DepartmentDto>();
+
+            try
+            {
+                const string storedProcedure = "EXEC sp_show_Req_dep {0}";
+                return await _unitOfWork.StoredProcedures
+                    .ExecuteStoredProcedureAsync<DepartmentDto>(storedProcedure, responsibilityCode);
+            }
+            catch (Exception ex) when (IsMissingDepartmentProcedure(ex))
+            {
+                // The legacy procedure is not deployed in every database.
+                // Callers fall back to the signed-in user's own department.
+                return new List<DepartmentDto>();
+            }
+        }
+
+        private static bool IsMissingDepartmentProcedure(Exception ex)
+        {
+            for (var current = ex; current != null; current = current.InnerException)
+            {
+                var message = current.Message ?? "";
+                if (message.Contains("sp_show_Req_dep", StringComparison.OrdinalIgnoreCase)
+                    || message.Contains("stored procedure", StringComparison.OrdinalIgnoreCase)
+                    || message.Contains("الإجراء المخزن", StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
         }
 
         public async Task<DepartmentDto?> GetSingleDepartmentByResponsibilityAsync(string responsibilityCode)

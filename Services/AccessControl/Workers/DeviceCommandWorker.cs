@@ -63,13 +63,26 @@ namespace Services.AccessControl.Workers
                 ct.ThrowIfCancellationRequested();
                 var error = $"ACK timeout after {opts.CommandAckTimeoutSeconds}s";
 
+                // Never re-send user UPDATE/enroll — SpeedFace may create a blank user
+                // on each duplicate DATA UPDATE user if parsing glitches or ACK was lost
+                // after the device already applied the command.
+                if (string.Equals(cmd.CommandType, nameof(DeviceCommandType.UpdateUserInfo), StringComparison.OrdinalIgnoreCase))
+                {
+                    await commands.UpdateStatusAsync(cmd.Id, DeviceCommandStatus.Acknowledged,
+                        error + " (no retry for UpdateUserInfo — avoids blank users)");
+                    _logger.LogWarning(
+                        "UpdateUserInfo ACK timeout — marked done without retry commandId={CommandId} readerId={ReaderId}",
+                        cmd.Id, cmd.ReaderId);
+                    continue;
+                }
+
                 if (cmd.RetryCount < opts.MaxCommandRetries)
                 {
                     var delay = TimeSpan.FromSeconds(opts.RetryBaseDelaySeconds * Math.Max(1, cmd.RetryCount + 1));
                     await commands.ScheduleRetryAsync(cmd.Id, delay, error);
                     _logger.LogWarning(
-                        "Command {Id} timed out — retry {Retry}/{Max} in {Delay}s",
-                        cmd.Id, cmd.RetryCount + 1, opts.MaxCommandRetries, delay.TotalSeconds);
+                        "Command timeout — commandId={CommandId} type={CommandType} readerId={ReaderId} retry {Retry}/{Max} in {Delay}s",
+                        cmd.Id, cmd.CommandType, cmd.ReaderId, cmd.RetryCount + 1, opts.MaxCommandRetries, delay.TotalSeconds);
                 }
                 else
                 {
@@ -86,7 +99,8 @@ namespace Services.AccessControl.Workers
                                 await readers.UpdateAsync(reader);
                         }
                     }
-                    _logger.LogError("Command {Id} permanently failed after retries", cmd.Id);
+                    _logger.LogError("Command permanently failed after retries commandId={CommandId} type={CommandType} readerId={ReaderId}",
+                        cmd.Id, cmd.CommandType, cmd.ReaderId);
                 }
             }
         }

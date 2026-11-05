@@ -12,7 +12,7 @@ namespace Services.AccessControl
         private static readonly string[] KnownPrefixes =
         {
             "USERINFO", "USERPIC", "USER", "FINGERTMP", "BIODATA", "BIOPHOTO",
-            "FACE", "FP", "OPLOG", "OPERLOG", "ATTLOG", "TABLE"
+            "FACE", "FP", "OPLOG", "OPERLOG", "ATTLOG", "TRANSACTION", "TABLE"
         };
 
         /// <summary>Parses tab/space separated key=value pairs, ignoring any record-type prefix.</summary>

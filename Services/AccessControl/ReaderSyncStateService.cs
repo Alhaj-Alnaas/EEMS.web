@@ -50,22 +50,41 @@ namespace Services.AccessControl
             });
         }
 
-        public void UpdateFromInfo(string deviceSerial, string? info)
+        public ReaderDeviceSnapshot UpdateFromInfo(string deviceSerial, string? info)
         {
-            if (string.IsNullOrWhiteSpace(info)) return;
-
             var key = Normalize(deviceSerial);
             _snapshots.TryGetValue(key, out var previous);
 
+            var empty = new ReaderDeviceSnapshot(
+                UpdatedAt: DateTime.Now,
+                DeviceSerial: key,
+                UserCount: null,
+                FingerprintCount: null,
+                FaceCount: null,
+                AttLogCount: null,
+                FirmwareVersion: null,
+                RawInfo: null);
+
+            if (string.IsNullOrWhiteSpace(info))
+                return empty;
+
             var csv = TryParseCsvInfo(info);
-            var userCount = TryInt(info, "UserCount", "Users") ?? csv?.UserCount ?? previous?.UserCount;
-            var fpCount = TryInt(info, "FPCount", "FingerPrintCount", "FingerprintCount") ?? csv?.FingerprintCount ?? previous?.FingerprintCount;
-            var faceCount = TryInt(info, "FaceCount") ?? csv?.FaceCount ?? previous?.FaceCount;
-            var attCount = TryInt(info, "AttLogCount", "TransactionCount") ?? csv?.AttLogCount ?? previous?.AttLogCount;
-            var fw = TryString(info, "FirmVer", "FWVersion", "FirmwareVersion") ?? csv?.FirmwareVersion ?? previous?.FirmwareVersion;
+            var extended = TryParseExtendedInfo(info);
+            // Only fields present in THIS payload — never inherit stale FaceCount/FPCount.
+            var userCount = TryInt(info, "UserCount", "Users") ?? extended?.UserCount ?? csv?.UserCount;
+            // SpeedFace M4: palm vein (PvCount) — not fingerprint (FPCount).
+            // The heartbeat INFO list puts FPCount in column 3; that is not the palm count.
+            var pvCount = TryInt(info, "PvCount");
+            var fpRaw = TryInt(info, "FPCount", "FingerPrintCount", "FingerprintCount") ?? csv?.FingerprintCount;
+            var fpCount = pvCount ?? fpRaw;
+            var faceCount = TryInt(info, "FaceCount") ?? extended?.FaceCount ?? csv?.FaceCount;
+            // Do NOT map TransactionCount from INFO/options — on SpeedFace it is often 0
+            // (pending/unsynced) and would wipe the real AttLogCount from querydata.
+            var attCount = TryInt(info, "AttLogCount", "AttLog") ?? extended?.AttLogCount ?? csv?.AttLogCount;
+            var fw = TryString(info, "FirmVer", "FWVersion", "FirmwareVersion") ?? extended?.FirmwareVersion ?? csv?.FirmwareVersion;
             var raw = info.Length > MaxRaw ? info[..MaxRaw] + "…" : info;
 
-            _snapshots[key] = new ReaderDeviceSnapshot(
+            var fresh = new ReaderDeviceSnapshot(
                 UpdatedAt: DateTime.Now,
                 DeviceSerial: key,
                 UserCount: userCount,
@@ -74,6 +93,35 @@ namespace Services.AccessControl
                 AttLogCount: attCount,
                 FirmwareVersion: fw,
                 RawInfo: raw);
+
+            // Merge into stored snapshot for UI display, but return only fresh fields.
+            _snapshots[key] = new ReaderDeviceSnapshot(
+                UpdatedAt: DateTime.Now,
+                DeviceSerial: key,
+                UserCount: userCount ?? previous?.UserCount,
+                FingerprintCount: fpCount ?? previous?.FingerprintCount,
+                FaceCount: faceCount ?? previous?.FaceCount,
+                AttLogCount: attCount ?? previous?.AttLogCount,
+                FirmwareVersion: fw ?? previous?.FirmwareVersion,
+                RawInfo: raw);
+
+            return fresh;
+        }
+
+        public void SetCounts(string deviceSerial, int? userCount = null, int? faceCount = null,
+            int? fingerprintCount = null, int? attLogCount = null, string? firmwareVersion = null)
+        {
+            var key = Normalize(deviceSerial);
+            _snapshots.TryGetValue(key, out var previous);
+            _snapshots[key] = new ReaderDeviceSnapshot(
+                UpdatedAt: DateTime.Now,
+                DeviceSerial: key,
+                UserCount: userCount ?? previous?.UserCount,
+                FingerprintCount: fingerprintCount ?? previous?.FingerprintCount,
+                FaceCount: faceCount ?? previous?.FaceCount,
+                AttLogCount: attLogCount ?? previous?.AttLogCount,
+                FirmwareVersion: firmwareVersion ?? previous?.FirmwareVersion,
+                RawInfo: previous?.RawInfo);
         }
 
         public ReaderDeviceSnapshot? GetSnapshot(string deviceSerial)
@@ -95,6 +143,28 @@ namespace Services.AccessControl
             for (var i = 0; i < length; i++)
                 chars[i] = alphabet[bytes[i] % alphabet.Length];
             return new string(chars);
+        }
+
+        /// <summary>
+        /// SpeedFace heartbeat: FirmVer,UserCount,FPCount,TransactionCount,IP,FPVersion,FaceVersion,reserved,FaceCount,...
+        /// Example: ZAM180-NF50VA-Ver3.4.9,63,0,10,10.206.0.13,10,39,12,48,01110
+        /// Column 3 is fingerprints, not palms. Palms arrive as PvCount in the options body.
+        /// </summary>
+        private static (int? UserCount, int? AttLogCount, string? FirmwareVersion, int? FaceCount)? TryParseExtendedInfo(string info)
+        {
+            var text = info.Trim().Trim('"');
+            if (text.Contains('=') || !text.Contains(','))
+                return null;
+
+            var parts = text.Split(',', StringSplitOptions.TrimEntries);
+            if (parts.Length < 9 || int.TryParse(parts[0], out _))
+                return null;
+            if (!int.TryParse(parts[1], out var users))
+                return null;
+
+            int? att = int.TryParse(parts[3], out var attN) ? attN : null;
+            int? faces = int.TryParse(parts[8], out var faceN) ? faceN : null;
+            return (users, att, parts[0], faces);
         }
 
         /// <summary>

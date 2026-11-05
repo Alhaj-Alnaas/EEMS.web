@@ -1,0 +1,450 @@
+using Core.Entities;
+using Core.Interfaces.Services.Permits;
+using Core.Interfaces.Services.Workflow;
+using Core.Models;
+using DataAccess;
+using Microsoft.EntityFrameworkCore;
+using static Core.Enums.BaseEnums;
+
+namespace Services.Permits
+{
+    public class PermitExecutionService : IPermitExecutionService
+    {
+        private readonly IDbContextFactory<DataContext> _dbFactory;
+        private readonly INotificationService _notifications;
+
+        public PermitExecutionService(IDbContextFactory<DataContext> dbFactory, INotificationService notifications)
+        {
+            _dbFactory = dbFactory;
+            _notifications = notifications;
+        }
+
+        public async Task<List<Gate>> GetActiveGatesAsync()
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            return await db.Gates.AsNoTracking()
+                .Where(g => g.isActive && !g.isDeleted)
+                .OrderBy(g => g.no)
+                .ThenBy(g => g.description)
+                .ToListAsync();
+        }
+
+        public async Task<Dictionary<PermitClassification, List<Guid>>> GetLinksAsync()
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            var links = await db.PermitClassificationGates.AsNoTracking().ToListAsync();
+            var result = new Dictionary<PermitClassification, List<Guid>>();
+            foreach (var link in links)
+            {
+                if (!Enum.TryParse<PermitClassification>(link.Classification, out var classification))
+                    continue;
+                if (!result.TryGetValue(classification, out var ids))
+                {
+                    ids = new List<Guid>();
+                    result[classification] = ids;
+                }
+                ids.Add(link.GateId);
+            }
+            return result;
+        }
+
+        public async Task SaveLinksAsync(PermitClassification classification, IReadOnlyCollection<Guid> gateIds)
+        {
+            var key = classification.ToString();
+            var requested = gateIds.Distinct().ToList();
+
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            var activeIds = await db.Gates.AsNoTracking()
+                .Where(g => g.isActive && !g.isDeleted && requested.Contains(g.Id))
+                .Select(g => g.Id)
+                .ToListAsync();
+
+            var existing = await db.PermitClassificationGates
+                .Where(x => x.Classification == key)
+                .ToListAsync();
+            db.PermitClassificationGates.RemoveRange(existing);
+
+            foreach (var gateId in activeIds)
+            {
+                db.PermitClassificationGates.Add(new PermitClassificationGate
+                {
+                    Id = Guid.NewGuid(),
+                    Classification = key,
+                    GateId = gateId
+                });
+            }
+
+            await db.SaveChangesAsync();
+        }
+
+        public async Task<List<PermitExecutionRow>> GetActivePermitsAsync()
+        {
+            var permits = await LoadActiveAsync();
+            return await DescribeAsync(permits);
+        }
+
+        public async Task<List<PermitExecutionRow>> GetExecutableAsync(Guid gateId)
+        {
+            var permits = await LoadActiveAsync();
+            var rows = await DescribeAsync(permits);
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            var linked = await db.PermitClassificationGates.AsNoTracking()
+                .Where(x => x.GateId == gateId)
+                .Select(x => x.Classification)
+                .ToListAsync();
+            var linkedSet = linked.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var executable = rows.Where(row => row.PassedGuard
+                    ? row.Permit.GateId == gateId
+                    : linkedSet.Contains(row.Permit.classification ?? ""))
+                .ToList();
+
+            if (executable.Count == 0)
+                return executable;
+
+            var ids = executable.Select(r => r.Permit.Id).ToList();
+            var moves = await db.MovementLogs.AsNoTracking()
+                .Where(m => m.PermitId != null && ids.Contains(m.PermitId.Value) && m.Source == MovementSource.GateOfficer)
+                .ToListAsync();
+            var byPermit = moves.GroupBy(m => m.PermitId!.Value).ToDictionary(g => g.Key, g => (IReadOnlyList<MovementLog>)g.ToList());
+            foreach (var row in executable)
+            {
+                var step = PermitExecutionPlan.Next(row.Permit, byPermit.TryGetValue(row.Permit.Id, out var list) ? list : Array.Empty<MovementLog>());
+                row.NextStep = step.Completed ? "تم التنفيذ" : step.Progress;
+            }
+
+            return executable;
+        }
+
+        private async Task<List<Permit>> LoadActiveAsync()
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            return await db.Permits.AsNoTracking()
+                .Include(p => p.EquipmentDetail)
+                .Include(p => p.VehicleDetail)
+                .Include(p => p.VisitorDetail)
+                .Include(p => p.Gate)
+                .Where(p => !p.isDeleted
+                    && !p.isClosed
+                    && p.status != 'C'
+                    && p.status != 'D'
+                    && p.status != 'J'
+                    && (p.status == 'A'
+                        || p.UnifiedStatus == nameof(UnifiedPermitStatus.Active)
+                        || p.UnifiedStatus == nameof(UnifiedPermitStatus.Approved)))
+                .OrderByDescending(p => p.date)
+                .ThenByDescending(p => p.createdOn)
+                .ToListAsync();
+        }
+
+        private async Task<List<PermitExecutionRow>> DescribeAsync(List<Permit> permits)
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            var definitionIds = permits
+                .Where(p => p.WorkflowDefinitionId != null)
+                .Select(p => p.WorkflowDefinitionId!.Value)
+                .Distinct()
+                .ToList();
+
+            var guardDefinitions = definitionIds.Count == 0
+                ? new List<Guid>()
+                : await db.WorkflowSteps.AsNoTracking()
+                    .Where(s => definitionIds.Contains(s.WorkflowDefinitionId)
+                        && !s.isDeleted
+                        && s.StepType == WorkflowStepType.GuardSection)
+                    .Select(s => s.WorkflowDefinitionId)
+                    .Distinct()
+                    .ToListAsync();
+            var guardSet = guardDefinitions.ToHashSet();
+
+            var links = await db.PermitClassificationGates.AsNoTracking()
+                .Include(x => x.Gate)
+                .ToListAsync();
+            var namesByClass = links
+                .GroupBy(x => x.Classification, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(
+                    g => g.Key,
+                    g => string.Join("، ", g.Select(x => GateLabel(x.Gate)).Where(name => name.Length > 0)),
+                    StringComparer.OrdinalIgnoreCase);
+
+            return permits.Select(permit =>
+            {
+                var passedGuard = permit.WorkflowDefinitionId != null
+                    && guardSet.Contains(permit.WorkflowDefinitionId.Value);
+                string scope;
+                if (passedGuard)
+                    scope = permit.Gate == null ? "لم تُحدد بوابة التنفيذ" : GateLabel(permit.Gate);
+                else if (namesByClass.TryGetValue(permit.classification ?? "", out var names) && !string.IsNullOrWhiteSpace(names))
+                    scope = names;
+                else
+                    scope = "لا توجد بوابات مرتبطة بهذا النوع";
+
+                return new PermitExecutionRow
+                {
+                    Permit = permit,
+                    PassedGuard = passedGuard,
+                    ExecutionScope = scope
+                };
+            }).ToList();
+        }
+
+        public async Task<(Permit Permit, PermitExecutionStep Step, List<PermitExecutionEventRow> History)> GetExecutionAsync(Guid permitId)
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            var permit = await db.Permits.AsNoTracking()
+                .Include(p => p.EquipmentDetail)
+                .Include(p => p.EquipmentsAndMatirials)
+                .Include(p => p.Cars)
+                .Include(p => p.VehicleDetail)
+                .Include(p => p.VisitorDetail)
+                .Include(p => p.Gate)
+                .Include(p => p.Approvals)
+                    .ThenInclude(a => a.WorkflowStep)
+                .FirstOrDefaultAsync(p => p.Id == permitId)
+                ?? throw new InvalidOperationException("التصريح غير موجود.");
+
+            var moves = await ExecutionMovesAsync(db, permitId);
+            return (permit, PermitExecutionPlan.Next(permit, moves), History(moves));
+        }
+
+        public async Task ExecuteAsync(Guid permitId, Guid gateId, DateTime when, string? notes, User user)
+        {
+            if (user == null)
+                throw new InvalidOperationException("المستخدم غير معروف.");
+            if (when > DateTime.Now.AddMinutes(5))
+                throw new InvalidOperationException("لا يمكن تسجيل وقت تنفيذ في المستقبل.");
+
+            var allowed = await GetExecutableAsync(gateId);
+            if (allowed.All(row => row.Permit.Id != permitId))
+                throw new InvalidOperationException("هذا التصريح غير متاح للتنفيذ على هذه البوابة.");
+
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            var permit = await db.Permits
+                .Include(p => p.VehicleDetail)
+                .Include(p => p.VisitorDetail)
+                .FirstOrDefaultAsync(p => p.Id == permitId)
+                ?? throw new InvalidOperationException("التصريح غير موجود.");
+
+            if (permit.isClosed || permit.status is 'C' or 'D')
+                throw new InvalidOperationException("هذا التصريح مغلق.");
+
+            var gate = await db.Gates.AsNoTracking()
+                .FirstOrDefaultAsync(g => g.Id == gateId && g.isActive && !g.isDeleted)
+                ?? throw new InvalidOperationException("البوابة غير متاحة.");
+
+            var moves = await ExecutionMovesAsync(db, permitId);
+            var step = PermitExecutionPlan.Next(permit, moves);
+            if (step.Completed)
+                throw new InvalidOperationException("اكتمل تنفيذ هذا التصريح.");
+
+            Record(db, permit, gate, step.Direction, when, notes, user.FullName, user.UserName, user.JobtypeName, step.ClosesPermit);
+            await db.SaveChangesAsync();
+        }
+
+        public async Task<List<OpenPermitAlert>> GetOverdueAsync()
+        {
+            var now = DateTime.Now;
+            var permits = await OpenPermitsAsync();
+            var result = new List<OpenPermitAlert>();
+            foreach (var permit in permits)
+            {
+                if (!PermitExecutionPlan.IsOverdue(permit, MovesOf(permit), now, out var since, out var waiting))
+                    continue;
+
+                result.Add(new OpenPermitAlert
+                {
+                    PermitId = permit.Id,
+                    Number = permit.no,
+                    Kind = KindLabel(permit),
+                    Waiting = waiting,
+                    Since = since,
+                    HoursOpen = (int)(now - since).TotalHours
+                });
+            }
+
+            return result.OrderByDescending(r => r.HoursOpen).ToList();
+        }
+
+        public async Task RunMaintenanceAsync()
+        {
+            var now = DateTime.Now;
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            var permits = await db.Permits
+                .Include(p => p.VehicleDetail)
+                .Include(p => p.MovementLogs)
+                .Where(p => !p.isDeleted && !p.isClosed && p.status != 'C' && p.status != 'D' && p.status == 'A')
+                .ToListAsync();
+
+            foreach (var permit in permits)
+            {
+                var moves = MovesOf(permit);
+                if (!PermitExecutionPlan.ShouldAutoCloseExit(permit, moves, now))
+                    continue;
+
+                var entry = moves.Where(m => m.Direction == MovementDirection.In).OrderBy(m => m.EventTime).First();
+                var gateId = entry.GateId != Guid.Empty ? entry.GateId : permit.GateId;
+                if (gateId == null || gateId == Guid.Empty)
+                    continue;
+
+                var gate = await db.Gates.AsNoTracking().FirstOrDefaultAsync(g => g.Id == gateId);
+                if (gate == null)
+                    continue;
+
+                var closeAt = now.Date.AddHours(1);
+                Record(db, permit, gate, MovementDirection.Out, closeAt,
+                    "إغلاق آلي للإخراج عند الساعة 1:00 صباحاً",
+                    "النظام", "system", "النظام", closes: true);
+            }
+
+            await db.SaveChangesAsync();
+            await NotifyOverdueAsync(permits, now);
+        }
+
+        private async Task NotifyOverdueAsync(List<Permit> permits, DateTime now)
+        {
+            foreach (var permit in permits)
+            {
+                if (permit.isClosed || permit.status == 'C')
+                    continue;
+                if (!PermitExecutionPlan.IsOverdue(permit, MovesOf(permit), now, out var since, out var waiting))
+                    continue;
+
+                var title = "تصريح مفتوح تجاوز 24 ساعة";
+                await using var db = await _dbFactory.CreateDbContextAsync();
+                var already = await db.Notifications.AsNoTracking().AnyAsync(n =>
+                    n.RelatedPermitId == permit.Id
+                    && n.Title == title
+                    && !n.isDeleted
+                    && n.createdOn >= now.AddHours(-24));
+                if (already)
+                    continue;
+
+                var body = $"التصريح {permit.no} بانتظار {waiting} منذ {since:yyyy/MM/dd HH:mm}.";
+                foreach (var userId in await OfficialIdsAsync(db, permit))
+                    await _notifications.NotifyAsync(userId, title, body, permit.Id);
+            }
+        }
+
+        private static async Task<List<string>> OfficialIdsAsync(DataContext db, Permit permit)
+        {
+            var code = (permit.reqDepartment ?? "").Trim();
+            var users = await db.Users.AsNoTracking()
+                .Where(u => u.JobStatus == "AE" && (
+                    (u.JobCatId == 1 && u.ResponsibilityCode == code)
+                    || u.ResponsibilityCode == "45011"
+                    || u.UserName == permit.createdBy))
+                .Select(u => u.Id)
+                .ToListAsync();
+            return users.Distinct().ToList();
+        }
+
+        private async Task<List<Permit>> OpenPermitsAsync()
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            return await db.Permits.AsNoTracking()
+                .Include(p => p.VehicleDetail)
+                .Include(p => p.MovementLogs)
+                .Where(p => !p.isDeleted && !p.isClosed && p.status != 'C' && p.status != 'D' && p.status == 'A')
+                .ToListAsync();
+        }
+
+        private static async Task<List<MovementLog>> ExecutionMovesAsync(DataContext db, Guid permitId)
+        {
+            return await db.MovementLogs.AsNoTracking()
+                .Include(m => m.Gate)
+                .Where(m => m.PermitId == permitId && m.Source == MovementSource.GateOfficer)
+                .OrderBy(m => m.EventTime)
+                .ToListAsync();
+        }
+
+        private static List<MovementLog> MovesOf(Permit permit) =>
+            permit.MovementLogs
+                .Where(m => m.Source == MovementSource.GateOfficer)
+                .OrderBy(m => m.EventTime)
+                .ToList();
+
+        private static List<PermitExecutionEventRow> History(IEnumerable<MovementLog> moves) =>
+            moves.Select(m => new PermitExecutionEventRow
+            {
+                When = m.EventTime,
+                Action = m.Direction == MovementDirection.In ? "دخول" : "خروج",
+                Notes = m.ManualReason ?? "",
+                Gate = GateLabel(m.Gate)
+            }).ToList();
+
+        private static void Record(
+            DataContext db,
+            Permit permit,
+            Gate gate,
+            MovementDirection direction,
+            DateTime when,
+            string? notes,
+            string? fullName,
+            string? userName,
+            string? job,
+            bool closes)
+        {
+            var note = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
+            db.MovementLogs.Add(new MovementLog
+            {
+                Id = Guid.NewGuid(),
+                PermitId = permit.Id,
+                GateId = gate.Id,
+                Direction = direction,
+                EventTime = when,
+                Source = MovementSource.GateOfficer,
+                ManualReason = note,
+                RecordedBy = fullName,
+                createdBy = userName,
+                createdOn = DateTime.Now
+            });
+
+            db.ProceduresMovment.Add(new ProcedureMovment
+            {
+                Id = Guid.NewGuid(),
+                permitId = permit.Id,
+                procedureType = direction == MovementDirection.In ? "entry" : "exit",
+                donedBy = fullName,
+                doneAs = job,
+                shift = "A",
+                doneOn = when,
+                remarks = note,
+                createdBy = userName,
+                createdOn = DateTime.Now
+            });
+
+            if (!closes)
+                return;
+
+            permit.isClosed = true;
+            permit.status = 'C';
+            permit.statusDescription = "منفذ";
+            permit.closeOn = when;
+            permit.updatedBy = userName;
+            permit.updatedOn = DateTime.Now;
+        }
+
+        private static string KindLabel(Permit permit)
+        {
+            var classification = permit.classification?.Trim() ?? "";
+            if (classification.Equals(nameof(PermitClassification.Visitors), StringComparison.OrdinalIgnoreCase) || classification is "زوار" or "تصريح زوار")
+                return "زوار";
+            if (classification.Equals(nameof(PermitClassification.Cars), StringComparison.OrdinalIgnoreCase) || classification is "سيارات" or "مركبات" or "تصريح سيارات")
+                return "مركبات";
+            return "مواد";
+        }
+
+        internal static string GateLabel(Gate? gate)
+        {
+            if (gate == null)
+                return "";
+            var number = gate.no?.Trim() ?? "";
+            var description = gate.description?.Trim() ?? "";
+            if (number.Length == 0)
+                return description;
+            if (description.Length == 0)
+                return number;
+            return number + " - " + description;
+        }
+    }
+}

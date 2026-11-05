@@ -47,6 +47,14 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xMYXlvdXRcTWFpblNoZWxsLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
+[D:/EEMS Project/PMS/PMS.web/Components/Pages/Admin/AccessLevels/AccessLevelEdit.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xBZG1pblxBY2Nlc3NMZXZlbHNcQWNjZXNzTGV2ZWxFZGl0LnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/EEMS Project/PMS/PMS.web/Components/Pages/Admin/AccessLevels/AccessLevelIndex.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xBZG1pblxBY2Nlc3NMZXZlbHNcQWNjZXNzTGV2ZWxJbmRleC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
 [D:/EEMS Project/PMS/PMS.web/Components/Pages/Admin/Gates/GateEdit.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xBZG1pblxHYXRlc1xHYXRlRWRpdC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
@@ -79,6 +87,14 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xJZGVudGl0eVxMb2dvdXQucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
+[D:/EEMS Project/PMS/PMS.web/Components/Pages/Phase1/Devices/BiometricImport.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQaGFzZTFcRGV2aWNlc1xCaW9tZXRyaWNJbXBvcnQucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/EEMS Project/PMS/PMS.web/Components/Pages/Phase1/Devices/DeviceDetails.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQaGFzZTFcRGV2aWNlc1xEZXZpY2VEZXRhaWxzLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
 [D:/EEMS Project/PMS/PMS.web/Components/Pages/Phase1/Devices/DeviceMonitor.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQaGFzZTFcRGV2aWNlc1xEZXZpY2VNb25pdG9yLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
@@ -97,6 +113,10 @@ build_metadata.AdditionalFiles.CssScope =
 
 [D:/EEMS Project/PMS/PMS.web/Components/Pages/Phase1/Employees/EmployeeIndex.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQaGFzZTFcRW1wbG95ZWVzXEVtcGxveWVlSW5kZXgucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/EEMS Project/PMS/PMS.web/Components/Pages/Phase1/Employees/EmployeeRegister.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQaGFzZTFcRW1wbG95ZWVzXEVtcGxveWVlUmVnaXN0ZXIucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
 [D:/EEMS Project/PMS/PMS.web/Components/Pages/Phase1/Movements/MovementLogIndex.razor]

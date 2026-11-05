@@ -140,10 +140,18 @@ namespace Services
             existingPermit.classification = permit.classification;
             existingPermit.type = permit.type;
             existingPermit.reqDepApproval = permit.reqDepApproval;
-           // existingPermit.secuDepApproval = permit.secuDepApproval;
+            existingPermit.secuSectionApproval = permit.secuSectionApproval;
+            existingPermit.PermintsSectionApproval = permit.PermintsSectionApproval;
             existingPermit.GateId = permit.GateId;
             existingPermit.status = permit.status;
+            existingPermit.UnifiedStatus = permit.UnifiedStatus;
             existingPermit.statusDescription = permit.statusDescription;
+            existingPermit.ValidFrom = permit.ValidFrom;
+            existingPermit.ValidTo = permit.ValidTo;
+            existingPermit.WorkflowDefinitionId = permit.WorkflowDefinitionId;
+            existingPermit.remarks = permit.remarks;
+            existingPermit.OrgDescription = permit.OrgDescription;
+            existingPermit.IsTemp = permit.IsTemp;
             existingPermit.isClosed = permit.isClosed;
             existingPermit.closeOn = permit.closeOn;
             existingPermit.moveFrom = permit.moveFrom;
@@ -152,6 +160,8 @@ namespace Services
             existingPermit.phoneNo = permit.phoneNo;
             existingPermit.date = permit.date;
             existingPermit.hourOfEntry = permit.hourOfEntry;
+            existingPermit.ExpectedExecutionTime = permit.ExpectedExecutionTime;
+            existingPermit.ShiftApproval = permit.ShiftApproval;
             existingPermit.updatedOn = DateTime.Now;
             existingPermit.updatedBy = permit.updatedBy;
 
@@ -174,9 +184,13 @@ namespace Services
         {
             var permit = await _unitOfWork.Permits
        .GetQueryable()                
-       .Include(p => p.Cars)         
+       .Include(p => p.Cars)
        .Include(p => p.EquipmentsAndMatirials)
        .Include(p => p.Procedures)
+       .Include(p => p.EquipmentDetail)
+                .Include(p => p.Approvals)
+                    .ThenInclude(a => a.WorkflowStep)
+                .Include(p => p.Gate)
 
        .FirstOrDefaultAsync(p => p.Id == PermitId);
 
@@ -226,33 +240,34 @@ namespace Services
         {
             return wordToMapp switch
             {
-                // ??? ???????
-                "Export" => "???????",
-                "Import" => "???????",
-                "ExtractAndInsert" => "???????",
+                "Export" => "استخراج",
+                "Import" => "إدخال",
+                "ExtractAndInsert" => "استخراج وإدخال",
 
-                // ????? ???????
-                "Materials" => "???? ????",
-                "Visitors" => "????? ????",
-                "Cars" => "??????",
+                "Materials" => "تصريح مواد",
+                "Visitors" => "تصريح زوار",
+                "Cars" => "سيارات",
 
-                // ???? ???????
-                "A" => "?????",
-                "J" => "?????",
-                "R" => "????",
-                "C" => "????/ ?? ???????",
-                "D" => "?????",
-                "I" => "??? ????????",
+                "A" => "معتمد",
+                "J" => "مرفوض",
+                "R" => "مرجع",
+                "C" => "منفذ",
+                "D" => "ملغي",
+                "I" => "تحت الاعتماد",
 
-                // ??????? ??????
-                "Insert" => "?????",
-                "Update" => "?????",
-                "approve" => "??????",
-                "reject" => "???",
-                "return" => "?????",
-                "close" => "?????",
+                "Insert" => "أدخله",
+                "submit" => "أحاله للاعتماد",
+                "Update" => "عدله",
+                "approve" => "اعتمده",
+                "reject" => "رفضه",
+                "return" => "أرجعه",
+                "close" => "نفّذه",
+                "entry" => "سجّل دخوله",
+                "exit" => "سجّل خروجه",
+                "Delete" => "ألغاه",
+                "delete" => "ألغاه",
 
-                _ => "??? ?????",
+                _ => string.IsNullOrWhiteSpace(wordToMapp) ? "—" : wordToMapp,
             };
         }
 

@@ -1,10 +1,226 @@
 @page "/permits/approve"
 @rendermode InteractiveServer
-@using PMS.web.Components.Shared
+@inject IMaterialPermitService MaterialPermits
+@inject IPermitExecutionService Execution
+@inject IWorkflowEngine Workflow
+@inject IDepartmentService DepartmentService
+@inject UserManager<User> UserManager
+@inject AuthenticationStateProvider AuthProvider
+@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.Identity
+@using Core.Common
 
 <PageTitle>اعتماد تصريح - PMS</PageTitle>
 
-<PlaceholderPage Title="اعتماد تصريح"
-                 Icon="fas fa-stamp"
-                 Description="قائمة التصاريح المعلّقة واعتمادها أو رفضها وفق مسار الاعتماد (WorkflowSteps / PermitApprovals)."
-                 Message="الشاشة قيد التجهيز. ستعرض الطلبات حسب دور المعتمد الحالي وSLA الاعتماد." />
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h3 class="mb-0"><i class="bi bi-stamp text-warning"></i> اعتماد التصاريح</h3>
+</div>
+<p class="text-muted">التصاريح التي تنتظر اعتمادك في خطوتك الحالية من مسار الاعتماد.</p>
+
+@if (!string.IsNullOrEmpty(message))
+{
+    <div class="alert @(messageOk ? "alert-success" : "alert-danger")">@message</div>
+}
+
+@if (loading)
+{
+    <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+}
+else if (rows.Count == 0)
+{
+    <div class="pms-placeholder">
+        <i class="bi bi-check2-circle"></i>
+        <h5>لا توجد تصاريح بانتظار اعتمادك</h5>
+    </div>
+}
+else
+{
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>رقم التصريح</th>
+                        <th>نوع التصريح</th>
+                        <th>الغرض</th>
+                        <th>الجهة الطالبة</th>
+                        <th>تاريخ التصريح</th>
+                        <th>خطوة الاعتماد</th>
+                        <th>الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in rows)
+                    {
+                        <tr>
+                            <td class="fw-bold">@row.Permit.no</td>
+                            <td>@row.TypeLabel</td>
+                            <td>@(string.IsNullOrWhiteSpace(row.Permit.EquipmentDetail?.Description) ? "—" : row.Permit.EquipmentDetail!.Description)</td>
+                            <td>@DepartmentName(row.Permit.reqDepartment)</td>
+                            <td>@row.Permit.date.ToString("yyyy/MM/dd")</td>
+                            <td>@row.StepLabel</td>
+                            <td class="text-nowrap">
+                                <a class="btn btn-sm btn-info" href="@ReturnUrl.Go(Navigation, $"/permits/materials/view/{row.Permit.Id}")">
+                                    <i class="bi bi-eye"></i> عرض التفاصيل
+                                </a>
+                                @if (row.StepType == WorkflowStepType.GuardSection)
+                                {
+                                    <select class="form-select form-select-sm d-inline-block w-auto align-middle"
+                                            value="@GateValue(row.Permit.Id)"
+                                            @onchange="e => SetGate(row.Permit.Id, e)">
+                                        <option value="">بوابة التنفيذ</option>
+                                        @foreach (var gate in gates)
+                                        {
+                                            <option value="@gate.Id">@GateText(gate)</option>
+                                        }
+                                    </select>
+                                }
+                                <button class="btn btn-sm btn-success" disabled="@busy" @onclick="() => DecideAsync(row, ApprovalDecision.Approved)">
+                                    اعتماد
+                                </button>
+                                <button class="btn btn-sm btn-secondary" disabled="@busy" @onclick="() => DecideAsync(row, ApprovalDecision.Returned)">
+                                    ترجيع
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    private bool loading = true;
+    private bool busy;
+    private bool messageOk;
+    private string? message;
+    private User? currentUser;
+    private List<InboxRow> rows = new();
+    private List<Gate> gates = new();
+    private Dictionary<Guid, string> gateChoice = new();
+    private Dictionary<string, string> departmentNames = new(StringComparer.OrdinalIgnoreCase);
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var userName = authState.User.Identity?.Name;
+        currentUser = userName != null ? await UserManager.FindByNameAsync(userName) : null;
+        rows = new();
+        if (currentUser == null)
+        {
+            loading = false;
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(currentUser.ResponsibilityCode))
+        {
+            var departments = await DepartmentService.GetDepartmentsByResponsibilityAsync(currentUser.ResponsibilityCode);
+            foreach (var department in departments)
+            {
+                if (!string.IsNullOrWhiteSpace(department.RespCode))
+                    departmentNames[department.RespCode.Trim()] = department.DepartmentName ?? department.RespCode;
+            }
+        }
+
+        try
+        {
+            gates = await Execution.GetActiveGatesAsync();
+        }
+        catch (Exception ex)
+        {
+            messageOk = false;
+            message = "تعذر تحميل البوابات: " + ex.Message;
+            loading = false;
+            return;
+        }
+
+        var permits = await MaterialPermits.GetInboxAsync(currentUser);
+        foreach (var permit in permits)
+        {
+            var step = await Workflow.GetCurrentStepAsync(permit.Id);
+            if (!gateChoice.ContainsKey(permit.Id))
+                gateChoice[permit.Id] = "";
+            rows.Add(new InboxRow(
+                permit,
+                TypeLabel(permit.classification),
+                step == null ? "—" : ApprovalPathCatalog.Label(step.StepType),
+                step?.StepType));
+        }
+
+        loading = false;
+    }
+
+    private async Task DecideAsync(InboxRow row, ApprovalDecision decision)
+    {
+        if (currentUser == null || busy)
+            return;
+
+        Guid? gateId = null;
+        if (decision == ApprovalDecision.Approved && row.StepType == WorkflowStepType.GuardSection)
+        {
+            if (!Guid.TryParse(GateValue(row.Permit.Id), out var parsed))
+            {
+                messageOk = false;
+                message = "حدد بوابة التنفيذ قبل الاعتماد.";
+                return;
+            }
+            gateId = parsed;
+        }
+
+        message = null;
+        busy = true;
+        try
+        {
+            await MaterialPermits.DecideAsync(row.Permit.Id, currentUser, decision, null, gateId);
+            messageOk = true;
+            message = decision == ApprovalDecision.Returned ? "تم ترجيع التصريح." : "تم اعتماد التصريح.";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            messageOk = false;
+            message = ex.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private string DepartmentName(string? code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            return "—";
+        return departmentNames.TryGetValue(code.Trim(), out var name) && !string.IsNullOrWhiteSpace(name)
+            ? name
+            : code;
+    }
+
+    private static string TypeLabel(string? classification)
+    {
+        if (Enum.TryParse<PermitClassification>(classification, out var kind))
+            return ApprovalPathCatalog.ClassificationTitle(kind);
+        return string.IsNullOrWhiteSpace(classification) ? "—" : classification;
+    }
+
+    private string GateValue(Guid permitId) =>
+        gateChoice.TryGetValue(permitId, out var value) ? value : "";
+
+    private void SetGate(Guid permitId, ChangeEventArgs args) =>
+        gateChoice[permitId] = args.Value?.ToString() ?? "";
+
+    private static string GateText(Gate gate)
+    {
+        var number = gate.no?.Trim() ?? "";
+        var description = gate.description?.Trim() ?? "";
+        if (number.Length == 0)
+            return description;
+        return description.Length == 0 ? number : number + " - " + description;
+    }
+
+    private sealed record InboxRow(Permit Permit, string TypeLabel, string StepLabel, WorkflowStepType? StepType);
+}
