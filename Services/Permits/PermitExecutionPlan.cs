@@ -56,20 +56,62 @@ namespace Services.Permits
             return false;
         }
 
-        public static bool ShouldAutoCloseExit(Permit permit, IReadOnlyList<MovementLog> movements, DateTime now)
+        /// <summary>
+        /// A visitor entered without leaving, or an internal vehicle left without returning.
+        /// After the validity date these stay open for the gate officer.
+        /// </summary>
+        public static bool ShouldKeepOpenAfterValidity(Permit permit, IReadOnlyList<MovementLog> movements)
         {
-            if (!string.Equals(permit.type, nameof(EnumPermitType.ExtractAndInsert), StringComparison.OrdinalIgnoreCase))
-                return false;
             if (permit.isClosed || permit.status is 'C' or 'D')
                 return false;
+            if (IsMaterials(permit.classification))
+                return false;
+            return HasOpenMovement(permit, movements);
+        }
 
-            var entry = movements.Where(m => m.Direction == MovementDirection.In).OrderBy(m => m.EventTime).FirstOrDefault();
-            var hasExit = movements.Any(m => m.Direction == MovementDirection.Out);
-            if (entry == null || hasExit)
+        /// <summary>
+        /// Extract-and-insert materials recorded an entry and not the exit.
+        /// Import-only and export-only finish on their single movement.
+        /// </summary>
+        public static bool MaterialsEntryWithoutExit(Permit permit, IReadOnlyList<MovementLog> movements)
+        {
+            if (!IsMaterials(permit.classification))
+                return false;
+            if (!string.Equals(permit.type, nameof(EnumPermitType.ExtractAndInsert), StringComparison.OrdinalIgnoreCase))
                 return false;
 
-            var closeAt = now.Date.AddHours(1);
-            return now >= closeAt && entry.EventTime < closeAt;
+            var ins = movements.Count(m => m.Direction == MovementDirection.In);
+            var outs = movements.Count(m => m.Direction == MovementDirection.Out);
+            return ins > 0 && outs < ins;
+        }
+
+        /// <summary>Gate that recorded the movement still waiting to be closed.</summary>
+        public static Guid? OpenMovementGate(Permit permit, IReadOnlyList<MovementLog> movements)
+        {
+            if (!HasOpenMovement(permit, movements))
+                return null;
+
+            var classification = permit.classification?.Trim() ?? "";
+            if (IsVisitors(classification))
+            {
+                var entry = movements.Where(m => m.Direction == MovementDirection.In).OrderByDescending(m => m.EventTime).FirstOrDefault();
+                return entry?.GateId is Guid gate && gate != Guid.Empty ? gate : null;
+            }
+
+            var exit = movements.Where(m => m.Direction == MovementDirection.Out).OrderByDescending(m => m.EventTime).FirstOrDefault();
+            return exit?.GateId is Guid exitGate && exitGate != Guid.Empty ? exitGate : null;
+        }
+
+        public static bool HasOpenMovement(Permit permit, IReadOnlyList<MovementLog> movements)
+        {
+            var classification = permit.classification?.Trim() ?? "";
+            var ins = movements.Count(m => m.Direction == MovementDirection.In);
+            var outs = movements.Count(m => m.Direction == MovementDirection.Out);
+            if (IsVisitors(classification))
+                return ins > 0 && outs < ins;
+            if (IsCars(classification) && permit.VehicleDetail?.InternalUse != false)
+                return outs > ins;
+            return false;
         }
 
         private static PermitExecutionStep Visitor(int ins, int outs)
@@ -130,7 +172,7 @@ namespace Services.Permits
                 if (ins == 0)
                 {
                     return Open(MovementDirection.In, "تنفيذ الإدخال",
-                        "يبقى الإخراج مفتوحاً ليُقفل يدوياً، أو آلياً عند الساعة 1:00 صباحاً.",
+                        "يبقى الإخراج مفتوحاً حتى يُقفل يدوياً. إذا انتهى السريان قبل تسجيل الخروج يُغلق التصريح، وتُعد الجهة الطالبة تصريح استخراج.",
                         "بانتظار تنفيذ الإدخال");
                 }
 
@@ -178,6 +220,13 @@ namespace Services.Permits
 
         private static PermitExecutionStep Done(string progress) =>
             new() { Completed = true, Progress = progress };
+
+        private static bool IsMaterials(string? classification)
+        {
+            var value = classification?.Trim() ?? "";
+            return value.Equals(nameof(PermitClassification.Materials), StringComparison.OrdinalIgnoreCase)
+                || value is "مواد" or "تصريح مواد";
+        }
 
         private static bool IsVisitors(string classification) =>
             classification.Equals(nameof(PermitClassification.Visitors), StringComparison.OrdinalIgnoreCase)

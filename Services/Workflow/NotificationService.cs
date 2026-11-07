@@ -10,11 +10,13 @@ namespace Services.Workflow
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IDbContextFactory<DataContext> _dbFactory;
+        private readonly ILiveNoticeHub _live;
 
-        public NotificationService(IUnitOfWork unitOfWork, IDbContextFactory<DataContext> dbFactory)
+        public NotificationService(IUnitOfWork unitOfWork, IDbContextFactory<DataContext> dbFactory, ILiveNoticeHub live)
         {
             _unitOfWork = unitOfWork;
             _dbFactory = dbFactory;
+            _live = live;
         }
 
         public async Task<List<Notification>> GetForUserAsync(string userId, bool unreadOnly = false)
@@ -61,6 +63,7 @@ namespace Services.Workflow
 
             _unitOfWork.Notifications.Insert(notification);
             await _unitOfWork.SaveAsync();
+            _live.Publish(new LiveNotice(userId, notification.Title, notification.Body, relatedPermitId));
         }
 
         public async Task NotifyDeviceAdminsAsync(string title, string body, Guid? relatedReaderId = null)

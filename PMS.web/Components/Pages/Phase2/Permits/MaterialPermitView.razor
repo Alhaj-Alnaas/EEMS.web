@@ -27,7 +27,7 @@ else if (permit == null)
 else
 {
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <h3><i class="bi bi-eye-fill text-warning"></i> تصريح رقم: @permit.no</h3>
+        <h3><i class="bi bi-eye-fill text-warning"></i> تصريح رقم: <bdi dir="ltr">@permit.no</bdi></h3>
         <div class="d-flex gap-2 flex-wrap">
             <BackLink Fallback="/permits">العودة للقائمة</BackLink>
             <a class="btn btn-outline-secondary" href="/legacy/Permit/PrintPermitPdf?permitId=@permit.Id" target="_blank">
@@ -99,56 +99,60 @@ else
 
     <div class="row g-3">
         <div class="col-md-4">
-            <div class="card">
+            <div class="card pms-facts-card">
                 <div class="card-header pms-header">البيانات الأساسية</div>
-                <div class="card-body">
-                    <dl class="row mb-0">
-                        <dt class="col-6">التصنيف</dt><dd class="col-6">@ClassificationTitle(permit.classification)</dd>
-                        <dt class="col-6">النوع</dt><dd class="col-6">@(permit.type?.ToEnumDescription<EnumPermitType>())</dd>
-                        <dt class="col-6">الجهة الطالبة</dt><dd class="col-6">@departmentName</dd>
-                        @if (!IsVisitors(permit))
+                <div class="pms-facts">
+                    <div class="pms-fact"><div class="pms-fact-label">التصنيف</div><div class="pms-fact-value">@ClassificationTitle(permit.classification)</div></div>
+                    @if (IsMaterials(permit))
+                    {
+                        <div class="pms-fact"><div class="pms-fact-label">نوع التصريح</div><div class="pms-fact-value">@Show(permit.type?.ToEnumDescription<EnumPermitType>())</div></div>
+                    }
+                    <div class="pms-fact"><div class="pms-fact-label">الجهة الطالبة</div><div class="pms-fact-value">@Show(departmentName)</div></div>
+                    @if (!IsVisitors(permit))
+                    {
+                        <div class="pms-fact"><div class="pms-fact-label">الجهة المصرح لها</div><div class="pms-fact-value">@Show(permit.OrgDescription)</div></div>
+                    }
+                    <div class="pms-fact"><div class="pms-fact-label">تصريح مؤقت</div><div class="pms-fact-value">@(permit.IsTemp ? "نعم" : "لا")</div></div>
+                    <div class="pms-fact"><div class="pms-fact-label">التاريخ</div><div class="pms-fact-value">@permit.date.ToString("yyyy/MM/dd")</div></div>
+                    @if (!IsVisitors(permit))
+                    {
+                        <div class="pms-fact"><div class="pms-fact-label">الوقت</div><div class="pms-fact-value">@Show(permit.hourOfEntry)</div></div>
+                        <div class="pms-fact"><div class="pms-fact-label">قادم من</div><div class="pms-fact-value">@Show(permit.moveFrom)</div></div>
+                        <div class="pms-fact"><div class="pms-fact-label">ذاهب إلى</div><div class="pms-fact-value">@Show(permit.moveTo)</div></div>
+                    }
+                    <div class="pms-fact"><div class="pms-fact-label">الهاتف</div><div class="pms-fact-value">@Show(permit.phoneNo)</div></div>
+                    <div class="pms-fact">
+                        <div class="pms-fact-label">الحالة</div>
+                        <div class="pms-fact-value"><span class="badge @ListCss()">@StatusText()</span></div>
+                    </div>
+                    <div class="pms-fact"><div class="pms-fact-label">بداية السريان</div><div class="pms-fact-value">@ShowDate(permit.ValidFrom)</div></div>
+                    <div class="pms-fact"><div class="pms-fact-label">نهاية السريان</div><div class="pms-fact-value">@ShowDate(permit.ValidTo)</div></div>
+                    @if (!IsVisitors(permit))
+                    {
+                        <div class="pms-fact"><div class="pms-fact-label">الوقت المتوقع للتنفيذ</div><div class="pms-fact-value">@Show(permit.ExpectedExecutionTime)</div></div>
+                    }
+                    <div class="pms-fact"><div class="pms-fact-label">اعتماد مناوب</div><div class="pms-fact-value">@(permit.ShiftApproval ? "نعم" : "لا")</div></div>
+                    <div class="pms-fact"><div class="pms-fact-label">بوابة التنفيذ</div><div class="pms-fact-value">@GateText(permit.Gate)</div></div>
+                    <div class="pms-fact"><div class="pms-fact-label">الغرض من التصريح</div><div class="pms-fact-value">@Show(PermitText.Purpose(permit))</div></div>
+                    @if (IsCars(permit))
+                    {
+                        <div class="pms-fact"><div class="pms-fact-label">الاستخدام</div><div class="pms-fact-value">@(permit.VehicleDetail?.InternalUse == false ? "حركة واحدة" : "استخدام داخلي")</div></div>
+                        @if (permit.VehicleDetail?.InternalUse != false)
                         {
-                            <dt class="col-6">الجهة المصرح لها</dt><dd class="col-6">@permit.OrgDescription</dd>
+                            <div class="pms-fact"><div class="pms-fact-label">عدد الرحلات</div><div class="pms-fact-value">@Math.Max(1, permit.VehicleDetail?.TripCount ?? 1)</div></div>
                         }
-                        <dt class="col-6">تصريح مؤقت</dt><dd class="col-6">@(permit.IsTemp ? "نعم" : "لا")</dd>
-                        <dt class="col-6">التاريخ</dt><dd class="col-6">@permit.date.ToString("yyyy/MM/dd")</dd>
-                        @if (!IsVisitors(permit))
-                        {
-                            <dt class="col-6">الوقت</dt><dd class="col-6">@permit.hourOfEntry</dd>
-                            <dt class="col-6">قادم من</dt><dd class="col-6">@permit.moveFrom</dd>
-                            <dt class="col-6">ذاهب إلى</dt><dd class="col-6">@permit.moveTo</dd>
-                        }
-                        <dt class="col-6">الهاتف</dt><dd class="col-6">@permit.phoneNo</dd>
-                        <dt class="col-6">الحالة</dt><dd class="col-6">@StatusText()</dd>
-                        <dt class="col-6">بداية السريان</dt><dd class="col-6">@permit.ValidFrom?.ToString("yyyy/MM/dd")</dd>
-                        <dt class="col-6">نهاية السريان</dt><dd class="col-6">@permit.ValidTo?.ToString("yyyy/MM/dd")</dd>
-                        @if (!IsVisitors(permit))
-                        {
-                            <dt class="col-6">الوقت المتوقع للتنفيذ</dt><dd class="col-6">@(string.IsNullOrWhiteSpace(permit.ExpectedExecutionTime) ? "—" : permit.ExpectedExecutionTime)</dd>
-                        }
-                        <dt class="col-6">اعتماد مناوب</dt><dd class="col-6">@(permit.ShiftApproval ? "نعم" : "لا")</dd>
-                        <dt class="col-6">بوابة التنفيذ</dt><dd class="col-6">@GateText(permit.Gate)</dd>
-                        <dt class="col-6">الغرض من التصريح</dt><dd class="col-6">@(string.IsNullOrWhiteSpace(PermitText.Purpose(permit)) ? "—" : PermitText.Purpose(permit))</dd>
-                        @if (IsCars(permit))
-                        {
-                            <dt class="col-6">الاستخدام</dt><dd class="col-6">@(permit.VehicleDetail?.InternalUse == false ? "حركة واحدة" : "استخدام داخلي")</dd>
-                            @if (permit.VehicleDetail?.InternalUse != false)
-                            {
-                                <dt class="col-6">عدد الرحلات</dt><dd class="col-6">@Math.Max(1, permit.VehicleDetail?.TripCount ?? 1)</dd>
-                            }
-                        }
-                        @if (IsVisitors(permit))
-                        {
-                            <dt class="col-6">الداعي</dt><dd class="col-6">@permit.VisitorDetail?.HostName</dd>
-                            <dt class="col-6">رقم الملف</dt><dd class="col-6">@permit.VisitorDetail?.HostFileNumber</dd>
-                            <dt class="col-6">جهة الداعي</dt><dd class="col-6">@permit.VisitorDetail?.HostDepartment</dd>
-                            <dt class="col-6">جهة الزائر</dt><dd class="col-6">@permit.OrgDescription</dd>
-                            <dt class="col-6">ساعة الزيارة</dt><dd class="col-6">@permit.VisitorDetail?.ExpectedVisitTime</dd>
-                            <dt class="col-6">ساعة المغادرة</dt><dd class="col-6">@permit.VisitorDetail?.ExpectedDepartureTime</dd>
-                        }
-                        <dt class="col-6">خطوة الاعتماد</dt><dd class="col-6">@StepText()</dd>
-                        <dt class="col-6">ملاحظات</dt><dd class="col-6">@permit.remarks</dd>
-                    </dl>
+                    }
+                    @if (IsVisitors(permit))
+                    {
+                        <div class="pms-fact"><div class="pms-fact-label">الداعي</div><div class="pms-fact-value">@Show(permit.VisitorDetail?.HostName)</div></div>
+                        <div class="pms-fact"><div class="pms-fact-label">رقم الملف</div><div class="pms-fact-value">@Show(permit.VisitorDetail?.HostFileNumber)</div></div>
+                        <div class="pms-fact"><div class="pms-fact-label">جهة الداعي</div><div class="pms-fact-value">@Show(permit.VisitorDetail?.HostDepartment)</div></div>
+                        <div class="pms-fact"><div class="pms-fact-label">جهة الزائر</div><div class="pms-fact-value">@Show(permit.OrgDescription)</div></div>
+                        <div class="pms-fact"><div class="pms-fact-label">ساعة الزيارة</div><div class="pms-fact-value">@Show(permit.VisitorDetail?.ExpectedVisitTime)</div></div>
+                        <div class="pms-fact"><div class="pms-fact-label">ساعة المغادرة</div><div class="pms-fact-value">@Show(permit.VisitorDetail?.ExpectedDepartureTime)</div></div>
+                    }
+                    <div class="pms-fact"><div class="pms-fact-label">خطوة الاعتماد</div><div class="pms-fact-value">@StepText()</div></div>
+                    <div class="pms-fact"><div class="pms-fact-label">ملاحظات</div><div class="pms-fact-value">@Show(permit.remarks)</div></div>
                 </div>
             </div>
         </div>
@@ -215,7 +219,7 @@ else
             <div class="card">
                 <div class="card-header pms-header">سجل الإجراءات</div>
                 <div class="table-responsive">
-                    <table class="table mb-0">
+                    <table class="table table-sm mb-0 pms-actions">
                         <thead><tr><th>الإجراء</th><th>بواسطة</th><th>التاريخ</th><th>ملاحظة</th></tr></thead>
                         <tbody>
                             @foreach (var row in actionRows)
@@ -441,6 +445,12 @@ else
         return StatusMapper.ListStatus(permit).Label;
     }
 
+    private string ListCss() => permit == null ? "" : StatusMapper.ListStatus(permit).Css;
+
+    private static string Show(string? value) => string.IsNullOrWhiteSpace(value) ? "—" : value.Trim();
+
+    private static string ShowDate(DateTime? value) => value?.ToString("yyyy/MM/dd") ?? "—";
+
     private async Task CancelAsync()
     {
         if (permit == null || currentUser == null) return;
@@ -465,6 +475,13 @@ else
         if (permit != null && ShiftDuty.IsPending(permit))
             return ShiftDuty.StepLabel;
         return currentStep == null ? "—" : currentStep.StepType.GetDescription();
+    }
+
+    private static bool IsMaterials(Permit item)
+    {
+        var classification = item.classification?.Trim() ?? "";
+        return classification.Equals(nameof(PermitClassification.Materials), StringComparison.OrdinalIgnoreCase)
+            || classification is "مواد" or "تصريح مواد";
     }
 
     private static bool IsVisitors(Permit item) =>
@@ -494,7 +511,7 @@ else
             rows.Add(new ActionRow(
                 step.doneOn ?? DateTime.MinValue,
                 ActionLabel(step.procedureType),
-                step.donedBy ?? "—",
+                Actor(step.donedBy, step.doneAs),
                 step.doneOn?.ToString("yyyy/MM/dd HH:mm") ?? "",
                 step.remarks ?? ""));
         }
@@ -516,7 +533,9 @@ else
             if (!string.IsNullOrWhiteSpace(approval.ApproverUserId))
             {
                 var approver = await UserManager.FindByIdAsync(approval.ApproverUserId);
-                who = string.IsNullOrWhiteSpace(approver?.FullName) ? approval.ApproverUserId : approver!.FullName;
+                who = approver == null
+                    ? approval.ApproverUserId
+                    : Actor(approver.FullName, approver.JobtypeName);
             }
 
             rows.Add(new ActionRow(approval.DecidedOn, verb, who, when, approval.Comment ?? ""));
@@ -535,10 +554,30 @@ else
         "return" => "أرجعه",
         "delete" => "ألغاه",
         "close" => "نفّذه",
+        "expire" => "أغلقه",
         "entry" => "سجّل دخوله",
         "exit" => "سجّل خروجه",
         _ => string.IsNullOrWhiteSpace(procedureType) ? "—" : procedureType
     };
+
+    private static string Actor(string? fullName, string? role)
+    {
+        var name = ShortName(fullName);
+        var title = role?.Trim();
+        if (name == "—" || string.IsNullOrWhiteSpace(title) || title == name)
+            return name;
+        return name + " — " + title;
+    }
+
+    private static string ShortName(string? fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+            return "—";
+        var parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length <= 2)
+            return string.Join(' ', parts);
+        return parts[0] + " " + parts[^1];
+    }
 
     private static string Readable(string? value) =>
         string.IsNullOrWhiteSpace(value) ? "—" : value.Replace('_', ' ');

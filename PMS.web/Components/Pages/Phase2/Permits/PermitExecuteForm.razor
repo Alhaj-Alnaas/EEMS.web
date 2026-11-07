@@ -38,8 +38,11 @@ else
                 <div class="card-body">
                     <dl class="row mb-0">
                         <dt class="col-5">الرقم</dt><dd class="col-7">@permit.no</dd>
-                        <dt class="col-5">النوع</dt><dd class="col-7">@KindLabel(permit)</dd>
-                        <dt class="col-5">التصنيف</dt><dd class="col-7">@TypeLabel(permit)</dd>
+                        <dt class="col-5">التصنيف</dt><dd class="col-7">@KindLabel(permit)</dd>
+                        @if (IsMaterials(permit))
+                        {
+                            <dt class="col-5">نوع التصريح</dt><dd class="col-7">@TypeLabel(permit)</dd>
+                        }
                         <dt class="col-5">التاريخ</dt><dd class="col-7">@permit.date.ToString("yyyy/MM/dd")</dd>
                         <dt class="col-5">الحالة</dt><dd class="col-7">@step.Progress</dd>
                         @if (permit.VehicleDetail != null && permit.VehicleDetail.InternalUse)
@@ -357,6 +360,13 @@ else
         if (IsCars(permit))
             return "المركبة المصرح لها";
         return "المواد والمعدات المصرح بها";
+    }
+
+    private static bool IsMaterials(Permit permit)
+    {
+        var classification = permit.classification?.Trim() ?? "";
+        return classification.Equals(nameof(PermitClassification.Materials), StringComparison.OrdinalIgnoreCase)
+            || classification is "مواد" or "تصريح مواد";
     }
 
     private static bool IsVisitors(Permit permit) =>

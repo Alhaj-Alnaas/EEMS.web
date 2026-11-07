@@ -1,3 +1,4 @@
+using Core.Common;
 using Core.Entities;
 using Core.Interfaces.Services.Permits;
 using Core.Interfaces.Services.Workflow;
@@ -12,11 +13,16 @@ namespace Services.Permits
     {
         private readonly IDbContextFactory<DataContext> _dbFactory;
         private readonly INotificationService _notifications;
+        private readonly IPermitNotifier _notifier;
 
-        public PermitExecutionService(IDbContextFactory<DataContext> dbFactory, INotificationService notifications)
+        public PermitExecutionService(
+            IDbContextFactory<DataContext> dbFactory,
+            INotificationService notifications,
+            IPermitNotifier notifier)
         {
             _dbFactory = dbFactory;
             _notifications = notifications;
+            _notifier = notifier;
         }
 
         public async Task<List<Gate>> GetActiveGatesAsync()
@@ -94,19 +100,28 @@ namespace Services.Permits
                 .ToListAsync();
             var linkedSet = linked.ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-            var executable = rows.Where(row => row.PassedGuard
+            var ids = rows.Select(r => r.Permit.Id).ToList();
+            var moves = ids.Count == 0
+                ? new List<MovementLog>()
+                : await db.MovementLogs.AsNoTracking()
+                    .Where(m => m.PermitId != null && ids.Contains(m.PermitId.Value) && m.Source == MovementSource.GateOfficer)
+                    .ToListAsync();
+            var byPermit = moves.GroupBy(m => m.PermitId!.Value).ToDictionary(g => g.Key, g => (IReadOnlyList<MovementLog>)g.ToList());
+
+            var executable = rows.Where(row =>
+            {
+                var list = byPermit.TryGetValue(row.Permit.Id, out var found) ? found : Array.Empty<MovementLog>();
+                var openGate = PermitExecutionPlan.OpenMovementGate(row.Permit, list);
+                if (openGate != null)
+                    return openGate == gateId;
+                return row.PassedGuard
                     ? row.Permit.GateId == gateId
-                    : linkedSet.Contains(row.Permit.classification ?? ""))
-                .ToList();
+                    : linkedSet.Contains(row.Permit.classification ?? "");
+            }).ToList();
 
             if (executable.Count == 0)
                 return executable;
 
-            var ids = executable.Select(r => r.Permit.Id).ToList();
-            var moves = await db.MovementLogs.AsNoTracking()
-                .Where(m => m.PermitId != null && ids.Contains(m.PermitId.Value) && m.Source == MovementSource.GateOfficer)
-                .ToListAsync();
-            var byPermit = moves.GroupBy(m => m.PermitId!.Value).ToDictionary(g => g.Key, g => (IReadOnlyList<MovementLog>)g.ToList());
             foreach (var row in executable)
             {
                 var step = PermitExecutionPlan.Next(row.Permit, byPermit.TryGetValue(row.Permit.Id, out var list) ? list : Array.Empty<MovementLog>());
@@ -242,6 +257,11 @@ namespace Services.Permits
 
             Record(db, permit, gate, step.Direction, when, notes, user.FullName, user.UserName, user.JobtypeName, step.ClosesPermit);
             await db.SaveChangesAsync();
+            await _notifier.NotifyAsync(
+                permit,
+                "تنفيذ تصريح",
+                PermitNoticeText.Executed(permit.no, step.Direction == MovementDirection.In, when, step.ClosesPermit),
+                user.Id);
         }
 
         public async Task<List<OpenPermitAlert>> GetOverdueAsync()
@@ -251,8 +271,20 @@ namespace Services.Permits
             var result = new List<OpenPermitAlert>();
             foreach (var permit in permits)
             {
-                if (!PermitExecutionPlan.IsOverdue(permit, MovesOf(permit), now, out var since, out var waiting))
+                var moves = MovesOf(permit);
+                var pastValidity = permit.ValidTo != null && permit.ValidTo.Value.Date < now.Date;
+                var overdue = PermitExecutionPlan.IsOverdue(permit, moves, now, out var since, out var waiting);
+                var suspended = pastValidity && PermitExecutionPlan.ShouldKeepOpenAfterValidity(permit, moves);
+                if (!overdue && !suspended)
                     continue;
+                if (!overdue)
+                {
+                    var openMove = moves.OrderByDescending(m => m.EventTime).FirstOrDefault();
+                    since = openMove?.EventTime ?? permit.ValidTo ?? now;
+                    waiting = PermitExecutionPlan.HasOpenMovement(permit, moves) && IsVisitors(permit)
+                        ? "تسجيل ساعة الخروج"
+                        : "تسجيل ساعة الدخول";
+                }
 
                 result.Add(new OpenPermitAlert
                 {
@@ -278,29 +310,101 @@ namespace Services.Permits
                 .Where(p => !p.isDeleted && !p.isClosed && p.status != 'C' && p.status != 'D' && p.status == 'A')
                 .ToListAsync();
 
+            var expiry = await CloseExpiredAsync(db, now);
+            await db.SaveChangesAsync();
+            foreach (var permit in expiry.Closed)
+                await _notifier.NotifyAsync(permit, "إغلاق تصريح", PermitNoticeText.Expired(permit.no));
+            foreach (var permit in expiry.MaterialsClosed)
+                await _notifier.NotifyAsync(permit, "إغلاق تصريح", PermitNoticeText.MaterialsLeftOpen(permit.no));
+            await NotifySuspendedAsync(expiry.Suspended);
+            await NotifyOverdueAsync(permits, now);
+        }
+
+        private async Task NotifySuspendedAsync(List<Permit> permits)
+        {
+            const string title = "تصريح معلق بعد انتهاء السريان";
             foreach (var permit in permits)
             {
+                await using var db = await _dbFactory.CreateDbContextAsync();
+                var already = await db.Notifications.AsNoTracking().AnyAsync(n =>
+                    n.RelatedPermitId == permit.Id && n.Title == title && !n.isDeleted);
+                if (already)
+                    continue;
+
+                var body = IsVisitors(permit)
+                    ? PermitNoticeText.VisitorStillInside(permit.no)
+                    : PermitNoticeText.VehicleStillOut(permit.no);
+                var officials = await OfficialIdsAsync(db, permit);
+                await _notifier.NotifyAsync(permit, title, body, alsoUserIds: officials);
+            }
+        }
+
+        private sealed class ExpiryResult
+        {
+            public List<Permit> Closed { get; } = new();
+            public List<Permit> MaterialsClosed { get; } = new();
+            public List<Permit> Suspended { get; } = new();
+        }
+
+        private static async Task<ExpiryResult> CloseExpiredAsync(DataContext db, DateTime now)
+        {
+            var today = now.Date;
+            var expired = await db.Permits
+                .Include(p => p.VehicleDetail)
+                .Include(p => p.MovementLogs)
+                .Where(p => !p.isDeleted
+                    && !p.isClosed
+                    && p.status != 'C'
+                    && p.status != 'D'
+                    && p.status != 'J'
+                    && p.ValidTo != null
+                    && p.ValidTo.Value.Date < today)
+                .ToListAsync();
+
+            var result = new ExpiryResult();
+            foreach (var permit in expired)
+            {
                 var moves = MovesOf(permit);
-                if (!PermitExecutionPlan.ShouldAutoCloseExit(permit, moves, now))
+                var active = permit.status == 'A'
+                    || permit.UnifiedStatus == nameof(UnifiedPermitStatus.Active)
+                    || permit.UnifiedStatus == nameof(UnifiedPermitStatus.Approved);
+                if (active && PermitExecutionPlan.ShouldKeepOpenAfterValidity(permit, moves))
+                {
+                    result.Suspended.Add(permit);
                     continue;
+                }
 
-                var entry = moves.Where(m => m.Direction == MovementDirection.In).OrderBy(m => m.EventTime).First();
-                var gateId = entry.GateId != Guid.Empty ? entry.GateId : permit.GateId;
-                if (gateId == null || gateId == Guid.Empty)
-                    continue;
-
-                var gate = await db.Gates.AsNoTracking().FirstOrDefaultAsync(g => g.Id == gateId);
-                if (gate == null)
-                    continue;
-
-                var closeAt = now.Date.AddHours(1);
-                Record(db, permit, gate, MovementDirection.Out, closeAt,
-                    "إغلاق آلي للإخراج عند الساعة 1:00 صباحاً",
-                    "النظام", "system", "النظام", closes: true);
+                var materialsPartial = PermitExecutionPlan.MaterialsEntryWithoutExit(permit, moves);
+                var note = materialsPartial
+                    ? "أغلق آليا بعد تسجيل الدخول دون الخروج لتجاوز تاريخ السريان، وعلى الجهة الطالبة إعداد تصريح استخراج"
+                    : "أغلق آليا لتجاوز التاريخ المسموح به للتنفيذ";
+                permit.isClosed = true;
+                permit.status = 'C';
+                permit.UnifiedStatus = nameof(UnifiedPermitStatus.Expired);
+                permit.statusDescription = "مغلق";
+                permit.closeOn = now;
+                permit.updatedBy = "system";
+                permit.updatedOn = now;
+                db.ProceduresMovment.Add(new ProcedureMovment
+                {
+                    Id = Guid.NewGuid(),
+                    permitId = permit.Id,
+                    procedureType = "expire",
+                    donedBy = "النظام",
+                    doneAs = "النظام",
+                    shift = "A",
+                    doneOn = now,
+                    remarks = note,
+                    createdBy = "system",
+                    createdOn = now
+                });
+                if (materialsPartial)
+                    result.MaterialsClosed.Add(permit);
+                else
+                    result.Closed.Add(permit);
             }
 
-            await db.SaveChangesAsync();
-            await NotifyOverdueAsync(permits, now);
+            return result;
         }
 
         private async Task NotifyOverdueAsync(List<Permit> permits, DateTime now)
@@ -309,7 +413,12 @@ namespace Services.Permits
             {
                 if (permit.isClosed || permit.status == 'C')
                     continue;
-                if (!PermitExecutionPlan.IsOverdue(permit, MovesOf(permit), now, out var since, out var waiting))
+                var moves = MovesOf(permit);
+                if (permit.ValidTo != null
+                    && permit.ValidTo.Value.Date < now.Date
+                    && PermitExecutionPlan.ShouldKeepOpenAfterValidity(permit, moves))
+                    continue;
+                if (!PermitExecutionPlan.IsOverdue(permit, moves, now, out var since, out var waiting))
                     continue;
 
                 var title = "تصريح مفتوح تجاوز 24 ساعة";
@@ -425,6 +534,13 @@ namespace Services.Permits
             permit.closeOn = when;
             permit.updatedBy = userName;
             permit.updatedOn = DateTime.Now;
+        }
+
+        private static bool IsVisitors(Permit permit)
+        {
+            var classification = permit.classification?.Trim() ?? "";
+            return classification.Equals(nameof(PermitClassification.Visitors), StringComparison.OrdinalIgnoreCase)
+                || classification is "زوار" or "تصريح زوار";
         }
 
         private static string KindLabel(Permit permit)

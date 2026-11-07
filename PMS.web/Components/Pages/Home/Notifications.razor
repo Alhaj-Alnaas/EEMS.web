@@ -5,6 +5,8 @@
 @inject AuthenticationStateProvider AuthProvider
 @inject IConfiguration Configuration
 @inject NavigationManager Navigation
+@inject ILiveNoticeHub Notices
+@implements IDisposable
 
 <PageTitle>الإشعارات - PMS</PageTitle>
 
@@ -51,6 +53,10 @@ else
                                         <div class="fw-semibold">@n.Title</div>
                                         <div class="small text-muted mb-1">@n.createdOn.ToString("yyyy/MM/dd HH:mm")</div>
                                         <pre class="mb-0 small" style="white-space:pre-wrap;font-family:inherit;">@n.Body</pre>
+                                        @if (n.RelatedPermitId is Guid permitId)
+                                        {
+                                            <a class="btn btn-link btn-sm px-0" href="/permits/materials/view/@permitId">عرض التصريح</a>
+                                        }
                                         @if (n.RelatedReaderId.HasValue)
                                         {
                                             <a class="btn btn-link btn-sm px-0" href="/devices/monitor">عرض حالة الأجهزة</a>
@@ -128,8 +134,23 @@ else
         currentUserId = auth.User.Identity?.IsAuthenticated == true
             ? auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
             : null;
+        Notices.Published += OnNotice;
         await LoadAsync();
     }
+
+    private void OnNotice(LiveNotice notice)
+    {
+        if (string.IsNullOrEmpty(currentUserId) || !string.Equals(notice.UserId, currentUserId, StringComparison.Ordinal))
+            return;
+
+        _ = InvokeAsync(async () =>
+        {
+            notifications = await NotificationService.GetForUserAsync(currentUserId);
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose() => Notices.Published -= OnNotice;
 
     private async Task LoadAsync()
     {

@@ -25,8 +25,11 @@ namespace Core.Interfaces.Services.Permits
 
         Task DecideAsync(Guid permitId, User user, ApprovalDecision decision, string? comment, Guid? executionGateId = null);
 
-        /// <summary>Permits of this responsibility center, plus permits this user has approved and may keep following.</summary>
-        Task<List<Permit>> GetForResponsibilityCenterAsync(User user);
+        /// <summary>
+        /// Permits this user is connected to (center, entry, approval, return, execution),
+        /// plus every permit of the gate a security officer signed in with.
+        /// </summary>
+        Task<List<Permit>> GetForResponsibilityCenterAsync(User user, Guid? gateId = null);
 
         /// <summary>True when this user recorded an approval on the permit.</summary>
         Task<bool> WasApprovedByAsync(Guid permitId, string userId);

@@ -265,6 +265,7 @@ namespace Services
                 "reject" => "رفضه",
                 "return" => "أرجعه",
                 "close" => "نفّذه",
+                "expire" => "أغلقه",
                 "entry" => "سجّل دخوله",
                 "exit" => "سجّل خروجه",
                 "Delete" => "ألغاه",

@@ -180,6 +180,8 @@ builder.Services.AddScoped<IWorkflowEngine, Services.Workflow.WorkflowEngine>();
 builder.Services.AddScoped<IApprovalPathService, Services.Workflow.ApprovalPathService>();
 builder.Services.AddScoped<IMaterialPermitService, Services.Permits.MaterialPermitService>();
 builder.Services.AddScoped<IPermitExecutionService, Services.Permits.PermitExecutionService>();
+builder.Services.AddSingleton<ILiveNoticeHub, Services.Workflow.LiveNoticeHub>();
+builder.Services.AddScoped<IPermitNotifier, Services.Permits.PermitNotifier>();
 builder.Services.AddTransient<INotificationService, Services.Workflow.NotificationService>();
 
 // ---------------- Blazor Server ----------------

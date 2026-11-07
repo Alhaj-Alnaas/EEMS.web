@@ -264,7 +264,11 @@ namespace PMS.web.Controllers
             }
             var department = await _departmentService.GetSingleDepartmentByResponsibilityAsync(permit.reqDepartment);
             AddRow("رقم التصريح :", permit.no?.ToString());
-            AddRow("نوع التصريح :",_permitService.MappingAsync(permit.type?.ToString()));
+            var classification = permit.classification?.Trim() ?? "";
+            var isMaterials = classification.Equals("Materials", StringComparison.OrdinalIgnoreCase)
+                || classification is "مواد" or "تصريح مواد";
+            if (isMaterials)
+                AddRow("نوع التصريح :", _permitService.MappingAsync(permit.type?.ToString()));
             AddRow("تصنيف التصريح :", _permitService.MappingAsync(permit.classification?.ToString()));
             AddRow("الجهة المُعدة للتصريح:", department.DepartmentName);
             AddRow("الجهة المصرح لها:", permit.OrgDescription);

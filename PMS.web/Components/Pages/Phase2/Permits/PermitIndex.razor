@@ -7,16 +7,12 @@
 @inject NavigationManager Navigation
 @using Microsoft.AspNetCore.Identity
 @using Core.Extensions
+@using Core.Security
 @using Services.Permits
 
 <PageTitle>قائمة التصاريح - PMS</PageTitle>
 
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-    <h3 class="mb-0"><i class="bi bi-list-check text-warning"></i> قائمة التصاريح</h3>
-    <a class="btn btn-warning" href="@ReturnUrl.Go(Navigation, "/permits/materials/create")">
-        <i class="bi bi-plus-circle"></i> تصريح مواد
-    </a>
-</div>
+<h3 class="mb-3"><i class="bi bi-list-check text-warning"></i> قائمة التصاريح</h3>
 
 @if (!string.IsNullOrEmpty(loadError))
 {
@@ -31,7 +27,7 @@ else if (permits.Count == 0)
 {
     <div class="pms-placeholder">
         <i class="bi bi-inbox"></i>
-        <h5>لا توجد تصاريح لمركز المسؤولية الحالي</h5>
+        <h5>لا توجد تصاريح مرتبطة بحسابك</h5>
     </div>
 }
 else
@@ -39,7 +35,7 @@ else
     <div class="card shadow-sm mb-3">
         <div class="card-body py-3">
             <div class="row g-2 align-items-end">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label mb-1">نوع التصريح</label>
                     <select class="form-select form-select-sm" @bind="typeFilter">
                         <option value="">الكل</option>
@@ -47,6 +43,20 @@ else
                         <option value="Cars">مركبات</option>
                         <option value="Visitors">زوار</option>
                         <option value="EmployeeAccess">دخول موظفين</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label mb-1">حالة التصريح</label>
+                    <select class="form-select form-select-sm" @bind="statusFilter">
+                        <option value="">الكل</option>
+                        <option value="مسودة">مسودة</option>
+                        <option value="تحت الاعتماد">تحت الاعتماد</option>
+                        <option value="مرجع">مرجع</option>
+                        <option value="معتمد">معتمد</option>
+                        <option value="منفذ">منفذ</option>
+                        <option value="مغلق">مغلق</option>
+                        <option value="مرفوض">مرفوض</option>
+                        <option value="ملغي">ملغي</option>
                     </select>
                 </div>
                 <div class="col-md-6">
@@ -119,6 +129,7 @@ else
     private string? loadError;
     private string quickSearch = "";
     private string typeFilter = "";
+    private string statusFilter = "";
     private User? currentUser;
     private List<Permit> permits = new();
     private HashSet<string> sameCenterUsers = new(StringComparer.OrdinalIgnoreCase);
@@ -131,6 +142,9 @@ else
             IEnumerable<Permit> query = permits;
             if (!string.IsNullOrWhiteSpace(typeFilter))
                 query = query.Where(p => string.Equals(ClassificationKey(p.classification), typeFilter, StringComparison.OrdinalIgnoreCase));
+
+            if (!string.IsNullOrWhiteSpace(statusFilter))
+                query = query.Where(p => StatusMapper.ListStatus(p).Label == statusFilter);
 
             if (string.IsNullOrWhiteSpace(quickSearch))
                 return query.ToList();
@@ -169,7 +183,11 @@ else
             }
 
             sameCenterUsers = await MaterialPermits.GetSameCenterUserNamesAsync(currentUser);
-            permits = await MaterialPermits.GetForResponsibilityCenterAsync(currentUser);
+            Guid? gateId = null;
+            var gateClaim = authState.User.FindFirst(SystemTaskCodes.SelectedGateIdClaimType)?.Value;
+            if (Guid.TryParse(gateClaim, out var parsedGate))
+                gateId = parsedGate;
+            permits = await MaterialPermits.GetForResponsibilityCenterAsync(currentUser, gateId);
 
             foreach (var code in permits
                 .Select(p => p.reqDepartment)

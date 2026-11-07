@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 namespace Services.Permits
 {
     /// <summary>
-    /// Closes an open materials exit at 01:00 and reminds officials about permits open longer than 24 hours.
+    /// Closes permits whose validity ended before execution started, and reminds officials about movements left open.
     /// </summary>
     public class PermitExecutionMaintenanceWorker : BackgroundService
     {

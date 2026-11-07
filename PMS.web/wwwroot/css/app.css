@@ -68,6 +68,107 @@ a {
     background-color: #f8f9fa;
 }
 
+.pms-permit-no {
+    color: #111;
+    font-weight: 700;
+}
+
+.pms-create-page {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.pms-create-form {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.pms-create-body {
+    flex: 1;
+    min-height: 0;
+}
+
+@media (min-width: 768px) {
+    .pms-create-body > .row {
+        height: 100%;
+    }
+
+    .pms-create-body > .row > [class*="col-"] {
+        height: 100%;
+        min-height: 0;
+    }
+
+    .pms-basic-card {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .pms-basic-scroll,
+    .pms-side-scroll {
+        min-height: 0;
+        overflow-y: auto;
+    }
+
+    .pms-basic-scroll {
+        flex: 1;
+    }
+
+    .pms-side-scroll {
+        height: 100%;
+    }
+}
+
+.pms-create-actions {
+    flex-shrink: 0;
+    margin-top: 0.5rem;
+    padding: 0.7rem 0.5rem 0.15rem;
+    text-align: center;
+    background: #f4f6f9;
+    border-top: 1px solid #e2e6ea;
+}
+
+.pms-facts-card {
+    overflow: hidden;
+}
+
+.pms-facts-card .pms-facts {
+    display: flex;
+    flex-direction: column;
+}
+
+.pms-fact {
+    display: grid;
+    grid-template-columns: minmax(7.5rem, 42%) 1fr;
+    gap: 0.75rem;
+    align-items: start;
+    padding: 0.62rem 0.95rem;
+    line-height: 1.6;
+}
+
+.pms-fact:nth-child(odd) {
+    background-color: #f3f5f7;
+}
+
+.pms-fact:nth-child(even) {
+    background-color: #fff;
+}
+
+.pms-fact-label {
+    font-weight: 700;
+    color: #495057;
+}
+
+.pms-fact-value {
+    color: #212529;
+    overflow-wrap: anywhere;
+}
+
 .card-header.pms-header {
     background-color: #6c757d;
     color: #fff;
@@ -109,6 +210,12 @@ a {
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.2);
     font-size: 0.8rem;
+}
+
+.pms-actions,
+.pms-actions th,
+.pms-actions td {
+    font-size: 0.875rem;
 }
 
 .table thead,

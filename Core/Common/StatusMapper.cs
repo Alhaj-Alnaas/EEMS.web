@@ -73,7 +73,12 @@ namespace Core.Common
                 return ("status-cancelled", "ملغي");
 
             if (permit.isClosed || permit.status == 'C')
+            {
+                if (permit.UnifiedStatus == nameof(UnifiedPermitStatus.Expired)
+                    || permit.statusDescription == "مغلق")
+                    return ("status-closed", "مغلق");
                 return ("status-closed", "منفذ");
+            }
 
             if (permit.status == 'R')
                 return ("status-returned", "مرجع");

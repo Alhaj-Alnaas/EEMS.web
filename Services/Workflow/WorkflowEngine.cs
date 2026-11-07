@@ -1,6 +1,6 @@
 using Core.Common;
 using Core.Entities;
-using Core.Extensions;
+using Core.Interfaces.Services.Permits;
 using Core.Interfaces.Services.Workflow;
 using Core.Interfaces.UnitOfWork;
 using DataAccess;
@@ -17,16 +17,16 @@ namespace Services.Workflow
     public class WorkflowEngine : IWorkflowEngine
     {
         private readonly IUnitOfWork _unitOfWork;
-        private readonly INotificationService _notifications;
+        private readonly IPermitNotifier _notifier;
         private readonly IDbContextFactory<DataContext> _dbFactory;
 
         public WorkflowEngine(
             IUnitOfWork unitOfWork,
-            INotificationService notifications,
+            IPermitNotifier notifier,
             IDbContextFactory<DataContext> dbFactory)
         {
             _unitOfWork = unitOfWork;
-            _notifications = notifications;
+            _notifier = notifier;
             _dbFactory = dbFactory;
         }
 
@@ -186,7 +186,7 @@ namespace Services.Workflow
             permit.updatedOn = DateTime.Now;
             await _unitOfWork.SaveAsync();
 
-            await NotifyAfterDecisionAsync(permit, decision, approverUserId);
+            await NotifyAfterDecisionAsync(permit, decision, approver, currentStep, comment);
             return approval;
         }
 
@@ -209,38 +209,53 @@ namespace Services.Workflow
                 return;
 
             var recipients = await FindApproverIdsAsync(permit, step);
-            var stepName = step.StepType.GetDescription();
-            var kind = KindLabel(permit.classification);
-            foreach (var userId in recipients)
-            {
-                await _notifications.NotifyAsync(
-                    userId,
-                    $"تصريح {kind} بانتظار الاعتماد",
-                    $"التصريح {permit.no} بانتظار خطوة: {stepName}.",
-                    permit.Id);
-            }
+            var waiting = ApprovalPathCatalog.Label(step.StepType);
+            await _notifier.NotifyAsync(
+                permit,
+                "إحالة تصريح",
+                PermitNoticeText.Submitted(permit.no, waiting),
+                alsoUserIds: recipients);
         }
 
-        private async Task NotifyAfterDecisionAsync(Permit permit, ApprovalDecision decision, string actorUserId)
+        private async Task NotifyAfterDecisionAsync(
+            Permit permit,
+            ApprovalDecision decision,
+            User approver,
+            WorkflowStep step,
+            string? comment)
         {
-            var creatorId = await FindUserIdByNameAsync(permit.createdBy);
-            if (!string.IsNullOrEmpty(creatorId) && creatorId != actorUserId)
-            {
-                var kind = KindLabel(permit.classification);
-                var (title, body) = decision switch
-                {
-                    ApprovalDecision.Rejected => ($"رُفض تصريح {kind}", $"رُفض التصريح {permit.no}."),
-                    ApprovalDecision.Returned => ($"أُرجع تصريح {kind}", $"أُرجع التصريح {permit.no} لمقدم الطلب."),
-                    _ when permit.UnifiedStatus == nameof(UnifiedPermitStatus.Active)
-                        => ($"تصريح {kind} أصبح نشطاً", $"اكتمل اعتماد التصريح {permit.no} وأصبح نشطاً."),
-                    _ => ($"تقدّم اعتماد تصريح {kind}", $"اعتُمدت خطوة على التصريح {permit.no}.")
-                };
+            var authority = PermitNoticeText.Authority(step.StepType);
+            string title;
+            string body;
+            IEnumerable<string>? nextApprovers = null;
 
-                await _notifications.NotifyAsync(creatorId, title, body, permit.Id);
+            if (decision == ApprovalDecision.Rejected)
+            {
+                title = "رفض تصريح";
+                body = PermitNoticeText.Rejected(permit.no, authority, comment);
+            }
+            else if (decision == ApprovalDecision.Returned)
+            {
+                title = "إرجاع تصريح";
+                body = PermitNoticeText.Returned(permit.no, authority, comment);
+            }
+            else
+            {
+                var ready = permit.UnifiedStatus is nameof(UnifiedPermitStatus.Active) or nameof(UnifiedPermitStatus.Approved);
+                string? nextLabel = null;
+                if (!ready)
+                {
+                    var next = await GetCurrentStepAsync(permit.Id);
+                    nextLabel = next == null ? "جهة الاعتماد التالية" : ApprovalPathCatalog.Label(next.StepType);
+                    if (next != null)
+                        nextApprovers = await FindApproverIdsAsync(permit, next);
+                }
+
+                title = "اعتماد تصريح";
+                body = PermitNoticeText.Approved(permit.no, authority, ready, nextLabel);
             }
 
-            if (decision == ApprovalDecision.Approved && permit.UnifiedStatus == nameof(UnifiedPermitStatus.PendingApproval))
-                await NotifyCurrentApproversAsync(permit.Id);
+            await _notifier.NotifyAsync(permit, title, body, approver.Id, nextApprovers);
         }
 
         private async Task ApplyDecisionAsync(Permit permit, WorkflowStep step, ApprovalDecision decision)
@@ -299,18 +314,6 @@ namespace Services.Workflow
                 .Select(u => u.Id)
                 .Distinct()
                 .ToList();
-        }
-
-        private async Task<string?> FindUserIdByNameAsync(string? userName)
-        {
-            if (string.IsNullOrWhiteSpace(userName))
-                return null;
-
-            await using var db = await _dbFactory.CreateDbContextAsync();
-            return await db.Users.AsNoTracking()
-                .Where(u => u.UserName == userName)
-                .Select(u => u.Id)
-                .FirstOrDefaultAsync();
         }
 
         private HashSet<string>? leaderCodes;
@@ -421,11 +424,6 @@ namespace Services.Workflow
                     break;
             }
         }
-
-        private static string KindLabel(string? classification) =>
-            Enum.TryParse<PermitClassification>(classification, out var parsed)
-                ? ApprovalPathCatalog.ClassificationTitle(parsed)
-                : "التصريح";
 
         private static void SetStatus(Permit permit, UnifiedPermitStatus status, char legacy)
         {

@@ -18,7 +18,7 @@ namespace Services.Permits
         private readonly IWorkflowEngine _workflow;
         private readonly IDepartmentService _departments;
         private readonly IDbContextFactory<DataContext> _dbFactory;
-        private readonly INotificationService _notifications;
+        private readonly IPermitNotifier _notifier;
 
         public MaterialPermitService(
             IUnitOfWork unitOfWork,
@@ -26,14 +26,14 @@ namespace Services.Permits
             IWorkflowEngine workflow,
             IDepartmentService departments,
             IDbContextFactory<DataContext> dbFactory,
-            INotificationService notifications)
+            IPermitNotifier notifier)
         {
             _unitOfWork = unitOfWork;
             _permits = permits;
             _workflow = workflow;
             _departments = departments;
             _dbFactory = dbFactory;
-            _notifications = notifications;
+            _notifier = notifier;
         }
 
         public async Task<Guid> SaveAsync(MaterialPermitRequest request, User user, bool submit)
@@ -189,7 +189,7 @@ namespace Services.Permits
                 no = request.PermitNumber,
                 date = request.PermitDate,
                 hourOfEntry = request.HourOfEntry,
-                type = nameof(EnumPermitType.ExtractAndInsert),
+                type = null,
                 classification = nameof(PermitClassification.Cars),
                 IsTemp = request.IsTemp,
                 moveFrom = request.MoveFrom,
@@ -243,6 +243,7 @@ namespace Services.Permits
             var primary = vehicles[0];
             permit.date = request.PermitDate;
             permit.hourOfEntry = request.HourOfEntry;
+            permit.type = null;
             permit.IsTemp = request.IsTemp;
             permit.moveFrom = request.MoveFrom;
             permit.moveTo = request.MoveTo;
@@ -317,7 +318,7 @@ namespace Services.Permits
                 no = request.PermitNumber,
                 date = request.PermitDate,
                 hourOfEntry = request.HourOfEntry,
-                type = "زيارة",
+                type = null,
                 classification = nameof(PermitClassification.Visitors),
                 IsTemp = request.IsTemp,
                 moveFrom = request.MoveFrom,
@@ -374,6 +375,7 @@ namespace Services.Permits
             var primary = visitors[0];
             permit.date = request.PermitDate;
             permit.hourOfEntry = request.HourOfEntry;
+            permit.type = null;
             permit.IsTemp = request.IsTemp;
             permit.moveFrom = request.MoveFrom;
             permit.moveTo = request.MoveTo;
@@ -549,24 +551,27 @@ namespace Services.Permits
             await _unitOfWork.SaveAsync();
         }
 
-        public async Task<List<Permit>> GetForResponsibilityCenterAsync(User user)
+        public async Task<List<Permit>> GetForResponsibilityCenterAsync(User user, Guid? gateId = null)
         {
             var centerCodes = await ResponsibilityCodesAsync(user);
             var creatorNames = await GetSameCenterUserNamesAsync(user);
-            var approvedIds = await ApprovedPermitIdsAsync(user);
-            if (centerCodes.Count == 0 && creatorNames.Count == 0 && approvedIds.Count == 0)
-                return new List<Permit>();
-
+            var relatedIds = await RelatedPermitIdsAsync(user, gateId);
             var codeList = centerCodes.ToList();
             var nameList = creatorNames.ToList();
+            var hasCodes = codeList.Count > 0;
+            var hasNames = nameList.Count > 0;
+            var hasRelated = relatedIds.Count > 0;
+            if (!hasCodes && !hasNames && !hasRelated)
+                return new List<Permit>();
 
             return await _unitOfWork.Permits.GetQueryable()
                 .AsNoTracking()
                 .Include(p => p.EquipmentDetail)
                 .Include(p => p.VehicleDetail)
-                .Where(p => codeList.Contains(p.reqDepartment!)
-                    || nameList.Contains(p.createdBy!)
-                    || approvedIds.Contains(p.Id))
+                .Include(p => p.VisitorDetail)
+                .Where(p => (hasCodes && codeList.Contains(p.reqDepartment!))
+                    || (hasNames && nameList.Contains(p.createdBy!))
+                    || (hasRelated && relatedIds.Contains(p.Id)))
                 .OrderByDescending(p => p.date)
                 .ThenByDescending(p => p.createdOn)
                 .ToListAsync();
@@ -584,17 +589,64 @@ namespace Services.Permits
                     && a.Decision == ApprovalDecision.Approved);
         }
 
-        private async Task<List<Guid>> ApprovedPermitIdsAsync(User user)
+        private async Task<List<Guid>> RelatedPermitIdsAsync(User user, Guid? gateId)
         {
-            if (user == null || string.IsNullOrWhiteSpace(user.Id))
-                return new List<Guid>();
+            var ids = new HashSet<Guid>();
+            if (!string.IsNullOrWhiteSpace(user.Id))
+            {
+                var decided = await _unitOfWork.PermitApprovals.GetQueryable()
+                    .AsNoTracking()
+                    .Where(a => a.ApproverUserId == user.Id)
+                    .Select(a => a.PermitId)
+                    .Distinct()
+                    .ToListAsync();
+                foreach (var id in decided)
+                    ids.Add(id);
+            }
 
-            return await _unitOfWork.PermitApprovals.GetQueryable()
-                .AsNoTracking()
-                .Where(a => a.ApproverUserId == user.Id && a.Decision == ApprovalDecision.Approved)
-                .Select(a => a.PermitId)
-                .Distinct()
-                .ToListAsync();
+            if (!string.IsNullOrWhiteSpace(user.UserName))
+            {
+                var name = user.UserName;
+                var fromProcedures = await _unitOfWork.ProceduresMovment.GetQueryable()
+                    .AsNoTracking()
+                    .Where(p => p.createdBy == name)
+                    .Select(p => p.permitId)
+                    .Distinct()
+                    .ToListAsync();
+                foreach (var id in fromProcedures)
+                    ids.Add(id);
+
+                var fromMoves = await _unitOfWork.MovementLogs.GetQueryable()
+                    .AsNoTracking()
+                    .Where(m => m.PermitId != null && m.createdBy == name)
+                    .Select(m => m.PermitId!.Value)
+                    .Distinct()
+                    .ToListAsync();
+                foreach (var id in fromMoves)
+                    ids.Add(id);
+            }
+
+            if (gateId is Guid gate && gate != Guid.Empty)
+            {
+                var assigned = await _unitOfWork.Permits.GetQueryable()
+                    .AsNoTracking()
+                    .Where(p => p.GateId == gate)
+                    .Select(p => p.Id)
+                    .ToListAsync();
+                foreach (var id in assigned)
+                    ids.Add(id);
+
+                var movedAtGate = await _unitOfWork.MovementLogs.GetQueryable()
+                    .AsNoTracking()
+                    .Where(m => m.GateId == gate && m.PermitId != null)
+                    .Select(m => m.PermitId!.Value)
+                    .Distinct()
+                    .ToListAsync();
+                foreach (var id in movedAtGate)
+                    ids.Add(id);
+            }
+
+            return ids.ToList();
         }
 
         public async Task<HashSet<string>> GetSameCenterUserNamesAsync(User user)
@@ -651,6 +703,7 @@ namespace Services.Permits
             });
 
             await _unitOfWork.SaveAsync();
+            await _notifier.NotifyAsync(permit, "إلغاء تصريح", PermitNoticeText.Cancelled(permit.no), user.Id);
         }
 
         public async Task SubmitDraftAsync(Guid permitId, User user)
@@ -745,6 +798,8 @@ namespace Services.Permits
 
             if (needsApproval)
                 await _workflow.NotifyCurrentApproversAsync(permit.Id);
+            else
+                await _notifier.NotifyAsync(permit, "إحالة تصريح", PermitNoticeText.Ready(permit.no));
         }
 
         public static bool CanEdit(Permit permit, User user, IReadOnlySet<string> sameCenterUserNames) =>
@@ -829,7 +884,7 @@ namespace Services.Permits
             permit.updatedBy = user.UserName;
             permit.updatedOn = DateTime.Now;
             await _unitOfWork.SaveAsync();
-            await NotifyShiftResultAsync(permit, decision, user.Id);
+            await NotifyShiftResultAsync(permit, decision, user, comment);
         }
 
         private async Task NotifySubmittedAsync(Permit permit, bool submit, bool shiftApproval, bool needsApproval)
@@ -840,6 +895,8 @@ namespace Services.Permits
                 await NotifyShiftOfficersAsync(permit);
             else if (needsApproval)
                 await _workflow.NotifyCurrentApproversAsync(permit.Id);
+            else
+                await _notifier.NotifyAsync(permit, "إحالة تصريح", PermitNoticeText.Ready(permit.no));
         }
 
         private async Task NotifyShiftOfficersAsync(Permit permit)
@@ -849,41 +906,25 @@ namespace Services.Permits
                 .Where(u => u.JobStatus == "AE" && u.JobCatId == ShiftDuty.JobCategoryId && u.DesignationId == ShiftDuty.DesignationId)
                 .ToListAsync();
 
-            var kind = KindLabel(permit.classification);
-            foreach (var officer in users.Where(ShiftDuty.IsOfficer))
-            {
-                await _notifications.NotifyAsync(
-                    officer.Id,
-                    $"تصريح {kind} بانتظار اعتماد المناوب",
-                    $"التصريح {permit.no} بانتظار اعتماد المناوب.",
-                    permit.Id);
-            }
+            var officers = users.Where(ShiftDuty.IsOfficer).Select(u => u.Id);
+            await _notifier.NotifyAsync(
+                permit,
+                "إحالة تصريح",
+                PermitNoticeText.Submitted(permit.no, ShiftDuty.StepLabel),
+                alsoUserIds: officers);
         }
 
-        private async Task NotifyShiftResultAsync(Permit permit, ApprovalDecision decision, string actorUserId)
+        private async Task NotifyShiftResultAsync(Permit permit, ApprovalDecision decision, User actor, string? comment)
         {
-            if (string.IsNullOrWhiteSpace(permit.createdBy))
-                return;
-
-            await using var db = await _dbFactory.CreateDbContextAsync();
-            var creator = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserName == permit.createdBy);
-            if (creator == null || creator.Id == actorUserId)
-                return;
-
-            var kind = KindLabel(permit.classification);
+            var authority = "المناوب";
             var (title, body) = decision switch
             {
-                ApprovalDecision.Rejected => ($"رُفض تصريح {kind}", $"رُفض التصريح {permit.no} من اعتماد المناوب."),
-                ApprovalDecision.Returned => ($"أُرجع تصريح {kind}", $"أُرجع التصريح {permit.no} من اعتماد المناوب."),
-                _ => ($"تصريح {kind} أصبح نشطاً", $"اكتمل اعتماد المناوب للتصريح {permit.no} وأصبح جاهزاً للتنفيذ.")
+                ApprovalDecision.Rejected => ("رفض تصريح", PermitNoticeText.Rejected(permit.no, authority, comment)),
+                ApprovalDecision.Returned => ("إرجاع تصريح", PermitNoticeText.Returned(permit.no, authority, comment)),
+                _ => ("اعتماد تصريح", PermitNoticeText.Approved(permit.no, authority, ready: true, nextStep: null))
             };
-            await _notifications.NotifyAsync(creator.Id, title, body, permit.Id);
+            await _notifier.NotifyAsync(permit, title, body, actor.Id);
         }
-
-        private static string KindLabel(string? classification) =>
-            Enum.TryParse<PermitClassification>(classification, out var parsed)
-                ? ApprovalPathCatalog.ClassificationTitle(parsed)
-                : "التصريح";
 
         private static void SetStatus(Permit permit, UnifiedPermitStatus status, char legacy)
         {

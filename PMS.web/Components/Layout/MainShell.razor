@@ -7,6 +7,8 @@
 @inject IConfiguration Configuration
 @inject IServiceScopeFactory ScopeFactory
 @inject AuthenticationStateProvider AuthProvider
+@inject ILiveNoticeHub Notices
+@inject IJSRuntime JS
 @implements IDisposable
 
 <div class="pms-main-shell @(_sidebarOpen ? "sidebar-open" : null)" dir="rtl">
@@ -201,37 +203,33 @@
                     </li>
                 </ul>
             </li>
-
-            <li class="profile">
-                <div class="profile-details pms-profile-block">
-                    <div class="name_job">
-                        <div class="pms-profile-name" title="@_userDisplayName">@_userDisplayName</div>
-                        <div class="pms-profile-role" title="@_userRoleLine">@_userRoleLine</div>
-                        @if (!string.IsNullOrWhiteSpace(_selectedGateLabel))
-                        {
-                            <div class="pms-profile-gate" title="@_selectedGateLabel">
-                                <i class="fas fa-door-open" aria-hidden="true"></i> @_selectedGateLabel
-                            </div>
-                        }
-                        <div class="pms-profile-actions-bar">
-                            @if (!_designMode)
-                            {
-                                <a href="@ReturnUrl.Go(Navigation, "/account/change-password")" class="pms-action-btn" title="تغيير كلمة المرور">
-                                    <i class="fa fa-key" aria-hidden="true"></i>
-                                </a>
-                                <a href="/logout" data-enhance-nav="false" class="pms-action-btn pms-action-btn-danger" title="تسجيل خروج">
-                                    <i class="fa fa-power-off" aria-hidden="true"></i>
-                                </a>
-                            }
-                            else
-                            {
-                                <span class="pms-design-badge" title="وضع التصميم — تسجيل الدخول معطّل">تصميم</span>
-                            }
-                        </div>
-                    </div>
-                </div>
-            </li>
         </ul>
+
+        <div class="pms-profile-dock">
+            <div class="pms-profile-name" title="@_userDisplayName">@_userDisplayName</div>
+            <div class="pms-profile-role" title="@_userRoleLine">@_userRoleLine</div>
+            @if (!string.IsNullOrWhiteSpace(_selectedGateLabel))
+            {
+                <div class="pms-profile-gate" title="@_selectedGateLabel">
+                    <i class="fas fa-door-open" aria-hidden="true"></i> @_selectedGateLabel
+                </div>
+            }
+            <div class="pms-profile-actions-bar">
+                @if (!_designMode)
+                {
+                    <a href="@ReturnUrl.Go(Navigation, "/account/change-password")" class="pms-action-btn" title="تغيير كلمة المرور">
+                        <i class="fa fa-key" aria-hidden="true"></i>
+                    </a>
+                    <a href="/logout" data-enhance-nav="false" class="pms-action-btn pms-action-btn-danger" title="تسجيل خروج">
+                        <i class="fa fa-power-off" aria-hidden="true"></i>
+                    </a>
+                }
+                else
+                {
+                    <span class="pms-design-badge" title="وضع التصميم — تسجيل الدخول معطّل">تصميم</span>
+                }
+            </div>
+        </div>
     </aside>
 
     <section class="home-section">
@@ -257,6 +255,8 @@
     private bool _openReports;
     private bool _openAdmin;
     private int _unreadNotifications;
+    private string? _userId;
+    private readonly CancellationTokenSource _noticesStop = new();
 
     protected override void OnInitialized()
     {
@@ -273,8 +273,57 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var auth = await AuthProvider.GetAuthenticationStateAsync();
+        _userId = auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        Notices.Published += OnNotice;
         await LoadProfileAsync();
         await RefreshUnreadAsync();
+        _ = WatchNoticesAsync(_noticesStop.Token);
+    }
+
+    private void OnNotice(LiveNotice notice)
+    {
+        if (string.IsNullOrEmpty(_userId) || !string.Equals(notice.UserId, _userId, StringComparison.Ordinal))
+            return;
+
+        _ = InvokeAsync(async () =>
+        {
+            await RefreshUnreadAsync();
+            var text = string.IsNullOrWhiteSpace(notice.Body) ? notice.Title : notice.Body;
+            var kind = notice.Title.Contains("رفض") ? "danger"
+                : notice.Title.Contains("إرجاع") || notice.Title.Contains("إغلاق") || notice.Title.Contains("إلغاء")
+                    ? "warning"
+                    : "info";
+            try
+            {
+                await JS.InvokeVoidAsync("pmsToast.show", text, kind, 8000);
+            }
+            catch
+            {
+                // The screen closed before the toast could appear.
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    private async Task WatchNoticesAsync(CancellationToken token)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(15));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(token))
+            {
+                await InvokeAsync(async () =>
+                {
+                    await RefreshUnreadAsync();
+                    StateHasChanged();
+                });
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
     }
 
     private async Task LoadProfileAsync()
@@ -393,5 +442,11 @@
             _sidebarOpen = true;
     }
 
-    public void Dispose() => Navigation.LocationChanged -= OnLocationChanged;
+    public void Dispose()
+    {
+        Notices.Published -= OnNotice;
+        _noticesStop.Cancel();
+        _noticesStop.Dispose();
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
 }

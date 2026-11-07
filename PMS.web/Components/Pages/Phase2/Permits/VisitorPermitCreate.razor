@@ -12,8 +12,9 @@
 
 <PageTitle>تصريح زوار جديد - PMS</PageTitle>
 
+<div class="pms-create-page">
 <h3 class="mb-1"><i class="bi bi-person-badge text-warning"></i> إضافة تصريح زوار</h3>
-<p class="text-muted small mb-4">يُحفظ كمسودة أو يُحال لمسار اعتماد الزوار، أو لاعتماد المناوب إذا كانت علامته مفعّلة. التنفيذ يسجّل الدخول ثم المغادرة.</p>
+<p class="text-muted small mb-2">يُحفظ كمسودة أو يُحال لمسار اعتماد الزوار، أو لاعتماد المناوب إذا كانت علامته مفعّلة. التنفيذ يسجّل الدخول ثم المغادرة.</p>
 
 @if (loading)
 {
@@ -21,19 +22,20 @@
 }
 else
 {
-    <EditForm Model="request" OnSubmit="PreventSubmit">
+    <EditForm Model="request" class="pms-create-form" OnSubmit="PreventSubmit">
+        <div class="pms-create-body">
         <div class="row g-4">
             <div class="col-md-4">
-                <div class="card">
+                <div class="card pms-basic-card">
                     <div class="card-header pms-header">البيانات الأساسية</div>
-                    <div class="card-body">
+                    <div class="card-body pms-basic-scroll">
                         <div class="form-check form-switch mb-3">
                             <InputCheckbox class="form-check-input" @bind-Value="request.IsTemp" id="isTemp" />
                             <label class="form-check-label fw-bold" for="isTemp">تصريح مؤقت</label>
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-bold">رقم التصريح</label>
-                            <input class="form-control text-center fw-bold text-warning" value="@request.PermitNumber" readonly />
+                            <input class="form-control text-center pms-permit-no" value="@request.PermitNumber" readonly />
                         </div>
                         <div class="row g-2 mb-3">
                             <div class="col-7">
@@ -104,7 +106,7 @@ else
                 </div>
             </div>
 
-            <div class="col-md-8">
+            <div class="col-md-8 pms-side-scroll">
                 <div class="card mb-3">
                     <div class="card-header pms-header d-flex justify-content-between align-items-center">
                         <span>الزوار <span class="text-warning">*</span></span>
@@ -192,13 +194,14 @@ else
                 </div>
             </div>
         </div>
+        </div>
 
         @if (!string.IsNullOrEmpty(errorMessage))
         {
-            <div class="alert alert-danger mt-3">@errorMessage</div>
+            <div class="alert alert-danger mt-2 mb-0">@errorMessage</div>
         }
 
-        <div class="mt-4 text-center">
+        <div class="pms-create-actions">
             <button type="button" class="btn btn-outline-secondary px-4" @onclick="() => SaveAsync(false)" disabled="@saving">
                 <i class="bi bi-save"></i> حفظ مسودة
             </button>
@@ -209,6 +212,7 @@ else
         </div>
     </EditForm>
 }
+</div>
 
 @code {
     private bool loading = true;
