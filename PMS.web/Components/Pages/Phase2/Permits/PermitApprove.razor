@@ -55,7 +55,7 @@ else
                         <tr>
                             <td class="fw-bold">@row.Permit.no</td>
                             <td>@row.TypeLabel</td>
-                            <td>@(string.IsNullOrWhiteSpace(row.Permit.EquipmentDetail?.Description) ? "—" : row.Permit.EquipmentDetail!.Description)</td>
+                            <td>@(string.IsNullOrWhiteSpace(PermitText.Purpose(row.Permit)) ? "—" : PermitText.Purpose(row.Permit))</td>
                             <td>@DepartmentName(row.Permit.reqDepartment)</td>
                             <td>@row.Permit.date.ToString("yyyy/MM/dd")</td>
                             <td>@row.StepLabel</td>
@@ -141,14 +141,14 @@ else
         var permits = await MaterialPermits.GetInboxAsync(currentUser);
         foreach (var permit in permits)
         {
-            var step = await Workflow.GetCurrentStepAsync(permit.Id);
+            var step = permit.ShiftApproval ? null : await Workflow.GetCurrentStepAsync(permit.Id);
             if (!gateChoice.ContainsKey(permit.Id))
                 gateChoice[permit.Id] = "";
             rows.Add(new InboxRow(
                 permit,
                 TypeLabel(permit.classification),
-                step == null ? "—" : ApprovalPathCatalog.Label(step.StepType),
-                step?.StepType));
+                permit.ShiftApproval ? ShiftDuty.StepLabel : step == null ? "—" : ApprovalPathCatalog.Label(step.StepType),
+                permit.ShiftApproval ? null : step?.StepType));
         }
 
         loading = false;

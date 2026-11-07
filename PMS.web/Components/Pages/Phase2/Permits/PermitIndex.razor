@@ -90,7 +90,7 @@ else
                             <tr>
                                 <td class="fw-bold">@permit.no</td>
                                 <td>@ClassificationLabel(permit.classification)</td>
-                                <td>@(string.IsNullOrWhiteSpace(permit.EquipmentDetail?.Description) ? "—" : permit.EquipmentDetail!.Description)</td>
+                                <td>@(string.IsNullOrWhiteSpace(PermitText.Purpose(permit)) ? "—" : PermitText.Purpose(permit))</td>
                                 <td>@permit.date.ToString("yyyy/MM/dd")</td>
                                 <td>@DepartmentName(permit.reqDepartment)</td>
                                 <td><span class="badge @status.Css">@status.Label</span></td>
@@ -100,7 +100,7 @@ else
                                     </a>
                                     @if (MaterialPermitService.CanEdit(permit, currentUser!, sameCenterUsers))
                                     {
-                                        <a class="btn btn-sm btn-warning" href="@ReturnUrl.Go(Navigation, $"/permits/materials/edit/{permit.Id}")">
+                                        <a class="btn btn-sm btn-warning" href="@ReturnUrl.Go(Navigation, EditHref(permit))">
                                             <i class="bi bi-pencil"></i> تعديل
                                         </a>
                                     }
@@ -139,7 +139,7 @@ else
             return query.Where(p =>
                 Contains(p.no, term)
                 || Contains(DepartmentName(p.reqDepartment), term)
-                || Contains(p.EquipmentDetail?.Description, term)
+                || Contains(PermitText.Purpose(p), term)
                 || Contains(ClassificationLabel(p.classification), term)
                 || Contains(p.type, term)).ToList();
         }
@@ -204,6 +204,13 @@ else
             ? name
             : code;
     }
+
+    private static string EditHref(Permit permit) => ClassificationKey(permit.classification) switch
+    {
+        nameof(PermitClassification.Cars) => $"/permits/vehicles/edit/{permit.Id}",
+        nameof(PermitClassification.Visitors) => $"/permits/visitors/edit/{permit.Id}",
+        _ => $"/permits/materials/edit/{permit.Id}"
+    };
 
     private static string ClassificationKey(string? classification) => classification?.Trim() switch
     {

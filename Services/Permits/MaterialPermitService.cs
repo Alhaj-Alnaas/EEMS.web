@@ -18,19 +18,22 @@ namespace Services.Permits
         private readonly IWorkflowEngine _workflow;
         private readonly IDepartmentService _departments;
         private readonly IDbContextFactory<DataContext> _dbFactory;
+        private readonly INotificationService _notifications;
 
         public MaterialPermitService(
             IUnitOfWork unitOfWork,
             IPermit permits,
             IWorkflowEngine workflow,
             IDepartmentService departments,
-            IDbContextFactory<DataContext> dbFactory)
+            IDbContextFactory<DataContext> dbFactory,
+            INotificationService notifications)
         {
             _unitOfWork = unitOfWork;
             _permits = permits;
             _workflow = workflow;
             _departments = departments;
             _dbFactory = dbFactory;
+            _notifications = notifications;
         }
 
         public async Task<Guid> SaveAsync(MaterialPermitRequest request, User user, bool submit)
@@ -53,7 +56,11 @@ namespace Services.Permits
             var permitId = Guid.NewGuid();
             WorkflowDefinition? workflow = null;
             var needsApproval = false;
-            if (submit)
+            if (submit && request.ShiftApproval)
+            {
+                needsApproval = true;
+            }
+            else if (submit)
             {
                 workflow = await _workflow.EnsureActiveWorkflowAsync(PermitClassification.Materials);
                 needsApproval = await _workflow.HasApplicableStepAsync(workflow, user);
@@ -145,11 +152,284 @@ namespace Services.Permits
             };
 
             await _permits.InsertPermitAsync(permit);
-
-            if (submit && needsApproval)
-                await _workflow.NotifyCurrentApproversAsync(permit.Id);
-
+            await NotifySubmittedAsync(permit, submit, request.ShiftApproval, needsApproval);
             return permit.Id;
+        }
+
+        public async Task<Guid> SaveVehicleAsync(VehiclePermitRequest request, User user, bool submit)
+        {
+            if (user == null)
+                throw new InvalidOperationException("المستخدم غير معروف.");
+            ValidateVehicle(request, submit);
+
+            var vehicles = NamedVehicles(request);
+            var permitId = Guid.NewGuid();
+            WorkflowDefinition? workflow = null;
+            var needsApproval = false;
+            if (submit && request.ShiftApproval)
+            {
+                needsApproval = true;
+            }
+            else if (submit)
+            {
+                workflow = await _workflow.EnsureActiveWorkflowAsync(PermitClassification.Cars);
+                needsApproval = await _workflow.HasApplicableStepAsync(workflow, user);
+            }
+
+            var status = !submit
+                ? UnifiedPermitStatus.Draft
+                : needsApproval ? UnifiedPermitStatus.PendingApproval : UnifiedPermitStatus.Active;
+            var primary = vehicles[0];
+
+            var permit = new Permit
+            {
+                Id = permitId,
+                createdBy = user.UserName,
+                createdOn = DateTime.Now,
+                no = request.PermitNumber,
+                date = request.PermitDate,
+                hourOfEntry = request.HourOfEntry,
+                type = nameof(EnumPermitType.ExtractAndInsert),
+                classification = nameof(PermitClassification.Cars),
+                IsTemp = request.IsTemp,
+                moveFrom = request.MoveFrom,
+                moveTo = request.MoveTo,
+                reqDepartment = request.RequestingDepartmentCode.Trim(),
+                phoneNo = request.Phone,
+                OrgDescription = request.ResponsibleParty,
+                remarks = request.Notes,
+                ValidFrom = request.PermitDate.Date,
+                ValidTo = request.ValidTo.Date,
+                ExpectedExecutionTime = string.IsNullOrWhiteSpace(request.ExpectedExecutionTime) ? null : request.ExpectedExecutionTime.Trim(),
+                ShiftApproval = request.ShiftApproval,
+                UnifiedStatus = status.ToString(),
+                status = StatusMapper.ToLegacy(status),
+                statusDescription = StatusMapper.UnifiedStatusDescription(status),
+                WorkflowDefinitionId = workflow?.Id,
+                VehicleDetail = VehicleDetail(permitId, request, primary, user.UserName),
+                Cars = vehicles.Select(c => CarLine(permitId, c, request.ResponsibleParty, user.UserName)).ToList(),
+                Procedures = new List<ProcedureMovment>
+                {
+                    Procedure(permitId, ProcedureType.Insert.ToString(), user, submit ? "إرسال للاعتماد" : "حفظ مسودة")
+                }
+            };
+
+            await _permits.InsertPermitAsync(permit);
+            await NotifySubmittedAsync(permit, submit, request.ShiftApproval, needsApproval);
+            return permit.Id;
+        }
+
+        public async Task UpdateVehicleAsync(Guid permitId, VehiclePermitRequest request, User user)
+        {
+            if (user == null)
+                throw new InvalidOperationException("المستخدم غير معروف.");
+            ValidateVehicle(request, submit: false);
+
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            var permit = await db.Permits
+                .Include(p => p.Cars)
+                .Include(p => p.VehicleDetail)
+                .FirstOrDefaultAsync(p => p.Id == permitId)
+                ?? throw new InvalidOperationException("التصريح غير موجود.");
+
+            if (!StatusMapper.IsDraft(permit))
+                throw new InvalidOperationException("التعديل متاح عندما تكون حالة التصريح مسودة.");
+
+            var names = await GetSameCenterUserNamesAsync(user);
+            if (!CanEdit(permit, user, names))
+                throw new InvalidOperationException("التعديل متاح لمركز المسؤولية الذي أدخل التصريح.");
+
+            var vehicles = NamedVehicles(request);
+            var primary = vehicles[0];
+            permit.date = request.PermitDate;
+            permit.hourOfEntry = request.HourOfEntry;
+            permit.IsTemp = request.IsTemp;
+            permit.moveFrom = request.MoveFrom;
+            permit.moveTo = request.MoveTo;
+            permit.reqDepartment = request.RequestingDepartmentCode.Trim();
+            permit.phoneNo = request.Phone;
+            permit.OrgDescription = request.ResponsibleParty;
+            permit.remarks = request.Notes;
+            permit.ValidFrom = request.PermitDate.Date;
+            permit.ValidTo = request.ValidTo.Date;
+            permit.ExpectedExecutionTime = string.IsNullOrWhiteSpace(request.ExpectedExecutionTime) ? null : request.ExpectedExecutionTime.Trim();
+            permit.ShiftApproval = request.ShiftApproval;
+            permit.updatedBy = user.UserName;
+            permit.updatedOn = DateTime.Now;
+
+            if (permit.VehicleDetail == null)
+                permit.VehicleDetail = VehicleDetail(permit.Id, request, primary, user.UserName);
+            else
+            {
+                permit.VehicleDetail.PlateNumber = primary.CarNo.Trim();
+                permit.VehicleDetail.VehicleType = primary.CarType;
+                permit.VehicleDetail.DriverName = primary.DriverName;
+                permit.VehicleDetail.LicenseNo = primary.licenseNo;
+                permit.VehicleDetail.remarks = request.Purpose?.Trim();
+                permit.VehicleDetail.InternalUse = request.InternalUse;
+                permit.VehicleDetail.TripCount = Math.Max(1, request.TripCount);
+                permit.VehicleDetail.updatedBy = user.UserName;
+                permit.VehicleDetail.updatedOn = DateTime.Now;
+            }
+
+            foreach (var car in permit.Cars.Where(c => !c.isDeleted).ToList())
+            {
+                car.isDeleted = true;
+                car.deletedBy = user.UserName;
+                car.deletedOn = DateTime.Now;
+            }
+
+            foreach (var vehicle in vehicles)
+                db.CarsMovment.Add(CarLine(permit.Id, vehicle, request.ResponsibleParty, user.UserName));
+
+            db.ProceduresMovment.Add(Procedure(permit.Id, "Update", user, "تعديل تصريح المركبات"));
+            await db.SaveChangesAsync();
+        }
+
+        public async Task<Guid> SaveVisitorAsync(VisitorPermitRequest request, User user, bool submit)
+        {
+            if (user == null)
+                throw new InvalidOperationException("المستخدم غير معروف.");
+            ValidateVisitor(request, submit);
+
+            var visitors = NamedVisitors(request);
+            var permitId = Guid.NewGuid();
+            WorkflowDefinition? workflow = null;
+            var needsApproval = false;
+            if (submit && request.ShiftApproval)
+                needsApproval = true;
+            else if (submit)
+            {
+                workflow = await _workflow.EnsureActiveWorkflowAsync(PermitClassification.Visitors);
+                needsApproval = await _workflow.HasApplicableStepAsync(workflow, user);
+            }
+
+            var status = !submit
+                ? UnifiedPermitStatus.Draft
+                : needsApproval ? UnifiedPermitStatus.PendingApproval : UnifiedPermitStatus.Active;
+            var primary = visitors[0];
+
+            var permit = new Permit
+            {
+                Id = permitId,
+                createdBy = user.UserName,
+                createdOn = DateTime.Now,
+                no = request.PermitNumber,
+                date = request.PermitDate,
+                hourOfEntry = request.HourOfEntry,
+                type = "زيارة",
+                classification = nameof(PermitClassification.Visitors),
+                IsTemp = request.IsTemp,
+                moveFrom = request.MoveFrom,
+                moveTo = request.MoveTo,
+                reqDepartment = request.RequestingDepartmentCode.Trim(),
+                phoneNo = request.Phone,
+                OrgDescription = request.VisitorOrganization,
+                remarks = request.Notes,
+                ValidFrom = request.PermitDate.Date,
+                ValidTo = request.ValidTo.Date,
+                ExpectedExecutionTime = string.IsNullOrWhiteSpace(request.ExpectedExecutionTime) ? null : request.ExpectedExecutionTime.Trim(),
+                ShiftApproval = request.ShiftApproval,
+                HostEmployeeId = request.HostEmployeeId,
+                UnifiedStatus = status.ToString(),
+                status = StatusMapper.ToLegacy(status),
+                statusDescription = StatusMapper.UnifiedStatusDescription(status),
+                WorkflowDefinitionId = workflow?.Id,
+                VisitorDetail = VisitorDetail(permitId, request, primary, user.UserName),
+                Visitors = visitors.Select(v => VisitorLine(permitId, v, user.UserName)).ToList(),
+                Cars = NamedCars(request).Select(c => CarLine(permitId, c, request.VisitorOrganization, user.UserName)).ToList(),
+                Procedures = new List<ProcedureMovment>
+                {
+                    Procedure(permitId, ProcedureType.Insert.ToString(), user, submit ? "إرسال للاعتماد" : "حفظ مسودة")
+                }
+            };
+
+            await _permits.InsertPermitAsync(permit);
+            await NotifySubmittedAsync(permit, submit, request.ShiftApproval, needsApproval);
+            return permit.Id;
+        }
+
+        public async Task UpdateVisitorAsync(Guid permitId, VisitorPermitRequest request, User user)
+        {
+            if (user == null)
+                throw new InvalidOperationException("المستخدم غير معروف.");
+            ValidateVisitor(request, submit: false);
+
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            var permit = await db.Permits
+                .Include(p => p.Visitors)
+                .Include(p => p.Cars)
+                .Include(p => p.VisitorDetail)
+                .FirstOrDefaultAsync(p => p.Id == permitId)
+                ?? throw new InvalidOperationException("التصريح غير موجود.");
+
+            if (!StatusMapper.IsDraft(permit))
+                throw new InvalidOperationException("التعديل متاح عندما تكون حالة التصريح مسودة.");
+
+            var names = await GetSameCenterUserNamesAsync(user);
+            if (!CanEdit(permit, user, names))
+                throw new InvalidOperationException("التعديل متاح لمركز المسؤولية الذي أدخل التصريح.");
+
+            var visitors = NamedVisitors(request);
+            var primary = visitors[0];
+            permit.date = request.PermitDate;
+            permit.hourOfEntry = request.HourOfEntry;
+            permit.IsTemp = request.IsTemp;
+            permit.moveFrom = request.MoveFrom;
+            permit.moveTo = request.MoveTo;
+            permit.reqDepartment = request.RequestingDepartmentCode.Trim();
+            permit.phoneNo = request.Phone;
+            permit.OrgDescription = request.VisitorOrganization;
+            permit.remarks = request.Notes;
+            permit.ValidFrom = request.PermitDate.Date;
+            permit.ValidTo = request.ValidTo.Date;
+            permit.ExpectedExecutionTime = string.IsNullOrWhiteSpace(request.ExpectedExecutionTime) ? null : request.ExpectedExecutionTime.Trim();
+            permit.ShiftApproval = request.ShiftApproval;
+            permit.HostEmployeeId = request.HostEmployeeId;
+            permit.updatedBy = user.UserName;
+            permit.updatedOn = DateTime.Now;
+
+            if (permit.VisitorDetail == null)
+                permit.VisitorDetail = VisitorDetail(permit.Id, request, primary, user.UserName);
+            else
+            {
+                var detail = permit.VisitorDetail;
+                detail.VisitorName = primary.Name.Trim();
+                detail.IdNumber = primary.IdNumber;
+                detail.Nationality = primary.Nationality.ToString();
+                detail.Purpose = request.Purpose?.Trim();
+                detail.HostFileNumber = request.HostFileNumber?.Trim();
+                detail.HostName = request.HostName?.Trim();
+                detail.HostDepartment = request.HostDepartment?.Trim();
+                detail.HostEmployeeId = request.HostEmployeeId;
+                detail.ExpectedVisitTime = request.ExpectedVisitTime;
+                detail.ExpectedDepartureTime = request.ExpectedDepartureTime;
+                detail.Phone = request.Phone;
+                detail.updatedBy = user.UserName;
+                detail.updatedOn = DateTime.Now;
+            }
+
+            foreach (var visitor in permit.Visitors.Where(v => !v.isDeleted).ToList())
+            {
+                visitor.isDeleted = true;
+                visitor.deletedBy = user.UserName;
+                visitor.deletedOn = DateTime.Now;
+            }
+
+            foreach (var car in permit.Cars.Where(c => !c.isDeleted).ToList())
+            {
+                car.isDeleted = true;
+                car.deletedBy = user.UserName;
+                car.deletedOn = DateTime.Now;
+            }
+
+            foreach (var visitor in visitors)
+                db.PermitVisitors.Add(VisitorLine(permit.Id, visitor, user.UserName));
+            foreach (var vehicle in NamedCars(request))
+                db.CarsMovment.Add(CarLine(permit.Id, vehicle, request.VisitorOrganization, user.UserName));
+
+            db.ProceduresMovment.Add(Procedure(permit.Id, "Update", user, "تعديل تصريح الزوار"));
+            await db.SaveChangesAsync();
         }
 
         public async Task<List<Permit>> GetInboxAsync(User user)
@@ -157,6 +437,7 @@ namespace Services.Permits
             var candidates = await _unitOfWork.Permits.GetQueryable()
                 .AsNoTracking()
                 .Include(p => p.EquipmentDetail)
+                .Include(p => p.VehicleDetail)
                 .Where(p => !p.isDeleted
                     && p.status == 'I'
                     && p.UnifiedStatus == nameof(UnifiedPermitStatus.PendingApproval))
@@ -166,6 +447,13 @@ namespace Services.Permits
             var inbox = new List<Permit>();
             foreach (var permit in candidates)
             {
+                if (permit.ShiftApproval)
+                {
+                    if (ShiftDuty.IsOfficer(user))
+                        inbox.Add(permit);
+                    continue;
+                }
+
                 var canDecide = permit.WorkflowDefinitionId != null
                     ? await _workflow.UserCanDecideAsync(permit.Id, user)
                     : _permits.GetVisibility(user, permit).CanApprove;
@@ -182,6 +470,12 @@ namespace Services.Permits
             var permit = await _unitOfWork.Permits.GetQueryable()
                 .FirstOrDefaultAsync(p => p.Id == permitId)
                 ?? throw new InvalidOperationException("التصريح غير موجود.");
+
+            if (permit.ShiftApproval)
+            {
+                await DecideShiftAsync(permit, user, decision, comment);
+                return;
+            }
 
             if (permit.WorkflowDefinitionId != null)
             {
@@ -269,6 +563,7 @@ namespace Services.Permits
             return await _unitOfWork.Permits.GetQueryable()
                 .AsNoTracking()
                 .Include(p => p.EquipmentDetail)
+                .Include(p => p.VehicleDetail)
                 .Where(p => codeList.Contains(p.reqDepartment!)
                     || nameList.Contains(p.createdBy!)
                     || approvedIds.Contains(p.Id))
@@ -365,7 +660,11 @@ namespace Services.Permits
 
             var permit = await _unitOfWork.Permits.GetQueryable()
                 .Include(p => p.EquipmentsAndMatirials)
+                .Include(p => p.Cars)
                 .Include(p => p.EquipmentDetail)
+                .Include(p => p.VehicleDetail)
+                .Include(p => p.VisitorDetail)
+                .Include(p => p.Visitors)
                 .FirstOrDefaultAsync(p => p.Id == permitId)
                 ?? throw new InvalidOperationException("التصريح غير موجود.");
 
@@ -375,11 +674,41 @@ namespace Services.Permits
             if (!await SameCenterAsCreatorAsync(permit, user))
                 throw new InvalidOperationException("الإحالة للاعتماد متاحة لمركز المسؤولية الذي أدخل التصريح.");
 
-            if (!permit.EquipmentsAndMatirials.Any(e => !e.isDeleted && !string.IsNullOrWhiteSpace(e.description)))
-                throw new InvalidOperationException("أضف مادة أو معدة واحدة على الأقل قبل الإحالة للاعتماد.");
+            var isVehicle = string.Equals(permit.classification, nameof(PermitClassification.Cars), StringComparison.OrdinalIgnoreCase);
+            var isVisitor = string.Equals(permit.classification, nameof(PermitClassification.Visitors), StringComparison.OrdinalIgnoreCase);
+            if (isVisitor)
+            {
+                if (!permit.Visitors.Any(v => !v.isDeleted && !string.IsNullOrWhiteSpace(v.Name)))
+                    throw new InvalidOperationException("أضف زائراً واحداً على الأقل قبل الإحالة للاعتماد.");
+                if (string.IsNullOrWhiteSpace(permit.VisitorDetail?.Purpose))
+                    throw new InvalidOperationException("الغرض من الزيارة مطلوب عند الإحالة للاعتماد.");
+            }
+            else if (isVehicle)
+            {
+                if (!permit.Cars.Any(c => !c.isDeleted && !string.IsNullOrWhiteSpace(c.carNo)))
+                    throw new InvalidOperationException("أضف مركبة واحدة على الأقل قبل الإحالة للاعتماد.");
+                if (string.IsNullOrWhiteSpace(permit.VehicleDetail?.remarks))
+                    throw new InvalidOperationException("الغرض من التصريح مطلوب عند الإحالة للاعتماد.");
+            }
+            else
+            {
+                if (!permit.EquipmentsAndMatirials.Any(e => !e.isDeleted && !string.IsNullOrWhiteSpace(e.description)))
+                    throw new InvalidOperationException("أضف مادة أو معدة واحدة على الأقل قبل الإحالة للاعتماد.");
+                if (string.IsNullOrWhiteSpace(permit.EquipmentDetail?.Description))
+                    throw new InvalidOperationException("الغرض من التصريح مطلوب عند الإحالة للاعتماد.");
+            }
 
-            if (string.IsNullOrWhiteSpace(permit.EquipmentDetail?.Description))
-                throw new InvalidOperationException("الغرض من التصريح مطلوب عند الإحالة للاعتماد.");
+            if (permit.ShiftApproval)
+            {
+                permit.WorkflowDefinitionId = null;
+                SetStatus(permit, UnifiedPermitStatus.PendingApproval, 'I');
+                permit.updatedBy = user.UserName;
+                permit.updatedOn = DateTime.Now;
+                _unitOfWork.ProceduresMovment.Insert(Procedure(permit.Id, "submit", user, "إحالة لاعتماد المناوب"));
+                await _unitOfWork.SaveAsync();
+                await NotifyShiftOfficersAsync(permit);
+                return;
+            }
 
             var classification = Enum.TryParse<PermitClassification>(permit.classification, out var parsed)
                 ? parsed
@@ -448,11 +777,253 @@ namespace Services.Permits
             return codes;
         }
 
+        private async Task DecideShiftAsync(Permit permit, User user, ApprovalDecision decision, string? comment)
+        {
+            if (!ShiftDuty.IsPending(permit))
+                throw new InvalidOperationException("هذا التصريح لا ينتظر اعتماد المناوب.");
+            if (!ShiftDuty.IsOfficer(user))
+                throw new InvalidOperationException("اعتماد المناوب متاح لمستخدمي مركز المسؤولية 43010.");
+            if (decision == ApprovalDecision.Rejected && string.IsNullOrWhiteSpace(comment))
+                throw new InvalidOperationException("ملاحظة الرفض إلزامية.");
+
+            _unitOfWork.PermitApprovals.Insert(new PermitApproval
+            {
+                Id = Guid.NewGuid(),
+                PermitId = permit.Id,
+                ApproverUserId = user.Id,
+                Decision = decision,
+                Comment = string.IsNullOrWhiteSpace(comment) ? ShiftDuty.StepLabel : comment.Trim(),
+                DecidedOn = DateTime.Now,
+                createdBy = user.UserName,
+                createdOn = DateTime.Now
+            });
+
+            _unitOfWork.ProceduresMovment.Insert(Procedure(
+                permit.Id,
+                decision switch
+                {
+                    ApprovalDecision.Approved => "approve",
+                    ApprovalDecision.Rejected => "reject",
+                    ApprovalDecision.Returned => "return",
+                    _ => decision.ToString()
+                },
+                user,
+                ShiftDuty.StepLabel));
+
+            permit.WorkflowDefinitionId = null;
+            switch (decision)
+            {
+                case ApprovalDecision.Approved:
+                    SetStatus(permit, UnifiedPermitStatus.Active, 'A');
+                    break;
+                case ApprovalDecision.Rejected:
+                    SetStatus(permit, UnifiedPermitStatus.Rejected, 'J');
+                    break;
+                case ApprovalDecision.Returned:
+                    permit.status = 'R';
+                    permit.UnifiedStatus = nameof(UnifiedPermitStatus.PendingApproval);
+                    permit.statusDescription = "مرجع";
+                    break;
+            }
+
+            permit.updatedBy = user.UserName;
+            permit.updatedOn = DateTime.Now;
+            await _unitOfWork.SaveAsync();
+            await NotifyShiftResultAsync(permit, decision, user.Id);
+        }
+
+        private async Task NotifySubmittedAsync(Permit permit, bool submit, bool shiftApproval, bool needsApproval)
+        {
+            if (!submit)
+                return;
+            if (shiftApproval)
+                await NotifyShiftOfficersAsync(permit);
+            else if (needsApproval)
+                await _workflow.NotifyCurrentApproversAsync(permit.Id);
+        }
+
+        private async Task NotifyShiftOfficersAsync(Permit permit)
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            var users = await db.Users.AsNoTracking()
+                .Where(u => u.JobStatus == "AE" && u.JobCatId == ShiftDuty.JobCategoryId && u.DesignationId == ShiftDuty.DesignationId)
+                .ToListAsync();
+
+            var kind = KindLabel(permit.classification);
+            foreach (var officer in users.Where(ShiftDuty.IsOfficer))
+            {
+                await _notifications.NotifyAsync(
+                    officer.Id,
+                    $"تصريح {kind} بانتظار اعتماد المناوب",
+                    $"التصريح {permit.no} بانتظار اعتماد المناوب.",
+                    permit.Id);
+            }
+        }
+
+        private async Task NotifyShiftResultAsync(Permit permit, ApprovalDecision decision, string actorUserId)
+        {
+            if (string.IsNullOrWhiteSpace(permit.createdBy))
+                return;
+
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            var creator = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserName == permit.createdBy);
+            if (creator == null || creator.Id == actorUserId)
+                return;
+
+            var kind = KindLabel(permit.classification);
+            var (title, body) = decision switch
+            {
+                ApprovalDecision.Rejected => ($"رُفض تصريح {kind}", $"رُفض التصريح {permit.no} من اعتماد المناوب."),
+                ApprovalDecision.Returned => ($"أُرجع تصريح {kind}", $"أُرجع التصريح {permit.no} من اعتماد المناوب."),
+                _ => ($"تصريح {kind} أصبح نشطاً", $"اكتمل اعتماد المناوب للتصريح {permit.no} وأصبح جاهزاً للتنفيذ.")
+            };
+            await _notifications.NotifyAsync(creator.Id, title, body, permit.Id);
+        }
+
+        private static string KindLabel(string? classification) =>
+            Enum.TryParse<PermitClassification>(classification, out var parsed)
+                ? ApprovalPathCatalog.ClassificationTitle(parsed)
+                : "التصريح";
+
         private static void SetStatus(Permit permit, UnifiedPermitStatus status, char legacy)
         {
             permit.UnifiedStatus = status.ToString();
             permit.status = legacy;
             permit.statusDescription = StatusMapper.UnifiedStatusDescription(status);
         }
+
+        private static void ValidateVehicle(VehiclePermitRequest request, bool submit)
+        {
+            if (string.IsNullOrWhiteSpace(request.RequestingDepartmentCode))
+                throw new InvalidOperationException("يرجى اختيار الجهة الطالبة.");
+            if (request.ValidTo.Date < request.PermitDate.Date)
+                throw new InvalidOperationException("نهاية السريان لا يجوز أن تسبق تاريخ التصريح.");
+            if (request.TripCount < 1)
+                throw new InvalidOperationException("عدد الرحلات يجب أن يكون رحلة واحدة على الأقل.");
+            if (!NamedVehicles(request).Any())
+                throw new InvalidOperationException("أضف مركبة واحدة على الأقل.");
+            if (submit && string.IsNullOrWhiteSpace(request.Purpose))
+                throw new InvalidOperationException("الغرض من التصريح مطلوب عند الإرسال للاعتماد.");
+        }
+
+        private static void ValidateVisitor(VisitorPermitRequest request, bool submit)
+        {
+            if (string.IsNullOrWhiteSpace(request.RequestingDepartmentCode))
+                throw new InvalidOperationException("يرجى اختيار الجهة الطالبة.");
+            if (request.ValidTo.Date < request.PermitDate.Date)
+                throw new InvalidOperationException("نهاية السريان لا يجوز أن تسبق تاريخ التصريح.");
+            if (!NamedVisitors(request).Any())
+                throw new InvalidOperationException("أضف زائراً واحداً على الأقل.");
+            if (!submit)
+                return;
+            if (string.IsNullOrWhiteSpace(request.Purpose))
+                throw new InvalidOperationException("الغرض من الزيارة مطلوب عند الإرسال للاعتماد.");
+            if (string.IsNullOrWhiteSpace(request.HostFileNumber) || string.IsNullOrWhiteSpace(request.HostName))
+                throw new InvalidOperationException("أدخل رقم ملف الداعي واعرض بياناته قبل الإرسال.");
+            if (string.IsNullOrWhiteSpace(request.VisitorOrganization))
+                throw new InvalidOperationException("جهة الزائر مطلوبة عند الإرسال للاعتماد.");
+            if (string.IsNullOrWhiteSpace(request.ExpectedVisitTime) || string.IsNullOrWhiteSpace(request.ExpectedDepartureTime))
+                throw new InvalidOperationException("الساعة المتوقعة للزيارة والمغادرة مطلوبة عند الإرسال للاعتماد.");
+            if (NamedVisitors(request).Any(v => string.IsNullOrWhiteSpace(v.IdNumber)))
+                throw new InvalidOperationException("رقم هوية كل زائر مطلوب عند الإرسال للاعتماد.");
+        }
+
+        private static List<VisitorLineViewModel> NamedVisitors(VisitorPermitRequest request) =>
+            request.Visitors
+                .Where(v => !string.IsNullOrWhiteSpace(v.Name))
+                .GroupBy(v => $"{v.Name.Trim()}|{v.IdNumber}|{v.Nationality}", StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.First())
+                .ToList();
+
+        private static List<CarMovmentViewModel> NamedCars(VisitorPermitRequest request) =>
+            request.Vehicles
+                .Where(c => !string.IsNullOrWhiteSpace(c.CarNo))
+                .GroupBy(c => $"{c.CarNo.Trim()}|{c.CarType}|{c.DriverName}|{c.licenseNo}", StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.First())
+                .ToList();
+
+        private static VisitorPermitDetail VisitorDetail(Guid permitId, VisitorPermitRequest request, VisitorLineViewModel primary, string? userName) =>
+            new()
+            {
+                Id = Guid.NewGuid(),
+                PermitId = permitId,
+                VisitorName = primary.Name.Trim(),
+                IdNumber = primary.IdNumber,
+                Nationality = primary.Nationality.ToString(),
+                Purpose = request.Purpose?.Trim(),
+                HostFileNumber = request.HostFileNumber?.Trim(),
+                HostName = request.HostName?.Trim(),
+                HostDepartment = request.HostDepartment?.Trim(),
+                HostEmployeeId = request.HostEmployeeId,
+                ExpectedVisitTime = request.ExpectedVisitTime,
+                ExpectedDepartureTime = request.ExpectedDepartureTime,
+                Phone = request.Phone,
+                createdBy = userName,
+                createdOn = DateTime.Now
+            };
+
+        private static PermitVisitor VisitorLine(Guid permitId, VisitorLineViewModel visitor, string? userName) =>
+            new()
+            {
+                Id = Guid.NewGuid(),
+                PermitId = permitId,
+                Name = visitor.Name.Trim(),
+                IdNumber = visitor.IdNumber?.Trim(),
+                Nationality = visitor.Nationality.ToString(),
+                createdBy = userName,
+                createdOn = DateTime.Now
+            };
+
+        private static List<CarMovmentViewModel> NamedVehicles(VehiclePermitRequest request) =>
+            request.Vehicles
+                .Where(c => !string.IsNullOrWhiteSpace(c.CarNo))
+                .GroupBy(c => $"{c.CarNo.Trim()}|{c.CarType}|{c.DriverName}|{c.licenseNo}", StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.First())
+                .ToList();
+
+        private static VehiclePermitDetail VehicleDetail(Guid permitId, VehiclePermitRequest request, CarMovmentViewModel primary, string? userName) =>
+            new()
+            {
+                Id = Guid.NewGuid(),
+                PermitId = permitId,
+                PlateNumber = primary.CarNo.Trim(),
+                VehicleType = primary.CarType,
+                DriverName = primary.DriverName,
+                LicenseNo = primary.licenseNo,
+                remarks = request.Purpose?.Trim(),
+                InternalUse = request.InternalUse,
+                TripCount = Math.Max(1, request.TripCount),
+                createdBy = userName,
+                createdOn = DateTime.Now
+            };
+
+        private static CarMovment CarLine(Guid permitId, CarMovmentViewModel vehicle, string? party, string? userName) =>
+            new()
+            {
+                Id = Guid.NewGuid(),
+                permitId = permitId,
+                carNo = vehicle.CarNo.Trim(),
+                carType = vehicle.CarType ?? "",
+                name = vehicle.DriverName ?? "",
+                licenseNo = vehicle.licenseNo ?? "",
+                orginaization = party ?? "",
+                createdBy = userName,
+                createdOn = DateTime.Now
+            };
+
+        private static ProcedureMovment Procedure(Guid permitId, string type, User user, string remarks) =>
+            new()
+            {
+                Id = Guid.NewGuid(),
+                permitId = permitId,
+                procedureType = type,
+                donedBy = user.FullName,
+                doneAs = user.JobtypeName,
+                shift = "A",
+                doneOn = DateTime.Now,
+                remarks = remarks,
+                createdBy = user.UserName,
+                createdOn = DateTime.Now
+            };
     }
 }

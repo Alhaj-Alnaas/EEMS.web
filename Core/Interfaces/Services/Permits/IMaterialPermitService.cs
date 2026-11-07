@@ -12,6 +12,14 @@ namespace Core.Interfaces.Services.Permits
     {
         Task<Guid> SaveAsync(MaterialPermitRequest request, User user, bool submit);
 
+        Task<Guid> SaveVehicleAsync(VehiclePermitRequest request, User user, bool submit);
+
+        Task UpdateVehicleAsync(Guid permitId, VehiclePermitRequest request, User user);
+
+        Task<Guid> SaveVisitorAsync(VisitorPermitRequest request, User user, bool submit);
+
+        Task UpdateVisitorAsync(Guid permitId, VisitorPermitRequest request, User user);
+
         /// <summary>Materials permits waiting for a decision from this user.</summary>
         Task<List<Permit>> GetInboxAsync(User user);
 

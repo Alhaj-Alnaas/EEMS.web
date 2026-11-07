@@ -47,6 +47,7 @@ namespace DataAccess
         // ---------------- Phase 2: Unified permit details ----------------
         public DbSet<EquipmentPermitDetail> EquipmentPermitDetails { get; set; }
         public DbSet<VisitorPermitDetail> VisitorPermitDetails { get; set; }
+        public DbSet<PermitVisitor> PermitVisitors { get; set; }
         public DbSet<VehiclePermitDetail> VehiclePermitDetails { get; set; }
 
         // ---------------- App authorization (access levels / tasks) ----------------
@@ -349,6 +350,12 @@ namespace DataAccess
                 .WithMany()
                 .HasForeignKey(d => d.HostEmployeeId)
                 .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<PermitVisitor>()
+                .HasOne(v => v.Permit)
+                .WithMany(p => p.Visitors)
+                .HasForeignKey(v => v.PermitId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<VehiclePermitDetail>()
                 .HasOne(d => d.Permit)

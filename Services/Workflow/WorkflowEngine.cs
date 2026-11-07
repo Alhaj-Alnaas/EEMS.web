@@ -210,11 +210,12 @@ namespace Services.Workflow
 
             var recipients = await FindApproverIdsAsync(permit, step);
             var stepName = step.StepType.GetDescription();
+            var kind = KindLabel(permit.classification);
             foreach (var userId in recipients)
             {
                 await _notifications.NotifyAsync(
                     userId,
-                    "تصريح مواد بانتظار الاعتماد",
+                    $"تصريح {kind} بانتظار الاعتماد",
                     $"التصريح {permit.no} بانتظار خطوة: {stepName}.",
                     permit.Id);
             }
@@ -225,13 +226,14 @@ namespace Services.Workflow
             var creatorId = await FindUserIdByNameAsync(permit.createdBy);
             if (!string.IsNullOrEmpty(creatorId) && creatorId != actorUserId)
             {
+                var kind = KindLabel(permit.classification);
                 var (title, body) = decision switch
                 {
-                    ApprovalDecision.Rejected => ("رُفض تصريح المواد", $"رُفض التصريح {permit.no}."),
-                    ApprovalDecision.Returned => ("أُرجع تصريح المواد", $"أُرجع التصريح {permit.no} لمقدم الطلب."),
+                    ApprovalDecision.Rejected => ($"رُفض تصريح {kind}", $"رُفض التصريح {permit.no}."),
+                    ApprovalDecision.Returned => ($"أُرجع تصريح {kind}", $"أُرجع التصريح {permit.no} لمقدم الطلب."),
                     _ when permit.UnifiedStatus == nameof(UnifiedPermitStatus.Active)
-                        => ("تصريح المواد أصبح نشطاً", $"اكتمل اعتماد التصريح {permit.no} وأصبح نشطاً."),
-                    _ => ("تقدّم اعتماد تصريح المواد", $"اعتُمدت خطوة على التصريح {permit.no}.")
+                        => ($"تصريح {kind} أصبح نشطاً", $"اكتمل اعتماد التصريح {permit.no} وأصبح نشطاً."),
+                    _ => ($"تقدّم اعتماد تصريح {kind}", $"اعتُمدت خطوة على التصريح {permit.no}.")
                 };
 
                 await _notifications.NotifyAsync(creatorId, title, body, permit.Id);
@@ -419,6 +421,11 @@ namespace Services.Workflow
                     break;
             }
         }
+
+        private static string KindLabel(string? classification) =>
+            Enum.TryParse<PermitClassification>(classification, out var parsed)
+                ? ApprovalPathCatalog.ClassificationTitle(parsed)
+                : "التصريح";
 
         private static void SetStatus(Permit permit, UnifiedPermitStatus status, char legacy)
         {

@@ -15,6 +15,12 @@ namespace Core.Entities
         public string? Nationality { get; set; }
         public string? Purpose { get; set; }
 
+        public string? HostFileNumber { get; set; }
+        public string? HostName { get; set; }
+        public string? HostDepartment { get; set; }
+        public string? ExpectedVisitTime { get; set; }
+        public string? ExpectedDepartureTime { get; set; }
+
         public Guid? HostEmployeeId { get; set; }
         public Employee? HostEmployee { get; set; }
 

@@ -103,24 +103,50 @@ else
                 <div class="card-header pms-header">البيانات الأساسية</div>
                 <div class="card-body">
                     <dl class="row mb-0">
-                        <dt class="col-6">التصنيف</dt><dd class="col-6">تصريح مواد</dd>
+                        <dt class="col-6">التصنيف</dt><dd class="col-6">@ClassificationTitle(permit.classification)</dd>
                         <dt class="col-6">النوع</dt><dd class="col-6">@(permit.type?.ToEnumDescription<EnumPermitType>())</dd>
                         <dt class="col-6">الجهة الطالبة</dt><dd class="col-6">@departmentName</dd>
-                        <dt class="col-6">الجهة المصرح لها</dt><dd class="col-6">@permit.OrgDescription</dd>
+                        @if (!IsVisitors(permit))
+                        {
+                            <dt class="col-6">الجهة المصرح لها</dt><dd class="col-6">@permit.OrgDescription</dd>
+                        }
                         <dt class="col-6">تصريح مؤقت</dt><dd class="col-6">@(permit.IsTemp ? "نعم" : "لا")</dd>
                         <dt class="col-6">التاريخ</dt><dd class="col-6">@permit.date.ToString("yyyy/MM/dd")</dd>
-                        <dt class="col-6">الوقت</dt><dd class="col-6">@permit.hourOfEntry</dd>
-                        <dt class="col-6">قادم من</dt><dd class="col-6">@permit.moveFrom</dd>
-                        <dt class="col-6">ذاهب إلى</dt><dd class="col-6">@permit.moveTo</dd>
+                        @if (!IsVisitors(permit))
+                        {
+                            <dt class="col-6">الوقت</dt><dd class="col-6">@permit.hourOfEntry</dd>
+                            <dt class="col-6">قادم من</dt><dd class="col-6">@permit.moveFrom</dd>
+                            <dt class="col-6">ذاهب إلى</dt><dd class="col-6">@permit.moveTo</dd>
+                        }
                         <dt class="col-6">الهاتف</dt><dd class="col-6">@permit.phoneNo</dd>
                         <dt class="col-6">الحالة</dt><dd class="col-6">@StatusText()</dd>
                         <dt class="col-6">بداية السريان</dt><dd class="col-6">@permit.ValidFrom?.ToString("yyyy/MM/dd")</dd>
                         <dt class="col-6">نهاية السريان</dt><dd class="col-6">@permit.ValidTo?.ToString("yyyy/MM/dd")</dd>
-                        <dt class="col-6">الوقت المتوقع للتنفيذ</dt><dd class="col-6">@(string.IsNullOrWhiteSpace(permit.ExpectedExecutionTime) ? "—" : permit.ExpectedExecutionTime)</dd>
+                        @if (!IsVisitors(permit))
+                        {
+                            <dt class="col-6">الوقت المتوقع للتنفيذ</dt><dd class="col-6">@(string.IsNullOrWhiteSpace(permit.ExpectedExecutionTime) ? "—" : permit.ExpectedExecutionTime)</dd>
+                        }
                         <dt class="col-6">اعتماد مناوب</dt><dd class="col-6">@(permit.ShiftApproval ? "نعم" : "لا")</dd>
                         <dt class="col-6">بوابة التنفيذ</dt><dd class="col-6">@GateText(permit.Gate)</dd>
-                        <dt class="col-6">الغرض من التصريح</dt><dd class="col-6">@(string.IsNullOrWhiteSpace(permit.EquipmentDetail?.Description) ? "—" : permit.EquipmentDetail!.Description)</dd>
-                        <dt class="col-6">خطوة الاعتماد</dt><dd class="col-6">@(currentStep == null ? "—" : currentStep.StepType.GetDescription())</dd>
+                        <dt class="col-6">الغرض من التصريح</dt><dd class="col-6">@(string.IsNullOrWhiteSpace(PermitText.Purpose(permit)) ? "—" : PermitText.Purpose(permit))</dd>
+                        @if (IsCars(permit))
+                        {
+                            <dt class="col-6">الاستخدام</dt><dd class="col-6">@(permit.VehicleDetail?.InternalUse == false ? "حركة واحدة" : "استخدام داخلي")</dd>
+                            @if (permit.VehicleDetail?.InternalUse != false)
+                            {
+                                <dt class="col-6">عدد الرحلات</dt><dd class="col-6">@Math.Max(1, permit.VehicleDetail?.TripCount ?? 1)</dd>
+                            }
+                        }
+                        @if (IsVisitors(permit))
+                        {
+                            <dt class="col-6">الداعي</dt><dd class="col-6">@permit.VisitorDetail?.HostName</dd>
+                            <dt class="col-6">رقم الملف</dt><dd class="col-6">@permit.VisitorDetail?.HostFileNumber</dd>
+                            <dt class="col-6">جهة الداعي</dt><dd class="col-6">@permit.VisitorDetail?.HostDepartment</dd>
+                            <dt class="col-6">جهة الزائر</dt><dd class="col-6">@permit.OrgDescription</dd>
+                            <dt class="col-6">ساعة الزيارة</dt><dd class="col-6">@permit.VisitorDetail?.ExpectedVisitTime</dd>
+                            <dt class="col-6">ساعة المغادرة</dt><dd class="col-6">@permit.VisitorDetail?.ExpectedDepartureTime</dd>
+                        }
+                        <dt class="col-6">خطوة الاعتماد</dt><dd class="col-6">@StepText()</dd>
                         <dt class="col-6">ملاحظات</dt><dd class="col-6">@permit.remarks</dd>
                     </dl>
                 </div>
@@ -128,6 +154,8 @@ else
         </div>
 
         <div class="col-md-8">
+            @if (!IsCars(permit) && !IsVisitors(permit))
+            {
             <div class="card mb-3">
                 <div class="card-header pms-header">المواد والمعدات</div>
                 <div class="table-responsive">
@@ -146,8 +174,27 @@ else
                     </table>
                 </div>
             </div>
+            }
 
-            @if (permit.Cars.Any())
+            @if (IsVisitors(permit))
+            {
+            <div class="card mb-3">
+                <div class="card-header pms-header">الزوار</div>
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead><tr><th>الاسم</th><th>رقم الهوية</th><th>الجنسية</th></tr></thead>
+                        <tbody>
+                            @foreach (var visitor in (permit.Visitors ?? new List<PermitVisitor>()).Where(v => !v.isDeleted))
+                            {
+                                <tr><td>@visitor.Name</td><td>@visitor.IdNumber</td><td>@Readable(visitor.Nationality)</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            }
+
+            @if (IsCars(permit) || permit.Cars.Any(c => !c.isDeleted))
             {
             <div class="card mb-3">
                 <div class="card-header pms-header">المركبات</div>
@@ -155,7 +202,7 @@ else
                     <table class="table mb-0">
                         <thead><tr><th>النوع</th><th>رقم اللوحة</th><th>السائق</th><th>الجنسية</th><th>الرخصة</th></tr></thead>
                         <tbody>
-                            @foreach (var c in permit.Cars)
+                            @foreach (var c in permit.Cars.Where(c => !c.isDeleted))
                             {
                                 <tr><td>@c.carType</td><td>@c.carNo</td><td>@c.name</td><td>@Readable(c.nattiunality)</td><td>@c.licenseNo</td></tr>
                             }
@@ -250,6 +297,13 @@ else
                         visibility.CanReject = false;
                         visibility.CanReturn = false;
                         visibility.CanClose = false;
+                    }
+                    else if (ShiftDuty.IsPending(permit))
+                    {
+                        var canDecide = ShiftDuty.IsOfficer(currentUser);
+                        visibility.CanApprove = canDecide;
+                        visibility.CanReject = canDecide;
+                        visibility.CanReturn = canDecide;
                     }
                     else if (permit.WorkflowDefinitionId != null)
                     {
@@ -405,6 +459,29 @@ else
 
         await LoadAsync();
     }
+
+    private string StepText()
+    {
+        if (permit != null && ShiftDuty.IsPending(permit))
+            return ShiftDuty.StepLabel;
+        return currentStep == null ? "—" : currentStep.StepType.GetDescription();
+    }
+
+    private static bool IsVisitors(Permit item) =>
+        string.Equals(item.classification, nameof(PermitClassification.Visitors), StringComparison.OrdinalIgnoreCase)
+        || item.classification is "زوار" or "تصريح زوار";
+
+    private static bool IsCars(Permit item) =>
+        string.Equals(item.classification, nameof(PermitClassification.Cars), StringComparison.OrdinalIgnoreCase)
+        || item.classification is "سيارات" or "مركبات" or "تصريح سيارات";
+
+    private static string ClassificationTitle(string? classification) => classification?.Trim() switch
+    {
+        nameof(PermitClassification.Cars) or "سيارات" or "مركبات" or "تصريح سيارات" => "تصريح مركبات",
+        nameof(PermitClassification.Visitors) or "زوار" or "تصريح زوار" => "تصريح زوار",
+        nameof(PermitClassification.EmployeeAccess) or "دخول موظفين" => "دخول موظفين",
+        _ => "تصريح مواد"
+    };
 
     private async Task<List<ActionRow>> BuildActionRowsAsync()
     {

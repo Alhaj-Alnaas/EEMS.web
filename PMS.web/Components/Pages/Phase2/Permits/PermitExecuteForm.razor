@@ -58,19 +58,19 @@ else
                         <table class="table mb-0">
                             <thead><tr><th>الاسم</th><th>رقم الإثبات</th><th>الجنسية</th><th>الهاتف</th><th>الغرض</th></tr></thead>
                             <tbody>
-                                @if (permit.VisitorDetail == null || string.IsNullOrWhiteSpace(permit.VisitorDetail.VisitorName))
-                                {
-                                    <tr><td colspan="5" class="text-center text-muted">لا توجد بيانات زوار</td></tr>
-                                }
-                                else
+                                @foreach (var visitor in VisitorRows(permit))
                                 {
                                     <tr>
-                                        <td>@permit.VisitorDetail.VisitorName</td>
-                                        <td>@Show(permit.VisitorDetail.IdNumber)</td>
-                                        <td>@Show(permit.VisitorDetail.Nationality)</td>
-                                        <td>@Show(permit.VisitorDetail.Phone)</td>
-                                        <td>@Show(permit.VisitorDetail.Purpose)</td>
+                                        <td>@Show(visitor.Name)</td>
+                                        <td>@Show(visitor.IdNumber)</td>
+                                        <td>@Readable(visitor.Nationality)</td>
+                                        <td>@Show(permit.VisitorDetail?.Phone)</td>
+                                        <td>@Show(permit.VisitorDetail?.Purpose)</td>
                                     </tr>
+                                }
+                                @if (!VisitorRows(permit).Any())
+                                {
+                                    <tr><td colspan="5" class="text-center text-muted">لا توجد بيانات زوار</td></tr>
                                 }
                             </tbody>
                         </table>
@@ -82,25 +82,16 @@ else
                         <table class="table mb-0">
                             <thead><tr><th>النوع</th><th>رقم اللوحة</th><th>السائق</th><th>الرخصة</th></tr></thead>
                             <tbody>
-                                @if (permit.VehicleDetail != null && !string.IsNullOrWhiteSpace(permit.VehicleDetail.PlateNumber))
+                                @foreach (var car in VehicleRows(permit))
                                 {
                                     <tr>
-                                        <td>@Show(permit.VehicleDetail.VehicleType)</td>
-                                        <td>@permit.VehicleDetail.PlateNumber</td>
-                                        <td>@Show(permit.VehicleDetail.DriverName)</td>
-                                        <td>@Show(permit.VehicleDetail.LicenseNo)</td>
+                                        <td>@Show(car.Type)</td>
+                                        <td>@Show(car.Plate)</td>
+                                        <td>@Show(car.Driver)</td>
+                                        <td>@Show(car.License)</td>
                                     </tr>
                                 }
-                                @foreach (var car in permit.Cars.Where(c => !c.isDeleted))
-                                {
-                                    <tr>
-                                        <td>@Show(car.carType)</td>
-                                        <td>@Show(car.carNo)</td>
-                                        <td>@Show(car.name)</td>
-                                        <td>@Show(car.licenseNo)</td>
-                                    </tr>
-                                }
-                                @if ((permit.VehicleDetail == null || string.IsNullOrWhiteSpace(permit.VehicleDetail.PlateNumber)) && !permit.Cars.Any(c => !c.isDeleted))
+                                @if (!VehicleRows(permit).Any())
                                 {
                                     <tr><td colspan="4" class="text-center text-muted">لا توجد بيانات مركبة</td></tr>
                                 }
@@ -372,6 +363,46 @@ else
         string.Equals(permit.classification, nameof(PermitClassification.Visitors), StringComparison.OrdinalIgnoreCase)
         || permit.classification is "زوار" or "تصريح زوار";
 
+    private static List<PermitVisitor> VisitorRows(Permit permit)
+    {
+        var rows = (permit.Visitors ?? new List<PermitVisitor>())
+            .Where(v => !v.isDeleted && !string.IsNullOrWhiteSpace(v.Name))
+            .GroupBy(v => $"{v.Name}|{v.IdNumber}|{v.Nationality}", StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToList();
+        if (rows.Count == 0 && permit.VisitorDetail != null && !string.IsNullOrWhiteSpace(permit.VisitorDetail.VisitorName))
+        {
+            rows.Add(new PermitVisitor
+            {
+                Name = permit.VisitorDetail.VisitorName,
+                IdNumber = permit.VisitorDetail.IdNumber,
+                Nationality = permit.VisitorDetail.Nationality
+            });
+        }
+        return rows;
+    }
+
+    private static List<VehicleLine> VehicleRows(Permit permit)
+    {
+        var rows = permit.Cars
+            .Where(c => !c.isDeleted && !string.IsNullOrWhiteSpace(c.carNo))
+            .GroupBy(c => $"{c.carNo}|{c.carType}|{c.name}|{c.licenseNo}", StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .Select(c => new VehicleLine(c.carType, c.carNo, c.name, c.licenseNo))
+            .ToList();
+
+        if (rows.Count == 0 && permit.VehicleDetail != null && !string.IsNullOrWhiteSpace(permit.VehicleDetail.PlateNumber))
+        {
+            rows.Add(new VehicleLine(
+                permit.VehicleDetail.VehicleType,
+                permit.VehicleDetail.PlateNumber,
+                permit.VehicleDetail.DriverName,
+                permit.VehicleDetail.LicenseNo));
+        }
+
+        return rows;
+    }
+
     private static bool IsCars(Permit permit) =>
         string.Equals(permit.classification, nameof(PermitClassification.Cars), StringComparison.OrdinalIgnoreCase)
         || permit.classification is "سيارات" or "مركبات" or "تصريح سيارات";
@@ -383,4 +414,5 @@ else
         string.IsNullOrWhiteSpace(value) ? "—" : value.Replace('_', ' ');
 
     private sealed record ApprovalLine(string Step, string Decision, string Who, string When, string Note);
+    private sealed record VehicleLine(string? Type, string? Plate, string? Driver, string? License);
 }

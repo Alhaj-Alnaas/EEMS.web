@@ -167,8 +167,16 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQaGFzZTJcUGVybWl0c1xWZWhpY2xlUGVybWl0Q3JlYXRlLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
+[D:/EEMS Project/PMS/PMS.web/Components/Pages/Phase2/Permits/VehiclePermitEdit.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQaGFzZTJcUGVybWl0c1xWZWhpY2xlUGVybWl0RWRpdC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
 [D:/EEMS Project/PMS/PMS.web/Components/Pages/Phase2/Permits/VisitorPermitCreate.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQaGFzZTJcUGVybWl0c1xWaXNpdG9yUGVybWl0Q3JlYXRlLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/EEMS Project/PMS/PMS.web/Components/Pages/Phase2/Permits/VisitorPermitEdit.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQaGFzZTJcUGVybWl0c1xWaXNpdG9yUGVybWl0RWRpdC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
 [D:/EEMS Project/PMS/PMS.web/Components/Pages/Phase2/Workflow/WorkflowDefinitions.razor]

@@ -16,7 +16,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PMS.web")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+73e2ccb6ef7de308b109ac6e44e6d18390905e40")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+942644d5c2d5ee6e32dfa2f12d3ca99a5f1107e8")]
 [assembly: System.Reflection.AssemblyProductAttribute("PMS.web")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PMS.web")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

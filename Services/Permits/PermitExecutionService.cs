@@ -123,6 +123,7 @@ namespace Services.Permits
                 .Include(p => p.EquipmentDetail)
                 .Include(p => p.VehicleDetail)
                 .Include(p => p.VisitorDetail)
+                .Include(p => p.Visitors)
                 .Include(p => p.Gate)
                 .Where(p => !p.isDeleted
                     && !p.isClosed
@@ -197,6 +198,7 @@ namespace Services.Permits
                 .Include(p => p.Cars)
                 .Include(p => p.VehicleDetail)
                 .Include(p => p.VisitorDetail)
+                .Include(p => p.Visitors)
                 .Include(p => p.Gate)
                 .Include(p => p.Approvals)
                     .ThenInclude(a => a.WorkflowStep)
@@ -222,6 +224,7 @@ namespace Services.Permits
             var permit = await db.Permits
                 .Include(p => p.VehicleDetail)
                 .Include(p => p.VisitorDetail)
+                .Include(p => p.Visitors)
                 .FirstOrDefaultAsync(p => p.Id == permitId)
                 ?? throw new InvalidOperationException("التصريح غير موجود.");
 

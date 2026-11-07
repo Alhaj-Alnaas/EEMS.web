@@ -91,7 +91,7 @@ else
                             <tr>
                                 <td class="fw-bold">@row.Permit.no</td>
                                 <td>@TypeLabel(row.Permit.classification)</td>
-                                <td>@(string.IsNullOrWhiteSpace(row.Permit.EquipmentDetail?.Description) ? "—" : row.Permit.EquipmentDetail!.Description)</td>
+                                <td>@(string.IsNullOrWhiteSpace(PermitText.Purpose(row.Permit)) ? "—" : PermitText.Purpose(row.Permit))</td>
                                 <td>@DepartmentName(row.Permit.reqDepartment)</td>
                                 <td>@row.Permit.date.ToString("yyyy/MM/dd")</td>
                                 <td>@(string.IsNullOrWhiteSpace(row.NextStep) ? "—" : row.NextStep)</td>

@@ -1156,6 +1156,56 @@ namespace DataAccess.Migrations
                     b.ToTable("PermitTypes");
                 });
 
+            modelBuilder.Entity("Core.Entities.PermitVisitor", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("IdNumber")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Nationality")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("PermitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("createdBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("createdOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("deletedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("deletedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("isDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("updatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("updatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PermitId");
+
+                    b.ToTable("PermitVisitors");
+                });
+
             modelBuilder.Entity("Core.Entities.ProcedureMovment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1595,8 +1645,23 @@ namespace DataAccess.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("ExpectedDepartureTime")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ExpectedVisitTime")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("HostDepartment")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<Guid?>("HostEmployeeId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("HostFileNumber")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("HostName")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("IdNumber")
                         .HasColumnType("nvarchar(max)");
@@ -2205,6 +2270,17 @@ namespace DataAccess.Migrations
                     b.Navigation("AccessLevel");
                 });
 
+            modelBuilder.Entity("Core.Entities.PermitVisitor", b =>
+                {
+                    b.HasOne("Core.Entities.Permit", "Permit")
+                        .WithMany("Visitors")
+                        .HasForeignKey("PermitId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Permit");
+                });
+
             modelBuilder.Entity("Core.Entities.VisitorPermitDetail", b =>
                 {
                     b.HasOne("Core.Entities.Employee", "HostEmployee")
@@ -2359,6 +2435,8 @@ namespace DataAccess.Migrations
                     b.Navigation("VehicleDetail");
 
                     b.Navigation("VisitorDetail");
+
+                    b.Navigation("Visitors");
                 });
 
             modelBuilder.Entity("Core.Entities.WorkflowDefinition", b =>

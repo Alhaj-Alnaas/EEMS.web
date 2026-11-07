@@ -1,0 +1,368 @@
+@page "/permits/visitors/edit/{Id:guid}"
+@rendermode InteractiveServer
+@inject IPermit PermitService
+@inject IMaterialPermitService MaterialPermits
+@inject IDepartmentService DepartmentService
+@inject IEmployeeService Employees
+@inject IHrEmployeeLookupService HrLookup
+@inject UserManager<User> UserManager
+@inject AuthenticationStateProvider AuthProvider
+@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.Identity
+@using Services.Permits
+
+<PageTitle>تعديل تصريح زوار - PMS</PageTitle>
+
+<h3 class="mb-4"><i class="bi bi-person-badge text-warning"></i> تعديل تصريح زوار</h3>
+
+@if (loading)
+{
+    <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+}
+else if (request == null)
+{
+    <div class="alert alert-warning">@errorMessage</div>
+    <BackLink Fallback="/permits">العودة للقائمة</BackLink>
+}
+else
+{
+    <EditForm Model="request" OnSubmit="PreventSubmit">
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header pms-header">البيانات الأساسية</div>
+                    <div class="card-body">
+                        <div class="form-check form-switch mb-3">
+                            <InputCheckbox class="form-check-input" @bind-Value="request.IsTemp" id="isTemp" />
+                            <label class="form-check-label fw-bold" for="isTemp">تصريح مؤقت</label>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">رقم التصريح</label>
+                            <input class="form-control text-center fw-bold" value="@request.PermitNumber" readonly />
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-7">
+                                <label class="form-label">تاريخ التصريح</label>
+                                <InputDate class="form-control" @bind-Value="request.PermitDate" @bind-Value:after="ApplyShiftApproval" />
+                            </div>
+                            <div class="col-5">
+                                <label class="form-label">الوقت</label>
+                                <InputText type="time" class="form-control" @bind-Value="request.HourOfEntry" />
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">ساري حتى</label>
+                            <InputDate class="form-control" @bind-Value="request.ValidTo" />
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <label class="form-label fw-bold">ساعة الزيارة</label>
+                                <InputText type="time" class="form-control" @bind-Value="request.ExpectedVisitTime" @bind-Value:after="ApplyShiftApproval" />
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label fw-bold">ساعة المغادرة</label>
+                                <InputText type="time" class="form-control" @bind-Value="request.ExpectedDepartureTime" />
+                            </div>
+                        </div>
+                        <div class="form-check form-switch mb-3">
+                            <InputCheckbox class="form-check-input" @bind-Value="request.ShiftApproval" id="shiftApproval" />
+                            <label class="form-check-label fw-bold" for="shiftApproval">اعتماد مناوب</label>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">الغرض من الزيارة</label>
+                            <InputTextArea class="form-control" rows="2" @bind-Value="request.Purpose" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">الجهة الطالبة</label>
+                            <InputSelect class="form-select" @bind-Value="request.RequestingDepartmentCode">
+                                <option value="">-- اختر الجهة الطالبة --</option>
+                                @foreach (var dep in departments)
+                                {
+                                    <option value="@dep.RespCode">@dep.DepartmentName</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">جهة الزائر</label>
+                            <InputText class="form-control" @bind-Value="request.VisitorOrganization" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">رقم الهاتف</label>
+                            <InputText class="form-control" @bind-Value="request.Phone" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">رقم ملف الداعي</label>
+                            <div class="input-group">
+                                <InputText class="form-control" @bind-Value="request.HostFileNumber" />
+                                <button type="button" class="btn btn-outline-secondary" @onclick="LookupHostAsync">عرض</button>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">اسم الداعي</label>
+                            <input class="form-control pms-readonly" value="@request.HostName" readonly />
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label">جهة الداعي</label>
+                            <input class="form-control pms-readonly" value="@request.HostDepartment" readonly />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-8">
+                <div class="card mb-3">
+                    <div class="card-header pms-header d-flex justify-content-between align-items-center">
+                        <span>الزوار</span>
+                        <button type="button" class="btn btn-sm btn-light" @onclick="AddVisitor"><i class="bi bi-plus-circle"></i> إضافة زائر</button>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-bordered mb-0">
+                                <thead><tr><th>الاسم</th><th>رقم الهوية</th><th>الجنسية</th><th style="width:50px"></th></tr></thead>
+                                <tbody>
+                                    @foreach (var visitor in request.Visitors)
+                                    {
+                                        <tr @key="visitor">
+                                            <td><input class="form-control" @bind="visitor.Name" /></td>
+                                            <td><input class="form-control" @bind="visitor.IdNumber" /></td>
+                                            <td>
+                                                <select class="form-select" @bind="visitor.Nationality">
+                                                    @foreach (var nationality in Enum.GetValues<Nationality>())
+                                                    {
+                                                        <option value="@nationality">@nationality.ToString().Replace('_', ' ')</option>
+                                                    }
+                                                </select>
+                                            </td>
+                                            <td class="text-center">
+                                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => request.Visitors.Remove(visitor)"><i class="bi bi-trash"></i></button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="card mb-3">
+                    <div class="card-header pms-header d-flex justify-content-between align-items-center">
+                        <span>المركبة إن وجدت</span>
+                        <button type="button" class="btn btn-sm btn-light" @onclick="AddVehicle"><i class="bi bi-plus-circle"></i> إضافة مركبة</button>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-bordered mb-0">
+                                <thead><tr><th>رقم اللوحة</th><th>نوع المركبة</th><th>السائق</th><th>رخصة القيادة</th><th style="width:50px"></th></tr></thead>
+                                <tbody>
+                                    @foreach (var vehicle in request.Vehicles)
+                                    {
+                                        <tr @key="vehicle">
+                                            <td><input class="form-control" @bind="vehicle.CarNo" /></td>
+                                            <td><input class="form-control" @bind="vehicle.CarType" /></td>
+                                            <td><input class="form-control" @bind="vehicle.DriverName" /></td>
+                                            <td><input class="form-control" @bind="vehicle.licenseNo" /></td>
+                                            <td class="text-center">
+                                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => request.Vehicles.Remove(vehicle)"><i class="bi bi-trash"></i></button>
+                                            </td>
+                                        </tr>
+                                    }
+                                    @if (request.Vehicles.Count == 0)
+                                    {
+                                        <tr><td colspan="5" class="text-center text-muted py-3">لا توجد مركبة</td></tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">ملاحظات</label>
+                    <InputTextArea class="form-control" rows="3" @bind-Value="request.Notes" />
+                </div>
+            </div>
+        </div>
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger mt-3">@errorMessage</div>
+        }
+        <div class="mt-4 text-center">
+            <button type="button" class="btn btn-warning px-4" @onclick="SaveAsync" disabled="@saving"><i class="bi bi-save"></i> حفظ التعديل</button>
+            <BackLink Fallback="/permits" Css="btn btn-outline-secondary px-4">إلغاء</BackLink>
+        </div>
+    </EditForm>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private bool loading = true;
+    private bool saving;
+    private string? errorMessage;
+    private VisitorPermitRequest? request;
+    private List<DepartmentDto> departments = new();
+    private User? currentUser;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthProvider.GetAuthenticationStateAsync();
+            var userName = authState.User.Identity?.Name;
+            currentUser = userName != null ? await UserManager.FindByNameAsync(userName) : null;
+            var permit = await PermitService.GetPermitByIdAsync(Id);
+            if (permit == null || !string.Equals(permit.classification, nameof(PermitClassification.Visitors), StringComparison.OrdinalIgnoreCase))
+            {
+                errorMessage = "تصريح الزوار غير موجود.";
+                return;
+            }
+
+            var names = currentUser == null ? new HashSet<string>() : await MaterialPermits.GetSameCenterUserNamesAsync(currentUser);
+            if (currentUser == null || !MaterialPermitService.CanEdit(permit, currentUser, names))
+            {
+                errorMessage = "التعديل متاح لمسودة أدخلها مركز المسؤولية نفسه.";
+                return;
+            }
+
+            request = new VisitorPermitRequest
+            {
+                PermitNumber = permit.no ?? "",
+                IsTemp = permit.IsTemp,
+                PermitDate = permit.date,
+                HourOfEntry = permit.hourOfEntry,
+                ValidTo = permit.ValidTo ?? permit.date,
+                ExpectedExecutionTime = permit.ExpectedExecutionTime,
+                ShiftApproval = permit.ShiftApproval,
+                RequestingDepartmentCode = permit.reqDepartment ?? "",
+                Phone = permit.phoneNo,
+                MoveFrom = permit.moveFrom,
+                MoveTo = permit.moveTo,
+                Notes = permit.remarks,
+                HostFileNumber = permit.VisitorDetail?.HostFileNumber,
+                HostEmployeeId = permit.VisitorDetail?.HostEmployeeId ?? permit.HostEmployeeId,
+                HostName = permit.VisitorDetail?.HostName,
+                HostDepartment = permit.VisitorDetail?.HostDepartment,
+                VisitorOrganization = permit.OrgDescription,
+                ExpectedVisitTime = permit.VisitorDetail?.ExpectedVisitTime,
+                ExpectedDepartureTime = permit.VisitorDetail?.ExpectedDepartureTime,
+                Purpose = permit.VisitorDetail?.Purpose,
+                Visitors = permit.Visitors.Where(v => !v.isDeleted && !string.IsNullOrWhiteSpace(v.Name))
+                    .GroupBy(v => $"{v.Name}|{v.IdNumber}|{v.Nationality}", StringComparer.OrdinalIgnoreCase)
+                    .Select(g => g.First())
+                    .Select(v => new VisitorLineViewModel
+                    {
+                        Name = v.Name,
+                        IdNumber = v.IdNumber ?? "",
+                        Nationality = Enum.TryParse<Nationality>(v.Nationality, out var nationality) ? nationality : Nationality.ليبي
+                    }).ToList(),
+                Vehicles = permit.Cars.Where(c => !c.isDeleted && !string.IsNullOrWhiteSpace(c.carNo))
+                    .GroupBy(c => c.carNo, StringComparer.OrdinalIgnoreCase)
+                    .Select(g => g.First())
+                    .Select(c => new CarMovmentViewModel
+                    {
+                        CarNo = c.carNo ?? "",
+                        CarType = c.carType ?? "",
+                        DriverName = c.name ?? "",
+                        licenseNo = c.licenseNo ?? ""
+                    }).ToList()
+            };
+            if (request.Visitors.Count == 0)
+                request.Visitors.Add(new VisitorLineViewModel());
+
+            if (currentUser != null && !string.IsNullOrWhiteSpace(currentUser.ResponsibilityCode))
+            {
+                departments = await DepartmentService.GetDepartmentsByResponsibilityAsync(currentUser.ResponsibilityCode);
+                if (departments.All(d => d.RespCode != request.RequestingDepartmentCode) && !string.IsNullOrWhiteSpace(request.RequestingDepartmentCode))
+                {
+                    departments.Insert(0, new DepartmentDto { RespCode = request.RequestingDepartmentCode, DepartmentName = request.RequestingDepartmentCode });
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void ApplyShiftApproval()
+    {
+        if (request != null && NeedsShiftApproval(request.PermitDate, request.ExpectedVisitTime))
+            request.ShiftApproval = true;
+    }
+
+    private static bool NeedsShiftApproval(DateTime permitDate, string? expectedTime)
+    {
+        if (permitDate.DayOfWeek is DayOfWeek.Friday or DayOfWeek.Saturday)
+            return true;
+        if (!TimeSpan.TryParse(expectedTime, out var time))
+            return false;
+        return time >= TimeSpan.FromHours(15) || time <= TimeSpan.FromHours(8);
+    }
+
+    private async Task LookupHostAsync()
+    {
+        if (request == null) return;
+        errorMessage = null;
+        var file = request.HostFileNumber?.Trim();
+        if (string.IsNullOrWhiteSpace(file))
+        {
+            errorMessage = "أدخل رقم ملف الداعي.";
+            return;
+        }
+
+        try
+        {
+            var employee = await Employees.GetByFileNumberAsync(file);
+            if (employee != null)
+            {
+                request.HostEmployeeId = employee.Id;
+                request.HostName = employee.FullName;
+                request.HostDepartment = !string.IsNullOrWhiteSpace(employee.DepartmentName) ? employee.DepartmentName : employee.Department?.NameAr;
+                return;
+            }
+
+            var hr = await HrLookup.LookupAsync(file);
+            if (!hr.Success || string.IsNullOrWhiteSpace(hr.FullName))
+            {
+                request.HostEmployeeId = null;
+                request.HostName = "";
+                request.HostDepartment = "";
+                errorMessage = string.IsNullOrWhiteSpace(hr.Error) ? "لم يتم العثور على الموظف." : hr.Error;
+                return;
+            }
+
+            request.HostEmployeeId = null;
+            request.HostName = hr.FullName;
+            request.HostDepartment = hr.DepartmentName;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "تعذر جلب بيانات الموظف: " + ex.Message;
+        }
+    }
+
+    private void AddVisitor() => request?.Visitors.Add(new VisitorLineViewModel());
+    private void AddVehicle() => request?.Vehicles.Add(new CarMovmentViewModel());
+    private Task PreventSubmit(EditContext _) => SaveAsync();
+
+    private async Task SaveAsync()
+    {
+        if (saving || request == null || currentUser == null) return;
+        errorMessage = null;
+        saving = true;
+        try
+        {
+            await MaterialPermits.UpdateVisitorAsync(Id, request, currentUser);
+            Navigation.NavigateTo(ReturnUrl.Read(Navigation) ?? "/permits");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+}

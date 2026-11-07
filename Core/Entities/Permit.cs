@@ -38,6 +38,7 @@ namespace Core.Entities
         public bool ShiftApproval { get; set; } 
         public ICollection<EquipMatiMovment> EquipmentsAndMatirials { get; set; } = new List<EquipMatiMovment>();
         public ICollection<CarMovment> Cars { get; set; } = new List<CarMovment>();
+        public ICollection<PermitVisitor> Visitors { get; set; } = new List<PermitVisitor>();
         public ICollection<ProcedureMovment> Procedures { get; set; } = new List<ProcedureMovment>();
 
         // ================= Unified Permit Management additions =================

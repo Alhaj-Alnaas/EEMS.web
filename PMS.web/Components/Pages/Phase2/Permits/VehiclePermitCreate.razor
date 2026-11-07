@@ -1,59 +1,288 @@
 @page "/permits/vehicles/create"
 @rendermode InteractiveServer
+@inject IPermit PermitService
+@inject IMaterialPermitService MaterialPermits
+@inject IDepartmentService DepartmentService
+@inject UserManager<User> UserManager
+@inject AuthenticationStateProvider AuthProvider
+@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.Identity
 
-<PageTitle>تصريح سيارات جديد - PMS</PageTitle>
+<PageTitle>تصريح مركبات جديد - PMS</PageTitle>
 
-<h3 class="mb-4"><i class="bi bi-truck text-warning"></i> إضافة تصريح سيارات جديد</h3>
+<h3 class="mb-1"><i class="bi bi-truck text-warning"></i> إضافة تصريح مركبات</h3>
+<p class="text-muted small mb-4">يُحفظ كمسودة أو يُحال لمسار اعتماد المركبات. الاستخدام الداخلي يُنفَّذ خروجاً ثم عودة بعدد الرحلات المحدد هنا.</p>
 
-<div class="alert alert-info">
-    <i class="bi bi-info-circle"></i>
-    نموذج تصريح السيارات المستقل قيد التطوير — المرحلة الثانية. لتصاريح المواد المصحوبة بسيارات استخدم تصريح المواد.
-</div>
+@if (loading)
+{
+    <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+}
+else
+{
+    <EditForm Model="request" OnSubmit="PreventSubmit">
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header pms-header">البيانات الأساسية</div>
+                    <div class="card-body">
+                        <div class="form-check form-switch mb-3">
+                            <InputCheckbox class="form-check-input" @bind-Value="request.IsTemp" id="isTemp" />
+                            <label class="form-check-label fw-bold" for="isTemp">تصريح مؤقت</label>
+                        </div>
 
-<div class="card">
-    <div class="card-header pms-header">بيانات السيارة</div>
-    <div class="card-body">
-        <EditForm Model="model">
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <label class="form-label">رقم اللوحة</label>
-                    <InputText class="form-control" @bind-Value="model.PlateNumber" />
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">نوع المركبة</label>
-                    <InputText class="form-control" @bind-Value="model.VehicleType" />
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">اسم السائق</label>
-                    <InputText class="form-control" @bind-Value="model.DriverName" />
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">رقم رخصة القيادة</label>
-                    <InputText class="form-control" @bind-Value="model.LicenseNo" />
-                </div>
-                <div class="col-md-4">
-                    <div class="form-check form-switch mt-4">
-                        <InputCheckbox class="form-check-input" @bind-Value="model.InternalUse" id="internalUse" />
-                        <label class="form-check-label" for="internalUse">استخدام داخلي</label>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">رقم التصريح</label>
+                            <input class="form-control text-center fw-bold text-warning" value="@request.PermitNumber" readonly />
+                        </div>
+
+                        <div class="row g-2 mb-3">
+                            <div class="col-7">
+                                <label class="form-label">تاريخ التصريح</label>
+                                <InputDate class="form-control" @bind-Value="request.PermitDate" @bind-Value:after="ApplyShiftApproval" />
+                            </div>
+                            <div class="col-5">
+                                <label class="form-label">الوقت</label>
+                                <InputText type="time" class="form-control" @bind-Value="request.HourOfEntry" />
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">ساري حتى</label>
+                            <InputDate class="form-control" @bind-Value="request.ValidTo" />
+                        </div>
+
+                        <div class="row g-2 mb-3 align-items-center">
+                            <div class="col-7">
+                                <label class="form-label fw-bold">الوقت المتوقع للتنفيذ</label>
+                                <InputText type="time" class="form-control" @bind-Value="request.ExpectedExecutionTime" @bind-Value:after="ApplyShiftApproval" />
+                            </div>
+                            <div class="col-5">
+                                <div class="form-check form-switch mt-4">
+                                    <InputCheckbox class="form-check-input" @bind-Value="request.ShiftApproval" id="shiftApproval" />
+                                    <label class="form-check-label fw-bold" for="shiftApproval">اعتماد مناوب</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">الغرض <span class="text-warning">*</span></label>
+                            <InputTextArea class="form-control" rows="2" @bind-Value="request.Purpose" placeholder="نقل بضائع، صيانة، توريدات" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">الجهة الطالبة</label>
+                            <InputSelect class="form-select" @bind-Value="request.RequestingDepartmentCode">
+                                <option value="">-- اختر الجهة الطالبة --</option>
+                                @foreach (var dep in departments)
+                                {
+                                    <option value="@dep.RespCode">@dep.DepartmentName</option>
+                                }
+                            </InputSelect>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">الجهة المسؤولة عن المركبة</label>
+                            <InputText class="form-control" @bind-Value="request.ResponsibleParty" placeholder="الجهة المسؤولة داخل الموقع" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">رقم الهاتف</label>
+                            <InputText class="form-control" @bind-Value="request.Phone" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">قادم من</label>
+                            <InputText class="form-control" @bind-Value="request.MoveFrom" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">ذاهب إلى</label>
+                            <InputText class="form-control" @bind-Value="request.MoveTo" />
+                        </div>
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">عدد الرحلات</label>
-                    <InputNumber class="form-control" @bind-Value="model.TripCount" min="1" />
-                    <div class="form-text">في الاستخدام الداخلي تُسجل كل رحلة خروجاً ثم عودة على نفس التصريح.</div>
+            </div>
+
+            <div class="col-md-8">
+                <div class="card mb-3">
+                    <div class="card-header pms-header d-flex justify-content-between align-items-center">
+                        <span>المركبات <span class="text-warning">*</span></span>
+                        <button type="button" class="btn btn-sm btn-light" @onclick="AddVehicle">
+                            <i class="bi bi-plus-circle"></i> إضافة مركبة
+                        </button>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-bordered mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>رقم اللوحة</th>
+                                        <th>نوع المركبة</th>
+                                        <th>السائق</th>
+                                        <th>رخصة القيادة</th>
+                                        <th style="width:50px"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var vehicle in request.Vehicles)
+                                    {
+                                        <tr @key="vehicle">
+                                            <td><input class="form-control" @bind="vehicle.CarNo" /></td>
+                                            <td><input class="form-control" @bind="vehicle.CarType" /></td>
+                                            <td><input class="form-control" @bind="vehicle.DriverName" /></td>
+                                            <td><input class="form-control" @bind="vehicle.licenseNo" /></td>
+                                            <td class="text-center">
+                                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => request.Vehicles.Remove(vehicle)">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-header pms-header">التنفيذ</div>
+                    <div class="card-body">
+                        <div class="form-check form-switch mb-3">
+                            <InputCheckbox class="form-check-input" @bind-Value="request.InternalUse" id="internalUse" />
+                            <label class="form-check-label fw-bold" for="internalUse">استخدام داخلي</label>
+                        </div>
+                        @if (request.InternalUse)
+                        {
+                            <div class="mb-2" style="max-width:220px">
+                                <label class="form-label fw-bold">عدد الرحلات</label>
+                                <InputNumber class="form-control" @bind-Value="request.TripCount" />
+                            </div>
+                            <p class="text-muted small mb-0">كل رحلة خروج ثم عودة على نفس التصريح. يبقى التصريح مفتوحاً حتى تكتمل الرحلات، ويُنبَّه المسؤولون إذا تجاوزت العودة 24 ساعة.</p>
+                        }
+                        else
+                        {
+                            <p class="text-muted small mb-0">بدون استخدام داخلي تُسجَّل حركة واحدة ثم يُقفل التصريح.</p>
+                        }
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">ملاحظات</label>
+                    <InputTextArea class="form-control" rows="3" @bind-Value="request.Notes" />
                 </div>
             </div>
+        </div>
 
-            <div class="mt-4 text-center">
-                <button type="button" class="btn btn-warning px-4" disabled title="سيتم تفعيله عند اكتمال مسار الاعتماد">
-                    <i class="bi bi-save"></i> حفظ (قيد التطوير)
-                </button>
-                <BackLink Fallback="/permits" Css="btn btn-outline-secondary px-4">رجوع</BackLink>
-            </div>
-        </EditForm>
-    </div>
-</div>
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger mt-3">@errorMessage</div>
+        }
+
+        <div class="mt-4 text-center">
+            <button type="button" class="btn btn-outline-secondary px-4" @onclick="() => SaveAsync(false)" disabled="@saving">
+                <i class="bi bi-save"></i> حفظ مسودة
+            </button>
+            <button type="button" class="btn btn-warning px-4" @onclick="() => SaveAsync(true)" disabled="@saving">
+                <i class="bi bi-send"></i> إرسال للاعتماد
+            </button>
+            <BackLink Fallback="/permits" Css="btn btn-outline-secondary px-4">إلغاء</BackLink>
+        </div>
+    </EditForm>
+}
 
 @code {
-    private VehiclePermitDetail model = new();
+    private bool loading = true;
+    private bool saving;
+    private string? errorMessage;
+    private VehiclePermitRequest request = new();
+    private List<DepartmentDto> departments = new();
+    private User? currentUser;
+
+    protected override async Task OnInitializedAsync()
+    {
+        request.PermitDate = DateTime.Now;
+        request.ValidTo = DateTime.Today;
+        request.HourOfEntry = DateTime.Now.ToString("HH:mm");
+        request.InternalUse = true;
+        request.TripCount = 1;
+        request.Vehicles.Add(new CarMovmentViewModel());
+        ApplyShiftApproval();
+
+        try
+        {
+            var authState = await AuthProvider.GetAuthenticationStateAsync();
+            var userName = authState.User.Identity?.Name;
+            currentUser = userName != null ? await UserManager.FindByNameAsync(userName) : null;
+            request.PermitNumber = await PermitService.GeneratePermitSerialNumberAsync(nameof(PermitClassification.Cars));
+
+            if (currentUser != null && !string.IsNullOrWhiteSpace(currentUser.ResponsibilityCode))
+            {
+                departments = await DepartmentService.GetDepartmentsByResponsibilityAsync(currentUser.ResponsibilityCode);
+                if (departments.Count == 0)
+                {
+                    departments.Add(new DepartmentDto
+                    {
+                        RespCode = currentUser.ResponsibilityCode,
+                        DepartmentName = string.IsNullOrWhiteSpace(currentUser.Department)
+                            ? currentUser.ResponsibilityCode
+                            : currentUser.Department
+                    });
+                }
+
+                if (departments.Count == 1)
+                    request.RequestingDepartmentCode = departments[0].RespCode ?? "";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "تعذر تحميل بيانات التصريح: " + ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void ApplyShiftApproval()
+    {
+        if (NeedsShiftApproval(request.PermitDate, request.ExpectedExecutionTime))
+            request.ShiftApproval = true;
+    }
+
+    private static bool NeedsShiftApproval(DateTime permitDate, string? expectedTime)
+    {
+        if (permitDate.DayOfWeek is DayOfWeek.Friday or DayOfWeek.Saturday)
+            return true;
+        if (!TimeSpan.TryParse(expectedTime, out var time))
+            return false;
+        return time >= TimeSpan.FromHours(15) || time <= TimeSpan.FromHours(8);
+    }
+
+    private void AddVehicle() => request.Vehicles.Add(new CarMovmentViewModel());
+
+    private Task PreventSubmit(EditContext _) => SaveAsync(true);
+
+    private async Task SaveAsync(bool submit)
+    {
+        if (saving) return;
+        errorMessage = null;
+        saving = true;
+        try
+        {
+            if (currentUser == null)
+                throw new InvalidOperationException("المستخدم غير معروف.");
+            if (!request.InternalUse)
+                request.TripCount = 1;
+            await MaterialPermits.SaveVehicleAsync(request, currentUser, submit);
+            Navigation.NavigateTo(ReturnUrl.Read(Navigation) ?? "/permits");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
 }
