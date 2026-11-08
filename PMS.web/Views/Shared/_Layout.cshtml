@@ -18,6 +18,7 @@
 
     <!-- Custom CSS -->
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/pms-message.css" asp-append-version="true" />
 
     <!-- SweetAlert2 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
@@ -415,6 +416,16 @@
         });
     </script>
 
+    <script src="~/js/pms-message.js" asp-append-version="true"></script>
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <script>pmsMessage.notify({ type: 'success', text: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(TempData["SuccessMessage"]?.ToString())) });</script>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <script>pmsMessage.notify({ type: 'danger', text: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(TempData["ErrorMessage"]?.ToString())) });</script>
+    }
     @await RenderSectionAsync("Scripts", required: false)
+    <script>if (window.pmsMessage) pmsMessage.installLegacy();</script>
 </body>
 </html>

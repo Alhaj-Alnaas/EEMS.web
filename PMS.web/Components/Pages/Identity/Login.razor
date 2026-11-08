@@ -13,6 +13,9 @@
 @inject NavigationManager Navigation
 @inject IConfiguration Configuration
 @inject IHttpContextAccessor HttpContextAccessor
+@inject IJSRuntime JS
+@inject PMS.web.Notifications.IUiToast Toast
+@using Microsoft.AspNetCore.Authentication
 
 <PageTitle>تسجيل الدخول - PMS</PageTitle>
 
@@ -20,15 +23,9 @@
 {
     <div class="pms-login-wrap">
         <div class="pms-login-card">
-            <div class="pms-login-header">
-                <i class="fas fa-id-card"></i>
-                <h4 class="mb-0">وضع التصميم مفعّل</h4>
-                <small>تسجيل الدخول معطّل مؤقتاً</small>
-            </div>
-            <div class="pms-login-body text-center">
-                <p class="text-muted mb-3">يمكنك استكشاف الواجهة مباشرة بدون مصادقة.</p>
-                <a class="btn pms-login-btn w-100" href="/dashboard">الدخول للوحة الرئيسية</a>
-            </div>
+            <h1 class="pms-login-title">نظام إدارة التصاريح</h1>
+            <p class="pms-login-subtitle">وضع التصميم مفعّل، ويمكن الدخول دون مصادقة.</p>
+            <a class="pms-login-btn d-flex align-items-center justify-content-center" href="/dashboard">الدخول للوحة الرئيسية</a>
         </div>
     </div>
 }
@@ -36,74 +33,70 @@ else
 {
     <div class="pms-login-wrap">
         <div class="pms-login-card">
-            <div class="pms-login-header">
-                <i class="bi bi-shield-lock-fill"></i>
-                <h4 class="mb-1">تسجيل الدخول</h4>
-                <small>نظام إدارة التصاريح الموحد</small>
-            </div>
-            <div class="pms-login-body">
-                @if (!string.IsNullOrEmpty(ErrorMessage))
-                {
-                    <div class="alert alert-danger py-2 text-center">@ErrorMessage</div>
-                }
+            <h1 class="pms-login-title">نظام إدارة التصاريح</h1>
+            <p class="pms-login-subtitle">أدخل رقم الملف ثم كلمة المرور للدخول</p>
 
-                <div id="loginGateInfo" class="alert alert-info py-2 text-center d-none">
-                    حساب أمن بوابة — يرجى اختيار البوابة قبل الدخول.
+            @if (!string.IsNullOrEmpty(ErrorMessage))
+            {
+                <div class="pms-login-error">@ErrorMessage</div>
+            }
+
+            <div id="loginGateInfo" class="pms-login-error d-none">
+                حساب أمن بوابة — يرجى اختيار البوابة قبل الدخول.
+            </div>
+
+            <EditForm Model="Input" method="post" OnValidSubmit="LoginUserAsync" FormName="login">
+                <DataAnnotationsValidator />
+
+                <div class="mb-3">
+                    <label class="form-label" for="loginUsername">رقم الملف</label>
+                    <InputText id="loginUsername" class="form-control" @bind-Value="Input.Username"
+                               autocomplete="username" />
+                    <ValidationMessage For="() => Input.Username" />
                 </div>
 
-                <EditForm Model="Input" method="post" OnValidSubmit="LoginUserAsync" FormName="login">
-                    <DataAnnotationsValidator />
+                <div id="loginGateBlock" class="pms-login-gate @(ShowGateSelection ? "" : "d-none")">
+                    <label class="form-label" for="loginSelectedGate">البوابة</label>
+                    <InputSelect id="loginSelectedGate" class="form-select" @bind-Value="Input.SelectedGate">
+                        <option value="">-- اختر البوابة --</option>
+                        @foreach (var g in Gates)
+                        {
+                            <option value="@g.Id">@g.no@(string.IsNullOrWhiteSpace(g.description) ? "" : $" — {g.description}")</option>
+                        }
+                    </InputSelect>
+                    <div class="form-text">مطلوب لموظفي أمن البوابة</div>
+                </div>
 
-                    <div class="mb-3">
-                        <label class="form-label" for="loginUsername">رقم الملف</label>
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
-                            <InputText id="loginUsername" class="form-control" @bind-Value="Input.Username"
-                                       placeholder="أدخل رقم الملف الوظيفي" autocomplete="username" />
-                        </div>
-                        <ValidationMessage For="() => Input.Username" />
+                <div class="mb-3">
+                    <label class="form-label" for="loginPassword">كلمة المرور</label>
+                    <div class="pms-login-password">
+                        <InputText id="loginPassword" type="@(showPassword ? "text" : "password")" class="form-control"
+                                   @bind-Value="Input.Password" autocomplete="current-password" />
+                        <button type="button" class="pms-login-eye" @onclick="() => showPassword = !showPassword"
+                                aria-label="@(showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور")">
+                            <i class="bi @(showPassword ? "bi-eye-slash" : "bi-eye")"></i>
+                        </button>
                     </div>
+                    <ValidationMessage For="() => Input.Password" />
+                </div>
 
-                    <div id="loginGateBlock" class="mb-3 pms-login-gate @(ShowGateSelection ? "" : "d-none")">
-                        <label class="form-label" for="loginSelectedGate">اختر البوابة</label>
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="bi bi-door-open"></i></span>
-                            <InputSelect id="loginSelectedGate" class="form-select" @bind-Value="Input.SelectedGate">
-                                <option value="">-- اختر البوابة --</option>
-                                @foreach (var g in Gates)
-                                {
-                                    <option value="@g.Id">@g.no@(string.IsNullOrWhiteSpace(g.description) ? "" : $" — {g.description}")</option>
-                                }
-                            </InputSelect>
-                        </div>
-                        <div class="form-text">مطلوب لموظفي أمن البوابة</div>
-                    </div>
+                <label class="pms-login-remember">
+                    <InputCheckbox @bind-Value="Input.RememberMe" />
+                    <span>تذكرني</span>
+                </label>
 
-                    <div class="mb-3">
-                        <label class="form-label">كلمة المرور</label>
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
-                            <InputText type="password" class="form-control" @bind-Value="Input.Password"
-                                       placeholder="أدخل كلمة المرور" autocomplete="current-password" />
-                        </div>
-                        <ValidationMessage For="() => Input.Password" />
-                    </div>
+                <button type="submit" class="pms-login-btn">تسجيل دخول</button>
+            </EditForm>
 
-                    <button type="submit" class="btn pms-login-btn w-100 mt-2">
-                        <i class="bi bi-box-arrow-in-left me-1"></i>
-                        تسجيل الدخول
-                    </button>
-                </EditForm>
-            </div>
+            <button type="button" class="pms-login-forgot" @onclick="ForgotPasswordAsync">نسيت كلمة المرور؟</button>
         </div>
     </div>
-
-    <script src="/js/pms-login.js"></script>
 }
 
 @code {
     private bool DesignMode;
     private bool ShowGateSelection;
+    private bool showPassword;
 
     [SupplyParameterFromForm]
     private LoginViewModel Input { get; set; } = new();
@@ -205,7 +198,13 @@ else
             extraClaims.Add(new Claim(SystemTaskCodes.SelectedGateNameClaimType, gateLabel ?? ""));
         }
 
-        await SignInManager.SignInWithClaimsAsync(user, isPersistent: false, extraClaims);
+        var properties = new AuthenticationProperties
+        {
+            IsPersistent = Input.RememberMe,
+            AllowRefresh = true,
+            ExpiresUtc = Input.RememberMe ? DateTimeOffset.UtcNow.AddDays(14) : null
+        };
+        await SignInManager.SignInWithClaimsAsync(user, properties, extraClaims);
 
         var http = HttpContext ?? HttpContextAccessor.HttpContext;
         if (http?.Session != null)
@@ -229,5 +228,23 @@ else
         }
 
         Navigation.NavigateTo(ReturnUrl ?? "/dashboard", forceLoad: true);
+    }
+
+    private Task ForgotPasswordAsync() =>
+        Toast.InfoAsync("نأمل التواصل مع مسؤول النظام في قسم النظم والبرمجة لتصفير كلمة المرور", 8000);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || DesignMode)
+            return;
+
+        try
+        {
+            await JS.InvokeVoidAsync("pmsLogin.bind");
+        }
+        catch
+        {
+            // Gate detection stays available on the next submit.
+        }
     }
 }

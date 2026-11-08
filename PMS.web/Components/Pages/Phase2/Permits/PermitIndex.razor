@@ -108,7 +108,7 @@ else
                                     <a class="btn btn-sm btn-info" href="@ReturnUrl.Go(Navigation, $"/permits/materials/view/{permit.Id}")">
                                         <i class="bi bi-eye"></i> عرض التفاصيل
                                     </a>
-                                    @if (MaterialPermitService.CanEdit(permit, currentUser!, sameCenterUsers))
+                                    @if (MaterialPermitService.CanEdit(permit, currentUser!))
                                     {
                                         <a class="btn btn-sm btn-warning" href="@ReturnUrl.Go(Navigation, EditHref(permit))">
                                             <i class="bi bi-pencil"></i> تعديل
@@ -132,7 +132,6 @@ else
     private string statusFilter = "";
     private User? currentUser;
     private List<Permit> permits = new();
-    private HashSet<string> sameCenterUsers = new(StringComparer.OrdinalIgnoreCase);
     private Dictionary<string, string> departmentNames = new(StringComparer.OrdinalIgnoreCase);
 
     private List<Permit> FilteredPermits
@@ -182,7 +181,6 @@ else
                 }
             }
 
-            sameCenterUsers = await MaterialPermits.GetSameCenterUserNamesAsync(currentUser);
             Guid? gateId = null;
             var gateClaim = authState.User.FindFirst(SystemTaskCodes.SelectedGateIdClaimType)?.Value;
             if (Guid.TryParse(gateClaim, out var parsedGate))

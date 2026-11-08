@@ -40,18 +40,13 @@ namespace Services.Permits
         {
             if (user == null)
                 throw new InvalidOperationException("المستخدم غير معروف.");
-            if (string.IsNullOrWhiteSpace(request.RequestingDepartmentCode))
-                throw new InvalidOperationException("يرجى اختيار الجهة الطالبة.");
+            var missing = MissingMaterial(request, submit);
+            if (missing != null)
+                throw new InvalidOperationException(missing);
 
             var items = request.Items
                 .Where(i => !string.IsNullOrWhiteSpace(i.ItemName))
                 .ToList();
-            if (items.Count == 0)
-                throw new InvalidOperationException("أضف مادة أو معدة واحدة على الأقل.");
-            if (submit && string.IsNullOrWhiteSpace(request.Purpose))
-                throw new InvalidOperationException("الغرض من التصريح مطلوب عند الإرسال للاعتماد.");
-            if (request.ValidTo.Date < request.PermitDate.Date)
-                throw new InvalidOperationException("نهاية السريان لا يجوز أن تسبق تاريخ التصريح.");
 
             var permitId = Guid.NewGuid();
             WorkflowDefinition? workflow = null;
@@ -235,9 +230,8 @@ namespace Services.Permits
             if (!StatusMapper.IsDraft(permit))
                 throw new InvalidOperationException("التعديل متاح عندما تكون حالة التصريح مسودة.");
 
-            var names = await GetSameCenterUserNamesAsync(user);
-            if (!CanEdit(permit, user, names))
-                throw new InvalidOperationException("التعديل متاح لمركز المسؤولية الذي أدخل التصريح.");
+            if (!CanEdit(permit, user))
+                throw new InvalidOperationException("التعديل متاح لمن أدخل التصريح فقط.");
 
             var vehicles = NamedVehicles(request);
             var primary = vehicles[0];
@@ -367,9 +361,8 @@ namespace Services.Permits
             if (!StatusMapper.IsDraft(permit))
                 throw new InvalidOperationException("التعديل متاح عندما تكون حالة التصريح مسودة.");
 
-            var names = await GetSameCenterUserNamesAsync(user);
-            if (!CanEdit(permit, user, names))
-                throw new InvalidOperationException("التعديل متاح لمركز المسؤولية الذي أدخل التصريح.");
+            if (!CanEdit(permit, user))
+                throw new InvalidOperationException("التعديل متاح لمن أدخل التصريح فقط.");
 
             var visitors = NamedVisitors(request);
             var primary = visitors[0];
@@ -487,8 +480,10 @@ namespace Services.Permits
 
             if (!_permits.GetVisibility(user, permit).CanApprove)
                 throw new InvalidOperationException("ليست لديك صلاحية اعتماد هذا التصريح.");
-            if (decision == ApprovalDecision.Rejected && string.IsNullOrWhiteSpace(comment))
-                throw new InvalidOperationException("ملاحظة الرفض إلزامية.");
+            if (decision is ApprovalDecision.Rejected or ApprovalDecision.Returned && string.IsNullOrWhiteSpace(comment))
+                throw new InvalidOperationException(decision == ApprovalDecision.Rejected
+                    ? "ملاحظة القرار إلزامية عند الرفض."
+                    : "ملاحظة القرار إلزامية عند الترجيع.");
 
             if (decision == ApprovalDecision.Approved && ApprovalRoute.Same(user.ResponsibilityCode, "45011"))
             {
@@ -555,7 +550,10 @@ namespace Services.Permits
         {
             var centerCodes = await ResponsibilityCodesAsync(user);
             var creatorNames = await GetSameCenterUserNamesAsync(user);
-            var relatedIds = await RelatedPermitIdsAsync(user, gateId);
+            var related = new HashSet<Guid>(await RelatedPermitIdsAsync(user, gateId));
+            foreach (var id in await ShiftFollowPermitIdsAsync(user))
+                related.Add(id);
+            var relatedIds = related.ToList();
             var codeList = centerCodes.ToList();
             var nameList = creatorNames.ToList();
             var hasCodes = codeList.Count > 0;
@@ -649,6 +647,89 @@ namespace Services.Permits
             return ids.ToList();
         }
 
+        private async Task<List<Guid>> ShiftFollowPermitIdsAsync(User user)
+        {
+            if (!string.Equals(user.JobStatus, "AE", StringComparison.OrdinalIgnoreCase))
+                return new List<Guid>();
+
+            var inSecurity = ApprovalRoute.BelongsTo(user.ResponsibilityCode, ApprovalRoute.SecurityAffairsCode);
+            var isLeader = user.JobCatId == 1 && !string.IsNullOrWhiteSpace(user.ResponsibilityCode);
+            if (!inSecurity && !isLeader)
+                return new List<Guid>();
+
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            var permits = await db.Permits.AsNoTracking()
+                .Where(p => p.ShiftApproval
+                    && p.createdBy != null
+                    && p.UnifiedStatus != nameof(UnifiedPermitStatus.Draft))
+                .Select(p => new { p.Id, p.createdBy })
+                .ToListAsync();
+            if (permits.Count == 0 || inSecurity)
+                return permits.Select(p => p.Id).ToList();
+
+            var leaders = await LeaderCodesAsync(db);
+            var names = permits.Select(p => p.createdBy!).Distinct().ToList();
+            var creators = await db.Users.AsNoTracking()
+                .Where(u => u.UserName != null && names.Contains(u.UserName))
+                .Select(u => new { u.UserName, u.ResponsibilityCode, u.JobCatId })
+                .ToListAsync();
+            var matched = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var creator in creators)
+            {
+                var direct = ApprovalRoute.DirectSupervisor(creator.ResponsibilityCode, creator.JobCatId == 1, leaders);
+                var higher = ApprovalRoute.HigherSupervisor(creator.ResponsibilityCode, creator.JobCatId == 1, leaders);
+                if (ApprovalRoute.Same(user.ResponsibilityCode, direct) || ApprovalRoute.Same(user.ResponsibilityCode, higher))
+                    matched.Add(creator.UserName!);
+            }
+
+            return permits.Where(p => p.createdBy != null && matched.Contains(p.createdBy)).Select(p => p.Id).ToList();
+        }
+
+        private async Task<List<string>> ShiftFollowLeaderIdsAsync(Permit permit)
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            var leaders = await LeaderCodesAsync(db);
+            var creator = string.IsNullOrWhiteSpace(permit.createdBy)
+                ? null
+                : await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserName == permit.createdBy);
+
+            var codes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (creator != null)
+            {
+                var direct = ApprovalRoute.DirectSupervisor(creator.ResponsibilityCode, creator.JobCatId == 1, leaders);
+                var higher = ApprovalRoute.HigherSupervisor(creator.ResponsibilityCode, creator.JobCatId == 1, leaders);
+                if (!string.IsNullOrWhiteSpace(direct))
+                    codes.Add(ApprovalRoute.Normalize(direct));
+                if (!string.IsNullOrWhiteSpace(higher))
+                    codes.Add(ApprovalRoute.Normalize(higher));
+            }
+
+            var users = await db.Users.AsNoTracking()
+                .Where(u => u.JobStatus == "AE" && u.JobCatId == 1 && u.ResponsibilityCode != null)
+                .Select(u => new { u.Id, u.ResponsibilityCode })
+                .ToListAsync();
+
+            return users
+                .Where(u => codes.Contains(ApprovalRoute.Normalize(u.ResponsibilityCode))
+                    || ApprovalRoute.BelongsTo(u.ResponsibilityCode, ApprovalRoute.SecurityAffairsCode))
+                .Select(u => u.Id)
+                .Distinct()
+                .ToList();
+        }
+
+        private static async Task<HashSet<string>> LeaderCodesAsync(DataContext db)
+        {
+            var codes = await db.Users.AsNoTracking()
+                .Where(u => u.JobStatus == "AE" && u.JobCatId == 1 && u.ResponsibilityCode != null && u.ResponsibilityCode != "")
+                .Select(u => u.ResponsibilityCode!)
+                .ToListAsync();
+
+            return codes
+                .Select(ApprovalRoute.Normalize)
+                .Where(code => code.Length > 0)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+
         public async Task<HashSet<string>> GetSameCenterUserNamesAsync(User user)
         {
             var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -679,8 +760,8 @@ namespace Services.Permits
             if (StatusMapper.IsApprovedOrExecuted(permit))
                 throw new InvalidOperationException("لا يمكن إلغاء تصريح معتمد أو منفّذ.");
 
-            if (!await SameCenterAsCreatorAsync(permit, user))
-                throw new InvalidOperationException("الإلغاء متاح لمركز المسؤولية الذي أدخل التصريح.");
+            if (!EnteredBy(permit, user))
+                throw new InvalidOperationException("الإلغاء متاح لمن أدخل التصريح فقط.");
 
             SetStatus(permit, UnifiedPermitStatus.Cancelled, 'D');
             permit.statusDescription = "ملغي";
@@ -724,8 +805,8 @@ namespace Services.Permits
             if (!StatusMapper.IsDraft(permit))
                 throw new InvalidOperationException("الإحالة للاعتماد متاحة عندما تكون حالة التصريح مسودة.");
 
-            if (!await SameCenterAsCreatorAsync(permit, user))
-                throw new InvalidOperationException("الإحالة للاعتماد متاحة لمركز المسؤولية الذي أدخل التصريح.");
+            if (!EnteredBy(permit, user))
+                throw new InvalidOperationException("الإحالة للاعتماد متاحة لمن أدخل التصريح فقط.");
 
             var isVehicle = string.Equals(permit.classification, nameof(PermitClassification.Cars), StringComparison.OrdinalIgnoreCase);
             var isVisitor = string.Equals(permit.classification, nameof(PermitClassification.Visitors), StringComparison.OrdinalIgnoreCase);
@@ -802,15 +883,15 @@ namespace Services.Permits
                 await _notifier.NotifyAsync(permit, "إحالة تصريح", PermitNoticeText.Ready(permit.no));
         }
 
-        public static bool CanEdit(Permit permit, User user, IReadOnlySet<string> sameCenterUserNames) =>
-            StatusMapper.IsDraft(permit)
+        public static bool EnteredBy(Permit permit, User? user) =>
+            user != null
             && !string.IsNullOrWhiteSpace(permit.createdBy)
-            && sameCenterUserNames.Contains(permit.createdBy);
+            && string.Equals(permit.createdBy.Trim(), user.UserName?.Trim(), StringComparison.OrdinalIgnoreCase);
 
-        private async Task<bool> SameCenterAsCreatorAsync(Permit permit, User user)
+        public static bool CanEdit(Permit permit, User user, IReadOnlySet<string>? sameCenterUserNames = null)
         {
-            var names = await GetSameCenterUserNamesAsync(user);
-            return !string.IsNullOrWhiteSpace(permit.createdBy) && names.Contains(permit.createdBy);
+            _ = sameCenterUserNames;
+            return StatusMapper.IsDraft(permit) && EnteredBy(permit, user);
         }
 
         private async Task<HashSet<string>> ResponsibilityCodesAsync(User user)
@@ -838,8 +919,10 @@ namespace Services.Permits
                 throw new InvalidOperationException("هذا التصريح لا ينتظر اعتماد المناوب.");
             if (!ShiftDuty.IsOfficer(user))
                 throw new InvalidOperationException("اعتماد المناوب متاح لمستخدمي مركز المسؤولية 43010.");
-            if (decision == ApprovalDecision.Rejected && string.IsNullOrWhiteSpace(comment))
-                throw new InvalidOperationException("ملاحظة الرفض إلزامية.");
+            if (decision is ApprovalDecision.Rejected or ApprovalDecision.Returned && string.IsNullOrWhiteSpace(comment))
+                throw new InvalidOperationException(decision == ApprovalDecision.Rejected
+                    ? "ملاحظة القرار إلزامية عند الرفض."
+                    : "ملاحظة القرار إلزامية عند الترجيع.");
 
             _unitOfWork.PermitApprovals.Insert(new PermitApproval
             {
@@ -907,11 +990,12 @@ namespace Services.Permits
                 .ToListAsync();
 
             var officers = users.Where(ShiftDuty.IsOfficer).Select(u => u.Id);
+            var followers = await ShiftFollowLeaderIdsAsync(permit);
             await _notifier.NotifyAsync(
                 permit,
                 "إحالة تصريح",
                 PermitNoticeText.Submitted(permit.no, ShiftDuty.StepLabel),
-                alsoUserIds: officers);
+                alsoUserIds: officers.Concat(followers));
         }
 
         private async Task NotifyShiftResultAsync(Permit permit, ApprovalDecision decision, User actor, string? comment)
@@ -923,7 +1007,8 @@ namespace Services.Permits
                 ApprovalDecision.Returned => ("إرجاع تصريح", PermitNoticeText.Returned(permit.no, authority, comment)),
                 _ => ("اعتماد تصريح", PermitNoticeText.Approved(permit.no, authority, ready: true, nextStep: null))
             };
-            await _notifier.NotifyAsync(permit, title, body, actor.Id);
+            var followers = await ShiftFollowLeaderIdsAsync(permit);
+            await _notifier.NotifyAsync(permit, title, body, actor.Id, followers);
         }
 
         private static void SetStatus(Permit permit, UnifiedPermitStatus status, char legacy)
@@ -933,40 +1018,69 @@ namespace Services.Permits
             permit.statusDescription = StatusMapper.UnifiedStatusDescription(status);
         }
 
-        private static void ValidateVehicle(VehiclePermitRequest request, bool submit)
+        public static string? MissingMaterial(MaterialPermitRequest request, bool submit)
         {
             if (string.IsNullOrWhiteSpace(request.RequestingDepartmentCode))
-                throw new InvalidOperationException("يرجى اختيار الجهة الطالبة.");
+                return "يرجى اختيار الجهة الطالبة.";
+            if (!request.Items.Any(i => !string.IsNullOrWhiteSpace(i.ItemName)))
+                return "أضف مادة أو معدة واحدة على الأقل.";
             if (request.ValidTo.Date < request.PermitDate.Date)
-                throw new InvalidOperationException("نهاية السريان لا يجوز أن تسبق تاريخ التصريح.");
-            if (request.TripCount < 1)
-                throw new InvalidOperationException("عدد الرحلات يجب أن يكون رحلة واحدة على الأقل.");
-            if (!NamedVehicles(request).Any())
-                throw new InvalidOperationException("أضف مركبة واحدة على الأقل.");
+                return "نهاية السريان لا يجوز أن تسبق تاريخ التصريح.";
             if (submit && string.IsNullOrWhiteSpace(request.Purpose))
-                throw new InvalidOperationException("الغرض من التصريح مطلوب عند الإرسال للاعتماد.");
+                return "الغرض من التصريح مطلوب عند الإرسال للاعتماد.";
+            return null;
+        }
+
+        public static string? MissingVehicle(VehiclePermitRequest request, bool submit)
+        {
+            if (string.IsNullOrWhiteSpace(request.RequestingDepartmentCode))
+                return "يرجى اختيار الجهة الطالبة.";
+            if (request.ValidTo.Date < request.PermitDate.Date)
+                return "نهاية السريان لا يجوز أن تسبق تاريخ التصريح.";
+            if (request.TripCount < 1)
+                return "عدد الرحلات يجب أن يكون رحلة واحدة على الأقل.";
+            if (!NamedVehicles(request).Any())
+                return "أضف مركبة واحدة على الأقل.";
+            if (submit && string.IsNullOrWhiteSpace(request.Purpose))
+                return "الغرض من التصريح مطلوب عند الإرسال للاعتماد.";
+            return null;
+        }
+
+        public static string? MissingVisitor(VisitorPermitRequest request, bool submit)
+        {
+            if (string.IsNullOrWhiteSpace(request.RequestingDepartmentCode))
+                return "يرجى اختيار الجهة الطالبة.";
+            if (request.ValidTo.Date < request.PermitDate.Date)
+                return "نهاية السريان لا يجوز أن تسبق تاريخ التصريح.";
+            if (!NamedVisitors(request).Any())
+                return "أضف زائراً واحداً على الأقل.";
+            if (!submit)
+                return null;
+            if (string.IsNullOrWhiteSpace(request.Purpose))
+                return "الغرض من الزيارة مطلوب عند الإرسال للاعتماد.";
+            if (string.IsNullOrWhiteSpace(request.HostFileNumber) || string.IsNullOrWhiteSpace(request.HostName))
+                return "أدخل رقم ملف الداعي واعرض بياناته قبل الإرسال.";
+            if (string.IsNullOrWhiteSpace(request.VisitorOrganization))
+                return "جهة الزائر مطلوبة عند الإرسال للاعتماد.";
+            if (string.IsNullOrWhiteSpace(request.ExpectedVisitTime) || string.IsNullOrWhiteSpace(request.ExpectedDepartureTime))
+                return "الساعة المتوقعة للزيارة والمغادرة مطلوبة عند الإرسال للاعتماد.";
+            if (NamedVisitors(request).Any(v => string.IsNullOrWhiteSpace(v.IdNumber)))
+                return "رقم هوية كل زائر مطلوب عند الإرسال للاعتماد.";
+            return null;
+        }
+
+        private static void ValidateVehicle(VehiclePermitRequest request, bool submit)
+        {
+            var missing = MissingVehicle(request, submit);
+            if (missing != null)
+                throw new InvalidOperationException(missing);
         }
 
         private static void ValidateVisitor(VisitorPermitRequest request, bool submit)
         {
-            if (string.IsNullOrWhiteSpace(request.RequestingDepartmentCode))
-                throw new InvalidOperationException("يرجى اختيار الجهة الطالبة.");
-            if (request.ValidTo.Date < request.PermitDate.Date)
-                throw new InvalidOperationException("نهاية السريان لا يجوز أن تسبق تاريخ التصريح.");
-            if (!NamedVisitors(request).Any())
-                throw new InvalidOperationException("أضف زائراً واحداً على الأقل.");
-            if (!submit)
-                return;
-            if (string.IsNullOrWhiteSpace(request.Purpose))
-                throw new InvalidOperationException("الغرض من الزيارة مطلوب عند الإرسال للاعتماد.");
-            if (string.IsNullOrWhiteSpace(request.HostFileNumber) || string.IsNullOrWhiteSpace(request.HostName))
-                throw new InvalidOperationException("أدخل رقم ملف الداعي واعرض بياناته قبل الإرسال.");
-            if (string.IsNullOrWhiteSpace(request.VisitorOrganization))
-                throw new InvalidOperationException("جهة الزائر مطلوبة عند الإرسال للاعتماد.");
-            if (string.IsNullOrWhiteSpace(request.ExpectedVisitTime) || string.IsNullOrWhiteSpace(request.ExpectedDepartureTime))
-                throw new InvalidOperationException("الساعة المتوقعة للزيارة والمغادرة مطلوبة عند الإرسال للاعتماد.");
-            if (NamedVisitors(request).Any(v => string.IsNullOrWhiteSpace(v.IdNumber)))
-                throw new InvalidOperationException("رقم هوية كل زائر مطلوب عند الإرسال للاعتماد.");
+            var missing = MissingVisitor(request, submit);
+            if (missing != null)
+                throw new InvalidOperationException(missing);
         }
 
         private static List<VisitorLineViewModel> NamedVisitors(VisitorPermitRequest request) =>

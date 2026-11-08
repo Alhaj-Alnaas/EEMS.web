@@ -5,141 +5,147 @@
 @inject IPermitExecutionService Execution
 @inject UserManager<User> UserManager
 @inject AuthenticationStateProvider AuthProvider
+@inject PMS.web.Notifications.IUiToast Toast
 @using Microsoft.AspNetCore.Identity
 @using Core.Models
 @using static Core.Enums.BaseEnums
 
 <PageTitle>إعدادات التصريح - PMS</PageTitle>
 
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-    <h3 class="mb-0"><i class="bi bi-sliders text-warning"></i> إعدادات التصريح</h3>
-</div>
+<div class="pms-settings">
+    <div class="pms-settings-heading">
+        <h3>إعدادات التصريح</h3>
+        <p>اختر نوع التصريح، ثم اضبط مسار اعتماده أو بوابات تنفيذه.</p>
+    </div>
 
-<p class="text-muted">
-    اختر نوع التصريح، ثم مسار اعتماده، ثم بوابات التنفيذ التي تُستخدم عندما لا يمر المسار بقسم الحراسة.
-</p>
+    @if (!string.IsNullOrEmpty(loadError))
+    {
+        <div class="alert alert-danger mb-0">@loadError</div>
+    }
 
-@if (!string.IsNullOrEmpty(loadError))
-{
-    <div class="alert alert-danger">@loadError</div>
-}
-
-@if (loading)
-{
-    <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
-}
-else if (Selected is not null)
-{
-    var noApproval = Selected.Steps.First(s => s.Type == WorkflowStepType.NoApproval);
-    <div class="card">
-        <div class="card-header pms-header">إعدادات تصريح @Selected.Title</div>
-        <ul class="nav nav-tabs px-3 pt-3">
-            <li class="nav-item">
-                <button type="button" class="nav-link @(tab == SettingsTab.Type ? "active" : "")" @onclick="() => tab = SettingsTab.Type">نوع التصريح</button>
-            </li>
-            <li class="nav-item">
-                <button type="button" class="nav-link @(tab == SettingsTab.Path ? "active" : "")" @onclick="() => tab = SettingsTab.Path">مسار الاعتماد</button>
-            </li>
-            <li class="nav-item">
-                <button type="button" class="nav-link @(tab == SettingsTab.Gates ? "active" : "")" @onclick="() => tab = SettingsTab.Gates">بوابات التنفيذ</button>
-            </li>
-        </ul>
-
-        <div class="p-4">
-            @if (messages.TryGetValue(Selected.Classification, out var message))
-            {
-                <div class="alert @(message.Ok ? "alert-success" : "alert-danger")">@message.Text</div>
-            }
-
-            @if (tab == SettingsTab.Type)
-            {
-                <div class="border rounded overflow-hidden" style="max-width: 360px;">
-                    @foreach (var row in rows)
-                    {
-                        <button type="button"
-                                class="pms-path-type @(row.Classification == Selected.Classification ? "active" : "")"
-                                @onclick="() => Select(row)">
-                            @row.Title
-                        </button>
-                    }
-                </div>
-            }
-            else if (tab == SettingsTab.Path)
-            {
-                <div class="mb-4">
-                    <div class="fw-bold">المسار السابق</div>
-                    <div class="text-muted">@SavedPathText(Selected)</div>
-                </div>
-
-                @foreach (var step in Selected.Steps)
+    @if (loading)
+    {
+        <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+    }
+    else if (Selected is not null)
+    {
+        var noApproval = Selected.Steps.First(s => s.Type == WorkflowStepType.NoApproval);
+        <div class="pms-settings-shell">
+            <aside class="pms-settings-nav">
+                <div class="pms-settings-nav-label">أنواع التصاريح</div>
+                @foreach (var row in rows)
                 {
-                    var inputId = $"{Selected.Classification}-{step.Type}";
-                    var locked = step.Type != WorkflowStepType.NoApproval && noApproval.Enabled;
-                    <div class="form-check form-switch mb-3">
-                        <input class="form-check-input" type="checkbox" role="switch" id="@inputId"
-                               checked="@step.Enabled" disabled="@locked"
-                               @onchange="args => TogglePath(Selected, step, args)" />
-                        <label class="form-check-label fw-bold" for="@inputId">@step.Label</label>
-                        <div class="text-muted small">@step.Hint</div>
-                    </div>
-                }
-
-                <button class="btn btn-warning mt-2" disabled="@saving" @onclick="() => SavePathAsync(Selected)">
-                    حفظ المسار
-                </button>
-            }
-            else
-            {
-                <div class="mb-4">
-                    <div class="fw-bold">الربط السابق</div>
-                    <div class="text-muted">@SavedGateText(Selected.Classification)</div>
-                </div>
-
-                @if (!string.IsNullOrEmpty(gateError))
-                {
-                    <div class="alert alert-danger">@gateError</div>
-                }
-                else if (gates.Count == 0)
-                {
-                    <div class="text-muted">لا توجد بوابات نشطة. أضف البوابات من إدارة البوابات.</div>
-                }
-                else
-                {
-                    @foreach (var gate in gates)
-                    {
-                        var inputId = $"gate-{Selected.Classification}-{gate.Id}";
-                        <div class="form-check form-switch mb-3">
-                            <input class="form-check-input" type="checkbox" role="switch" id="@inputId"
-                                   checked="@IsGateChecked(Selected.Classification, gate.Id)"
-                                   @onchange="args => ToggleGate(Selected.Classification, gate.Id, args)" />
-                            <label class="form-check-label" for="@inputId">@GateText(gate)</label>
-                        </div>
-                    }
-
-                    <button class="btn btn-warning mt-2" disabled="@saving" @onclick="() => SaveGatesAsync(Selected.Classification)">
-                        حفظ البوابات
+                    <button type="button"
+                            class="pms-settings-type @(row.Classification == Selected.Classification ? "active" : "")"
+                            @onclick="() => Select(row)">
+                        <i class="bi @TypeIcon(row.Classification)"></i>
+                        <span>@row.Title</span>
                     </button>
                 }
-            }
+            </aside>
+
+            <section class="pms-settings-pane">
+                <div class="pms-settings-pane-head">
+                    <div>
+                        <div class="pms-settings-kicker">نوع التصريح</div>
+                        <h4>@Selected.Title</h4>
+                    </div>
+                    <div class="pms-settings-tabs" role="tablist">
+                        <button type="button" role="tab" class="@(tab == SettingsTab.Path ? "active" : "")" @onclick="() => tab = SettingsTab.Path">مسار الاعتماد</button>
+                        <button type="button" role="tab" class="@(tab == SettingsTab.Gates ? "active" : "")" @onclick="() => tab = SettingsTab.Gates">بوابات التنفيذ</button>
+                    </div>
+                </div>
+
+                <div class="pms-settings-body">
+                    @if (tab == SettingsTab.Path)
+                    {
+                        <div class="pms-settings-summary">
+                            <span>المسار المحفوظ</span>
+                            <strong>@SavedPathText(Selected)</strong>
+                        </div>
+
+                        @foreach (var step in Selected.Steps)
+                        {
+                            var inputId = $"{Selected.Classification}-{step.Type}";
+                            var locked = step.Type != WorkflowStepType.NoApproval && noApproval.Enabled;
+                            <div class="pms-setting-row @(locked ? "is-locked" : "")">
+                                <div class="pms-setting-copy">
+                                    <label for="@inputId">@step.Label</label>
+                                    <p>@step.Hint</p>
+                                </div>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="@inputId"
+                                           checked="@step.Enabled" disabled="@locked"
+                                           @onchange="args => TogglePath(Selected, step, args)" />
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="pms-settings-summary">
+                            <span>البوابات المحفوظة</span>
+                            <strong>@SavedGateText(Selected.Classification)</strong>
+                        </div>
+                        <p class="text-muted small mb-3">تُستخدم هذه البوابات عندما لا يمر مسار الاعتماد بقسم الحراسة.</p>
+
+                        @if (!string.IsNullOrEmpty(gateError))
+                        {
+                            <div class="alert alert-danger">@gateError</div>
+                        }
+                        else if (gates.Count == 0)
+                        {
+                            <div class="pms-settings-empty">لا توجد بوابات نشطة. أضف البوابات من إدارة البوابات.</div>
+                        }
+                        else
+                        {
+                            @foreach (var gate in gates)
+                            {
+                                var inputId = $"gate-{Selected.Classification}-{gate.Id}";
+                                <div class="pms-setting-row">
+                                    <div class="pms-setting-copy">
+                                        <label for="@inputId">@GateText(gate)</label>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="@inputId"
+                                               checked="@IsGateChecked(Selected.Classification, gate.Id)"
+                                               @onchange="args => ToggleGate(Selected.Classification, gate.Id, args)" />
+                                    </div>
+                                </div>
+                            }
+                        }
+                    }
+                </div>
+
+                <div class="pms-settings-foot">
+                    @if (tab == SettingsTab.Path)
+                    {
+                        <button class="btn btn-warning" disabled="@saving" @onclick="() => SavePathAsync(Selected)">حفظ المسار</button>
+                    }
+                    else if (string.IsNullOrEmpty(gateError) && gates.Count > 0)
+                    {
+                        <button class="btn btn-warning" disabled="@saving" @onclick="() => SaveGatesAsync(Selected.Classification)">حفظ البوابات</button>
+                    }
+                </div>
+            </section>
         </div>
-    </div>
-}
+    }
+</div>
 
 @code {
-    private enum SettingsTab { Type, Path, Gates }
+    private enum SettingsTab { Path, Gates }
 
     private bool loading = true;
     private bool saving;
     private string? loadError;
     private string? gateError;
-    private SettingsTab tab = SettingsTab.Type;
+    private SettingsTab tab = SettingsTab.Path;
     private List<ApprovalPathRow> rows = new();
     private List<Gate> gates = new();
     private PermitClassification selected = PermitClassification.Materials;
     private Dictionary<PermitClassification, string> savedPaths = new();
     private Dictionary<PermitClassification, HashSet<Guid>> chosenGates = new();
     private Dictionary<PermitClassification, string> savedGates = new();
-    private readonly Dictionary<PermitClassification, (bool Ok, string Text)> messages = new();
 
     private ApprovalPathRow? Selected =>
         rows.FirstOrDefault(r => r.Classification == selected) ?? rows.FirstOrDefault();
@@ -181,11 +187,16 @@ else if (Selected is not null)
         }
     }
 
-    private void Select(ApprovalPathRow row)
+    private void Select(ApprovalPathRow row) => selected = row.Classification;
+
+    private static string TypeIcon(PermitClassification kind) => kind switch
     {
-        selected = row.Classification;
-        tab = SettingsTab.Path;
-    }
+        PermitClassification.Materials => "bi-box-seam",
+        PermitClassification.Visitors => "bi-people",
+        PermitClassification.Cars => "bi-truck",
+        PermitClassification.EmployeeAccess => "bi-person-badge",
+        _ => "bi-file-earmark-text"
+    };
 
     private string SavedPathText(ApprovalPathRow row) =>
         savedPaths.TryGetValue(row.Classification, out var text) && text != "لم يُحدد بعد"
@@ -227,7 +238,6 @@ else if (Selected is not null)
             ids.Add(gateId);
         else
             ids.Remove(gateId);
-        messages.Remove(kind);
     }
 
     private static string Preview(ApprovalPathRow row)
@@ -247,7 +257,6 @@ else if (Selected is not null)
 
     private async Task SavePathAsync(ApprovalPathRow row)
     {
-        messages.Remove(row.Classification);
         saving = true;
         try
         {
@@ -262,11 +271,11 @@ else if (Selected is not null)
             selected = row.Classification;
             rows = await ApprovalPaths.GetAsync();
             RememberSavedPaths();
-            messages[row.Classification] = (true, "حُفظ مسار " + row.Title + ".");
+            await Toast.SuccessAsync("حُفظ مسار " + row.Title + ".");
         }
         catch (Exception ex)
         {
-            messages[row.Classification] = (false, ex.Message);
+            await Toast.ErrorAsync(ex.Message);
         }
         finally
         {
@@ -279,17 +288,16 @@ else if (Selected is not null)
         if (!chosenGates.TryGetValue(kind, out var ids))
             ids = new HashSet<Guid>();
 
-        messages.Remove(kind);
         saving = true;
         try
         {
             await Execution.SaveLinksAsync(kind, ids);
             savedGates[kind] = DescribeGates(ids);
-            messages[kind] = (true, "حُفظت بوابات التنفيذ.");
+            await Toast.SuccessAsync("حُفظت بوابات التنفيذ.");
         }
         catch (Exception ex)
         {
-            messages[kind] = (false, ex.Message);
+            await Toast.ErrorAsync(ex.Message);
         }
         finally
         {

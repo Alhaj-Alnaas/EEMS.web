@@ -8,12 +8,14 @@
 @inject UserManager<User> UserManager
 @inject AuthenticationStateProvider AuthProvider
 @inject NavigationManager Navigation
+@inject PMS.web.Notifications.IUiToast Toast
 @using Microsoft.AspNetCore.Identity
 @using Services.Permits
 
 <PageTitle>تعديل تصريح زوار - PMS</PageTitle>
 
-<h3 class="mb-4"><i class="bi bi-person-badge text-warning"></i> تعديل تصريح زوار</h3>
+<div class="pms-create-page">
+<h3 class="mb-1"><i class="bi bi-person-badge text-warning"></i> تعديل تصريح زوار</h3>
 
 @if (loading)
 {
@@ -26,12 +28,13 @@ else if (request == null)
 }
 else
 {
-    <EditForm Model="request" OnSubmit="PreventSubmit">
+    <EditForm Model="request" class="pms-create-form" OnSubmit="PreventSubmit">
+        <div class="pms-create-body">
         <div class="row g-4">
             <div class="col-md-4">
-                <div class="card">
+                <div class="card pms-basic-card">
                     <div class="card-header pms-header">البيانات الأساسية</div>
-                    <div class="card-body">
+                    <div class="card-body pms-basic-scroll">
                         <div class="form-check form-switch mb-3">
                             <InputCheckbox class="form-check-input" @bind-Value="request.IsTemp" id="isTemp" />
                             <label class="form-check-label fw-bold" for="isTemp">تصريح مؤقت</label>
@@ -108,7 +111,7 @@ else
                     </div>
                 </div>
             </div>
-            <div class="col-md-8">
+            <div class="col-md-8 pms-side-scroll">
                 <div class="card mb-3">
                     <div class="card-header pms-header d-flex justify-content-between align-items-center">
                         <span>الزوار</span>
@@ -179,16 +182,26 @@ else
                 </div>
             </div>
         </div>
+        </div>
         @if (!string.IsNullOrEmpty(errorMessage))
         {
-            <div class="alert alert-danger mt-3">@errorMessage</div>
+            <div class="alert alert-danger mt-2 mb-0">@errorMessage</div>
         }
-        <div class="mt-4 text-center">
-            <button type="button" class="btn btn-warning px-4" @onclick="SaveAsync" disabled="@saving"><i class="bi bi-save"></i> حفظ التعديل</button>
-            <BackLink Fallback="/permits" Css="btn btn-outline-secondary px-4">إلغاء</BackLink>
+        <div class="pms-create-actions">
+            <button type="button" class="btn btn-outline-secondary px-4" @onclick="() => SaveAsync(false)" disabled="@saving">
+                <i class="bi bi-save"></i> حفظ التعديلات
+            </button>
+            <button type="button" class="btn btn-warning px-4" @onclick="() => SaveAsync(true)" disabled="@saving">
+                <i class="bi bi-send"></i> إرسال للاعتماد
+            </button>
+            <button type="button" class="btn btn-outline-danger px-4" @onclick="CancelPermitAsync" disabled="@saving">
+                <i class="bi bi-x-circle"></i> إلغاء التصريح
+            </button>
+            <BackLink Fallback="/permits" Css="btn btn-outline-secondary px-4">رجوع</BackLink>
         </div>
     </EditForm>
 }
+</div>
 
 @code {
     [Parameter] public Guid Id { get; set; }
@@ -214,10 +227,9 @@ else
                 return;
             }
 
-            var names = currentUser == null ? new HashSet<string>() : await MaterialPermits.GetSameCenterUserNamesAsync(currentUser);
-            if (currentUser == null || !MaterialPermitService.CanEdit(permit, currentUser, names))
+            if (currentUser == null || !MaterialPermitService.CanEdit(permit, currentUser))
             {
-                errorMessage = "التعديل متاح لمسودة أدخلها مركز المسؤولية نفسه.";
+                errorMessage = "التعديل متاح لمسودة أدخلها المستخدم نفسه.";
                 return;
             }
 
@@ -344,21 +356,54 @@ else
 
     private void AddVisitor() => request?.Visitors.Add(new VisitorLineViewModel());
     private void AddVehicle() => request?.Vehicles.Add(new CarMovmentViewModel());
-    private Task PreventSubmit(EditContext _) => SaveAsync();
+    private Task PreventSubmit(EditContext _) => SaveAsync(true);
 
-    private async Task SaveAsync()
+    private async Task SaveAsync(bool submit)
     {
         if (saving || request == null || currentUser == null) return;
+        var missing = MaterialPermitService.MissingVisitor(request, submit);
+        if (missing != null)
+        {
+            await Toast.WarningAsync(missing);
+            return;
+        }
+        if (submit && !await Toast.ConfirmAsync("هل تريد إرسال هذا التصريح للاعتماد؟", "نعم", "لا", "confirm"))
+            return;
         errorMessage = null;
         saving = true;
         try
         {
             await MaterialPermits.UpdateVisitorAsync(Id, request, currentUser);
+            if (submit)
+                await MaterialPermits.SubmitDraftAsync(Id, currentUser);
             Navigation.NavigateTo(ReturnUrl.Read(Navigation) ?? "/permits");
         }
         catch (Exception ex)
         {
             errorMessage = ex.Message;
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private async Task CancelPermitAsync()
+    {
+        if (saving || currentUser == null) return;
+        if (!await Toast.ConfirmAsync("هل تريد إلغاء هذا التصريح؟ لا يمكن التراجع عن الإلغاء.", "إلغاء التصريح", "لا", "danger"))
+            return;
+        saving = true;
+        try
+        {
+            await MaterialPermits.CancelAsync(Id, currentUser);
+            await Toast.SuccessAsync("تم إلغاء التصريح.");
+            Navigation.NavigateTo(ReturnUrl.Read(Navigation) ?? "/permits");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+            await Toast.ErrorAsync(ex.Message);
         }
         finally
         {

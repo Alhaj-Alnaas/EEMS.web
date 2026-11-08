@@ -222,7 +222,14 @@ namespace Services.Security
 
                 30, false, false,
 
-                SystemTaskCodes.Dashboard, SystemTaskCodes.Reports, SystemTaskCodes.PermitsList));
+                SystemTaskCodes.Dashboard,
+                SystemTaskCodes.PermitsList,
+                SystemTaskCodes.ReportsActive,
+                SystemTaskCodes.ReportsOpen,
+                SystemTaskCodes.Movements,
+                SystemTaskCodes.DevicesMonitor,
+                SystemTaskCodes.ReportsAttendance,
+                SystemTaskCodes.ReportsAudit));
 
 
 

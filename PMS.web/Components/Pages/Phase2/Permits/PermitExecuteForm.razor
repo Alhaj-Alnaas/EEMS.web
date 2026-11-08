@@ -4,6 +4,7 @@
 @inject UserManager<User> UserManager
 @inject AuthenticationStateProvider AuthProvider
 @inject NavigationManager Navigation
+@inject PMS.web.Notifications.IUiToast Toast
 @using Microsoft.AspNetCore.Identity
 @using Core.Extensions
 @using Core.Security
@@ -282,8 +283,12 @@ else
         {
             messageOk = false;
             message = "حدد البوابة من شاشة تنفيذ التصريح.";
+            await Toast.WarningAsync(message);
             return;
         }
+
+        if (!await Toast.ConfirmAsync("هل تريد تسجيل هذه الحركة على التصريح؟", "نعم", "لا", "confirm"))
+            return;
 
         busy = true;
         message = null;
@@ -300,12 +305,14 @@ else
             whenLocal = DateTime.Now;
             messageOk = true;
             message = "تم تسجيل التنفيذ.";
+            await Toast.SuccessAsync(message);
             await LoadAsync();
         }
         catch (Exception ex)
         {
             messageOk = false;
             message = ex.Message;
+            await Toast.ErrorAsync(ex.Message);
         }
         finally
         {

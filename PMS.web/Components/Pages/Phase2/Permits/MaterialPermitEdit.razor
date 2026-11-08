@@ -7,6 +7,7 @@
 @inject UserManager<User> UserManager
 @inject AuthenticationStateProvider AuthProvider
 @inject NavigationManager Navigation
+@inject PMS.web.Notifications.IUiToast Toast
 @using Microsoft.AspNetCore.Identity
 @using Core.Entities.DTOs
 @using static Core.Enums.BaseEnums
@@ -14,7 +15,8 @@
 
 <PageTitle>تعديل تصريح مواد - PMS</PageTitle>
 
-<h3 class="mb-4"><i class="bi bi-pencil-square text-warning"></i> تعديل تصريح مواد</h3>
+<div class="pms-create-page">
+<h3 class="mb-1"><i class="bi bi-pencil-square text-warning"></i> تعديل تصريح مواد</h3>
 
 @if (loading)
 {
@@ -26,7 +28,7 @@ else if (notFound)
 }
 else if (editBlocked)
 {
-    <div class="alert alert-warning">التعديل متاح فقط لمركز المسؤولية الذي أدخل التصريح، وعندما تكون حالته مسودة.</div>
+    <div class="alert alert-warning">التعديل متاح فقط لمن أدخل التصريح، وعندما تكون حالته مسودة.</div>
     <BackLink Fallback="/permits">العودة للقائمة</BackLink>
 }
 else
@@ -35,12 +37,13 @@ else
     {
         <div class="alert alert-danger">@saveError</div>
     }
-    <EditForm Model="model" OnValidSubmit="SaveAsync">
+    <EditForm Model="model" class="pms-create-form" OnSubmit="PreventSubmit">
+        <div class="pms-create-body">
         <div class="row g-4">
             <div class="col-md-4">
-                <div class="card">
+                <div class="card pms-basic-card">
                     <div class="card-header pms-header">البيانات الأساسية</div>
-                    <div class="card-body">
+                    <div class="card-body pms-basic-scroll">
                         <div class="form-check form-switch mb-3">
                             <InputCheckbox class="form-check-input" @bind-Value="model.IsTemp" id="isTemp" />
                             <label class="form-check-label fw-bold" for="isTemp">تصريح مؤقت</label>
@@ -105,7 +108,7 @@ else
                 </div>
             </div>
 
-            <div class="col-md-8">
+            <div class="col-md-8 pms-side-scroll">
                 <div class="card mb-3">
                     <div class="card-header pms-header d-flex justify-content-between align-items-center">
                         <span>المواد والمعدات</span>
@@ -208,18 +211,29 @@ else
                 </div>
             </div>
         </div>
+        </div>
 
-        <div class="mt-4 text-center">
-            <button type="submit" class="btn btn-warning px-4"><i class="bi bi-save"></i> حفظ التعديلات</button>
-            <BackLink Fallback="/permits" Css="btn btn-outline-secondary px-4">إلغاء</BackLink>
+        <div class="pms-create-actions">
+            <button type="button" class="btn btn-outline-secondary px-4" @onclick="() => SaveAsync(false)" disabled="@saving">
+                <i class="bi bi-save"></i> حفظ التعديلات
+            </button>
+            <button type="button" class="btn btn-warning px-4" @onclick="() => SaveAsync(true)" disabled="@saving">
+                <i class="bi bi-send"></i> إرسال للاعتماد
+            </button>
+            <button type="button" class="btn btn-outline-danger px-4" @onclick="CancelPermitAsync" disabled="@saving">
+                <i class="bi bi-x-circle"></i> إلغاء التصريح
+            </button>
+            <BackLink Fallback="/permits" Css="btn btn-outline-secondary px-4">رجوع</BackLink>
         </div>
     </EditForm>
 }
+</div>
 
 @code {
     [Parameter] public Guid Id { get; set; }
 
     private bool loading = true;
+    private bool saving;
     private bool notFound;
     private bool editBlocked;
     private string? saveError;
@@ -254,8 +268,7 @@ else
             return;
         }
 
-        var sameCenter = await MaterialPermits.GetSameCenterUserNamesAsync(currentUser);
-        if (!MaterialPermitService.CanEdit(permit, currentUser, sameCenter))
+        if (!MaterialPermitService.CanEdit(permit, currentUser))
         {
             editBlocked = true;
             loading = false;
@@ -300,24 +313,35 @@ else
 
     private void AddEquipmentRow() => model.EquipmentsAndMaterials.Add(new EquipMatiMovmentViewModel());
     private void AddCarRow() => model.Cars.Add(new CarMovmentViewModel());
+    private Task PreventSubmit(EditContext _) => SaveAsync(true);
 
-    private async Task SaveAsync()
+    private async Task SaveAsync(bool submit)
     {
-        saveError = null;
+        if (saving) return;
         var namedItems = model.EquipmentsAndMaterials
             .Where(e => !string.IsNullOrWhiteSpace(e.ItemName))
             .ToList();
         if (namedItems.Count == 0)
         {
-            saveError = "أضف مادة أو معدة واحدة على الأقل.";
+            await Toast.WarningAsync("أضف مادة أو معدة واحدة على الأقل.");
             return;
         }
+        if (string.IsNullOrWhiteSpace(selectedRespCode))
+        {
+            await Toast.WarningAsync("يرجى اختيار الجهة الطالبة.");
+            return;
+        }
+        if (submit && !await Toast.ConfirmAsync("هل تريد إرسال هذا التصريح للاعتماد؟", "نعم", "لا", "confirm"))
+            return;
+        saveError = null;
 
+        saving = true;
+        try
+        {
         var permit = await PermitService.GetPermitByIdAsync(Id);
         if (permit == null || currentUser == null) return;
 
-        var sameCenter = await MaterialPermits.GetSameCenterUserNamesAsync(currentUser);
-        if (!MaterialPermitService.CanEdit(permit, currentUser, sameCenter))
+        if (!MaterialPermitService.CanEdit(permit, currentUser))
         {
             editBlocked = true;
             return;
@@ -365,6 +389,41 @@ else
             createdBy = currentUser.UserName,
             createdOn = DateTime.Now
         });
+        if (submit)
+            await MaterialPermits.SubmitDraftAsync(permit.Id, currentUser);
         Navigation.NavigateTo(ReturnUrl.Read(Navigation) ?? "/permits");
+        }
+        catch (Exception ex)
+        {
+            saveError = ex.Message;
+            await Toast.ErrorAsync(ex.Message);
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private async Task CancelPermitAsync()
+    {
+        if (saving || currentUser == null) return;
+        if (!await Toast.ConfirmAsync("هل تريد إلغاء هذا التصريح؟ لا يمكن التراجع عن الإلغاء.", "إلغاء التصريح", "لا", "danger"))
+            return;
+        saving = true;
+        try
+        {
+            await MaterialPermits.CancelAsync(Id, currentUser);
+            await Toast.SuccessAsync("تم إلغاء التصريح.");
+            Navigation.NavigateTo(ReturnUrl.Read(Navigation) ?? "/permits");
+        }
+        catch (Exception ex)
+        {
+            saveError = ex.Message;
+            await Toast.ErrorAsync(ex.Message);
+        }
+        finally
+        {
+            saving = false;
+        }
     }
 }

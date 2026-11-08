@@ -13,6 +13,9 @@ namespace Core.Models
         [Display(Name = "كلمة المرور")]
         public string Password { get; set; } = "";
 
+        [Display(Name = "تذكرني")]
+        public bool RememberMe { get; set; }
+
         [Display(Name = "البوابة")]
         public string? SelectedGate { get; set; }
 

@@ -20,27 +20,65 @@ namespace Services.Security
         public async Task EnsureCatalogSeededAsync()
         {
             await using var db = await _dbFactory.CreateDbContextAsync();
-            var existing = await db.SystemTasks.Select(t => t.Code).ToListAsync();
-            var missing = SystemTaskCatalog.All.Where(d => !existing.Contains(d.Code)).ToList();
-            if (missing.Count == 0) return;
+            var rows = await db.SystemTasks.ToListAsync();
+            var byCode = rows.ToDictionary(t => t.Code, StringComparer.OrdinalIgnoreCase);
+            var catalogCodes = SystemTaskCatalog.All
+                .Select(d => d.Code)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var changed = false;
 
-            foreach (var def in missing)
+            foreach (var def in SystemTaskCatalog.All)
             {
-                db.SystemTasks.Add(new SystemTask
+                if (!byCode.TryGetValue(def.Code, out var row))
                 {
-                    Id = Guid.NewGuid(),
-                    Code = def.Code,
-                    NameAr = def.NameAr,
-                    Category = def.Category,
-                    Route = def.Route,
-                    SortOrder = def.SortOrder,
-                    IsActive = true,
-                    createdOn = DateTime.Now,
-                    createdBy = "seed"
-                });
+                    db.SystemTasks.Add(new SystemTask
+                    {
+                        Id = Guid.NewGuid(),
+                        Code = def.Code,
+                        NameAr = def.NameAr,
+                        Category = def.Category,
+                        Route = def.Route,
+                        SortOrder = def.SortOrder,
+                        IsActive = true,
+                        createdOn = DateTime.Now,
+                        createdBy = "seed"
+                    });
+                    changed = true;
+                    continue;
+                }
+
+                if (row.NameAr != def.NameAr
+                    || row.Category != def.Category
+                    || row.Route != def.Route
+                    || row.SortOrder != def.SortOrder
+                    || !row.IsActive
+                    || row.isDeleted)
+                {
+                    row.NameAr = def.NameAr;
+                    row.Category = def.Category;
+                    row.Route = def.Route;
+                    row.SortOrder = def.SortOrder;
+                    row.IsActive = true;
+                    row.isDeleted = false;
+                    row.updatedBy = "seed";
+                    row.updatedOn = DateTime.Now;
+                    changed = true;
+                }
             }
 
-            await db.SaveChangesAsync();
+            foreach (var row in rows)
+            {
+                if (catalogCodes.Contains(row.Code) || !row.IsActive || row.isDeleted)
+                    continue;
+
+                row.IsActive = false;
+                row.updatedBy = "seed";
+                row.updatedOn = DateTime.Now;
+                changed = true;
+            }
+
+            if (changed)
+                await db.SaveChangesAsync();
         }
 
         public async Task<List<SystemTask>> GetAllActiveAsync()

@@ -2,6 +2,7 @@ wwwroot\css\app.css
 wwwroot\css\login.css
 wwwroot\css\main-shell.css
 wwwroot\css\permit-view.css
+wwwroot\css\pms-message.css
 wwwroot\css\site.css
 wwwroot\favicon.ico
 wwwroot\fonts\OFL.txt
@@ -17,6 +18,7 @@ wwwroot\js\employee-camera.js
 wwwroot\js\employee-register.js
 wwwroot\js\login.js
 wwwroot\js\pms-login.js
+wwwroot\js\pms-message.js
 wwwroot\js\pms-nav.js
 wwwroot\js\pms-toast.js
 wwwroot\js\site.js

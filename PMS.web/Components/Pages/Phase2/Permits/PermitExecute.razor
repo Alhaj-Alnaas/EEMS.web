@@ -23,11 +23,11 @@
 {
     <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
 }
-else if (gates.Count == 0)
+else if (!gateLocked)
 {
     <div class="pms-placeholder">
         <i class="bi bi-door-closed"></i>
-        <h5>لا توجد بوابات نشطة</h5>
+        <h5>تنفيذ التصريح متاح للبوابة التي تُختار عند تسجيل الدخول</h5>
     </div>
 }
 else
@@ -35,20 +35,7 @@ else
     <div class="card shadow-sm mb-3">
         <div class="card-body py-3">
             <label class="form-label mb-1">البوابة</label>
-            @if (gateLocked)
-            {
-                <div class="fw-bold">@CurrentGateLabel()</div>
-            }
-            else
-            {
-                <select class="form-select" value="@selectedGateId" @onchange="ChangeGateAsync">
-                    <option value="">اختر البوابة</option>
-                    @foreach (var gate in gates)
-                    {
-                        <option value="@gate.Id">@GateText(gate)</option>
-                    }
-                </select>
-            }
+            <div class="fw-bold">@CurrentGateLabel()</div>
             <div class="text-muted small mt-2">
                 يظهر التصريح هنا إذا حُددت هذه البوابة عند اعتماد رئيس قسم الحراسة، أو إذا كان مساره لا يمر بالحراسة وهذه البوابة مربوطة بنوعه.
             </div>
@@ -59,7 +46,7 @@ else
     {
         <div class="pms-placeholder">
             <i class="bi bi-door-open"></i>
-            <h5>اختر البوابة لعرض تصاريحها</h5>
+            <h5>تنفيذ التصريح متاح للبوابة التي تُختار عند تسجيل الدخول</h5>
         </div>
     }
     else if (rows.Count == 0)
@@ -137,24 +124,6 @@ else
         finally
         {
             loading = false;
-        }
-    }
-
-    private async Task ChangeGateAsync(ChangeEventArgs args)
-    {
-        selectedGateId = args.Value?.ToString() ?? "";
-        rows = new();
-        if (!Guid.TryParse(selectedGateId, out var gateId))
-            return;
-
-        try
-        {
-            await LoadRowsAsync(gateId);
-            loadError = null;
-        }
-        catch (Exception ex)
-        {
-            loadError = "تعذر تحميل تصاريح التنفيذ: " + ex.Message;
         }
     }
 

@@ -218,7 +218,7 @@
                         <a asp-action="Index" class="btn btn-secondary px-4">⬅ رجوع</a>
                         <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary px-4">✏ تعديل</a>
                     </div>
-                    <form asp-action="DeleteConfirmed" method="post" onsubmit="return confirm('هل أنت متأكد من حذف هذه البوابة؟');">
+                    <form asp-action="DeleteConfirmed" method="post" onsubmit="return pmsMessage.submitConfirm(event, 'هل أنت متأكد من حذف هذه البوابة؟');">
                         <input type="hidden" asp-for="Id" />
                         <button type="submit" class="btn btn-danger">🗑 حذف</button>
                     </form>
@@ -277,7 +277,7 @@
                     <a asp-action="Index" class="btn btn-secondary px-4">⬅ رجوع</a>
                     <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary px-4">✏ تعديل</a>
                 </div>
-                <form asp-action="DeleteConfirmed" method="post" onsubmit="return confirm('هل أنت متأكد من حذف هذه البوابة؟');">
+                <form asp-action="DeleteConfirmed" method="post" onsubmit="return pmsMessage.submitConfirm(event, 'هل أنت متأكد من حذف هذه البوابة؟');">
                     <input type="hidden" asp-for="Id" />
                     <button type="submit" class="btn btn-danger px-4">🗑 حذف</button>
                 </form>

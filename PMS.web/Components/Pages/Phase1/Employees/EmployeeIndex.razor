@@ -786,8 +786,9 @@
     private async Task DeleteAsync(Employee employee)
     {
         var name = string.IsNullOrWhiteSpace(employee.FullName) ? employee.FileNumber : employee.FullName;
-        var ok = await JS.InvokeAsync<bool>("confirm",
-            $"هل أنت متأكد من حذف الموظف «{name}»؟\nلا يمكن التراجع عن هذا الإجراء بسهولة.");
+        var ok = await Toast.ConfirmAsync(
+            $"هل أنت متأكد من حذف الموظف «{name}»؟\nلا يمكن التراجع عن هذا الإجراء بسهولة.",
+            "نعم", "لا", "danger");
         if (!ok) return;
         await EmployeeService.DeleteAsync(employee.Id);
         employees.Remove(employee);

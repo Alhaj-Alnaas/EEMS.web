@@ -47,7 +47,7 @@ namespace Services.Workflow
             var leaders = await LeaderCodesAsync();
             var code = entrant.ResponsibilityCode ?? "";
             var isLeader = entrant.JobCatId == 1;
-            return workflow.Steps?.Any(s => !s.isDeleted && StepApplies(s, code, isLeader, leaders)) == true;
+            return ShapePath(workflow.Steps ?? Enumerable.Empty<WorkflowStep>(), code, isLeader, leaders).Count > 0;
         }
 
         public async Task<WorkflowDefinition> EnsureActiveWorkflowAsync(PermitClassification classification)
@@ -124,8 +124,10 @@ namespace Services.Workflow
 
         public async Task<PermitApproval> SubmitDecisionAsync(Guid permitId, string approverUserId, ApprovalDecision decision, string? comment = null, Guid? executionGateId = null)
         {
-            if (decision == ApprovalDecision.Rejected && string.IsNullOrWhiteSpace(comment))
-                throw new InvalidOperationException("ملاحظة الرفض إلزامية.");
+            if (decision is ApprovalDecision.Rejected or ApprovalDecision.Returned && string.IsNullOrWhiteSpace(comment))
+                throw new InvalidOperationException(decision == ApprovalDecision.Rejected
+                    ? "ملاحظة القرار إلزامية عند الرفض."
+                    : "ملاحظة القرار إلزامية عند الترجيع.");
 
             var permit = await _unitOfWork.Permits.GetQueryable()
                 .FirstOrDefaultAsync(p => p.Id == permitId)
@@ -355,7 +357,19 @@ namespace Services.Workflow
                 .ToListAsync();
 
             var route = await RouteForAsync(permit);
-            return steps.Where(s => StepApplies(s, route.EntrantCode, route.EntrantIsLeader, route.LeaderCodes)).ToList();
+            return ShapePath(steps, route.EntrantCode, route.EntrantIsLeader, route.LeaderCodes);
+        }
+
+        private static List<WorkflowStep> ShapePath(
+            IEnumerable<WorkflowStep> steps,
+            string entrantCode,
+            bool entrantIsLeader,
+            IReadOnlySet<string> leaders)
+        {
+            return steps
+                .Where(s => !s.isDeleted && StepApplies(s, entrantCode, entrantIsLeader, leaders))
+                .OrderBy(s => s.StepOrder)
+                .ToList();
         }
 
         private static bool StepApplies(WorkflowStep step, string entrantCode, bool entrantIsLeader, IReadOnlySet<string> leaders)

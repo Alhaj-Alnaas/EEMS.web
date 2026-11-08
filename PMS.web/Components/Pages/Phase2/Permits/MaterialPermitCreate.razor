@@ -6,7 +6,9 @@
 @inject UserManager<User> UserManager
 @inject AuthenticationStateProvider AuthProvider
 @inject NavigationManager Navigation
+@inject PMS.web.Notifications.IUiToast Toast
 @using Microsoft.AspNetCore.Identity
+@using Services.Permits
 @using Core.Entities.DTOs
 @using static Core.Enums.BaseEnums
 
@@ -330,31 +332,38 @@ else
     private async Task SaveAsync(bool submit)
     {
         if (saving) return;
+        var request = new MaterialPermitRequest
+        {
+            PermitNumber = model.No,
+            Type = model.Type,
+            IsTemp = model.IsTemp,
+            PermitDate = model.Date,
+            HourOfEntry = model.HourOfEntry,
+            ValidTo = validTo,
+            ExpectedExecutionTime = expectedExecutionTime,
+            ShiftApproval = shiftApproval,
+            RequestingDepartmentCode = selectedRespCode,
+            AuthorizedParty = model.OrgDescription,
+            Phone = model.PhoneNo,
+            MoveFrom = model.MoveFrom,
+            MoveTo = model.MoveTo,
+            Purpose = purpose,
+            Notes = model.Notes,
+            Items = model.EquipmentsAndMaterials,
+            Cars = model.Cars
+        };
+        var missing = MaterialPermitService.MissingMaterial(request, submit);
+        if (missing != null)
+        {
+            await Toast.WarningAsync(missing);
+            return;
+        }
+        if (submit && !await Toast.ConfirmAsync("هل تريد إحالة هذا التصريح للاعتماد؟", "نعم", "لا", "confirm"))
+            return;
         errorMessage = null;
         saving = true;
         try
         {
-            var request = new MaterialPermitRequest
-            {
-                PermitNumber = model.No,
-                Type = model.Type,
-                IsTemp = model.IsTemp,
-                PermitDate = model.Date,
-                HourOfEntry = model.HourOfEntry,
-                ValidTo = validTo,
-                ExpectedExecutionTime = expectedExecutionTime,
-                ShiftApproval = shiftApproval,
-                RequestingDepartmentCode = selectedRespCode,
-                AuthorizedParty = model.OrgDescription,
-                Phone = model.PhoneNo,
-                MoveFrom = model.MoveFrom,
-                MoveTo = model.MoveTo,
-                Purpose = purpose,
-                Notes = model.Notes,
-                Items = model.EquipmentsAndMaterials,
-                Cars = model.Cars
-            };
-
             var id = await MaterialPermits.SaveAsync(request, currentUser!, submit);
             Navigation.NavigateTo(ReturnUrl.Read(Navigation) ?? "/permits");
         }

@@ -7,6 +7,7 @@
 @inject UserManager<User> UserManager
 @inject AuthenticationStateProvider AuthProvider
 @inject NavigationManager Navigation
+@inject PMS.web.Notifications.IUiToast Toast
 @using Microsoft.AspNetCore.Identity
 @using Core.Common
 
@@ -75,11 +76,8 @@ else
                                         }
                                     </select>
                                 }
-                                <button class="btn btn-sm btn-success" disabled="@busy" @onclick="() => DecideAsync(row, ApprovalDecision.Approved)">
+                                <button class="btn btn-sm btn-success" disabled="@busy" @onclick="() => DecideAsync(row)">
                                     اعتماد
-                                </button>
-                                <button class="btn btn-sm btn-secondary" disabled="@busy" @onclick="() => DecideAsync(row, ApprovalDecision.Returned)">
-                                    ترجيع
                                 </button>
                             </td>
                         </tr>
@@ -154,36 +152,41 @@ else
         loading = false;
     }
 
-    private async Task DecideAsync(InboxRow row, ApprovalDecision decision)
+    private async Task DecideAsync(InboxRow row)
     {
         if (currentUser == null || busy)
             return;
 
-        Guid? gateId = null;
-        if (decision == ApprovalDecision.Approved && row.StepType == WorkflowStepType.GuardSection)
+        if (row.StepType == WorkflowStepType.GuardSection && !Guid.TryParse(GateValue(row.Permit.Id), out _))
         {
-            if (!Guid.TryParse(GateValue(row.Permit.Id), out var parsed))
-            {
-                messageOk = false;
-                message = "حدد بوابة التنفيذ قبل الاعتماد.";
-                return;
-            }
-            gateId = parsed;
+            messageOk = false;
+            message = "حدد بوابة التنفيذ قبل الاعتماد.";
+            await Toast.WarningAsync(message);
+            return;
         }
+
+        if (!await Toast.ConfirmAsync("هل تريد اعتماد هذا التصريح؟", "اعتماد", "لا", "confirm"))
+            return;
+
+        Guid? gateId = null;
+        if (row.StepType == WorkflowStepType.GuardSection && Guid.TryParse(GateValue(row.Permit.Id), out var parsed))
+            gateId = parsed;
 
         message = null;
         busy = true;
         try
         {
-            await MaterialPermits.DecideAsync(row.Permit.Id, currentUser, decision, null, gateId);
+            await MaterialPermits.DecideAsync(row.Permit.Id, currentUser, ApprovalDecision.Approved, null, gateId);
             messageOk = true;
-            message = decision == ApprovalDecision.Returned ? "تم ترجيع التصريح." : "تم اعتماد التصريح.";
+            message = "تم اعتماد التصريح.";
+            await Toast.SuccessAsync(message);
             await LoadAsync();
         }
         catch (Exception ex)
         {
             messageOk = false;
             message = ex.Message;
+            await Toast.ErrorAsync(ex.Message);
         }
         finally
         {

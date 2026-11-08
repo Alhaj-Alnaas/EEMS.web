@@ -11,6 +11,9 @@ namespace PMS.web.Notifications
         Task InfoAsync(string message, int? durationMs = null);
         Task ShowAsync(string message, string type, int? durationMs = null);
         Task ClearAsync();
+
+        /// <summary>رسالة قرار تبقى حتى يختار المستخدم. true عند الزر الأول.</summary>
+        Task<bool> ConfirmAsync(string message, string yesText = "نعم", string noText = "لا", string type = "warning");
     }
 
     public sealed class UiToast : IUiToast
@@ -50,6 +53,24 @@ namespace PMS.web.Notifications
         {
             try { await _js.InvokeVoidAsync("pmsToast.clear"); }
             catch { /* ignore */ }
+        }
+
+        public async Task<bool> ConfirmAsync(string message, string yesText = "نعم", string noText = "لا", string type = "warning")
+        {
+            if (string.IsNullOrWhiteSpace(message)) return false;
+            try
+            {
+                return await _js.InvokeAsync<bool>("pmsMessage.confirm", new
+                {
+                    text = message.Trim(),
+                    yes = yesText,
+                    no = noText,
+                    type
+                });
+            }
+            catch (JSDisconnectedException) { return false; }
+            catch (JSException) { return false; }
+            catch (InvalidOperationException) { return false; }
         }
     }
 }

@@ -8,7 +8,9 @@
 @inject UserManager<User> UserManager
 @inject AuthenticationStateProvider AuthProvider
 @inject NavigationManager Navigation
+@inject PMS.web.Notifications.IUiToast Toast
 @using Microsoft.AspNetCore.Identity
+@using Services.Permits
 
 <PageTitle>تصريح زوار جديد - PMS</PageTitle>
 
@@ -328,6 +330,14 @@ else
     private async Task SaveAsync(bool submit)
     {
         if (saving) return;
+        var missing = MaterialPermitService.MissingVisitor(request, submit);
+        if (missing != null)
+        {
+            await Toast.WarningAsync(missing);
+            return;
+        }
+        if (submit && !await Toast.ConfirmAsync("هل تريد إحالة هذا التصريح للاعتماد؟", "نعم", "لا", "confirm"))
+            return;
         errorMessage = null;
         saving = true;
         try

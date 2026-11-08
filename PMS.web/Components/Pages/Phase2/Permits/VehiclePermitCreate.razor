@@ -6,7 +6,9 @@
 @inject UserManager<User> UserManager
 @inject AuthenticationStateProvider AuthProvider
 @inject NavigationManager Navigation
+@inject PMS.web.Notifications.IUiToast Toast
 @using Microsoft.AspNetCore.Identity
+@using Services.Permits
 
 <PageTitle>تصريح مركبات جديد - PMS</PageTitle>
 
@@ -269,14 +271,22 @@ else
     private async Task SaveAsync(bool submit)
     {
         if (saving) return;
+        if (!request.InternalUse)
+            request.TripCount = 1;
+        var missing = MaterialPermitService.MissingVehicle(request, submit);
+        if (missing != null)
+        {
+            await Toast.WarningAsync(missing);
+            return;
+        }
+        if (submit && !await Toast.ConfirmAsync("هل تريد إحالة هذا التصريح للاعتماد؟", "نعم", "لا", "confirm"))
+            return;
         errorMessage = null;
         saving = true;
         try
         {
             if (currentUser == null)
                 throw new InvalidOperationException("المستخدم غير معروف.");
-            if (!request.InternalUse)
-                request.TripCount = 1;
             await MaterialPermits.SaveVehicleAsync(request, currentUser, submit);
             Navigation.NavigateTo(ReturnUrl.Read(Navigation) ?? "/permits");
         }

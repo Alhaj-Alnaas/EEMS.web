@@ -25,184 +25,39 @@
         </div>
 
         <ul class="nav-list">
-            @* —— 1. الرئيسية —— *@
-            <li>
-                <NavLink href="/dashboard" class="nav-link-item" Match="NavLinkMatch.All">
-                    <i class="fas fa-home" aria-hidden="true"></i>
-                    <span class="links_name">الرئيسية</span>
-                </NavLink>
-                <span class="tooltip">الرئيسية</span>
-            </li>
+            @foreach (var link in VisibleTopLinks)
+            {
+                <li>
+                    <NavLink href="@MenuHref(link)" class="nav-link-item" Match="@(link.ExactMatch ? NavLinkMatch.All : NavLinkMatch.Prefix)">
+                        <i class="@link.Icon" aria-hidden="true"></i>
+                        <span class="links_name">@link.NameAr</span>
+                    </NavLink>
+                    <span class="tooltip">@link.NameAr</span>
+                </li>
+            }
 
-            @* —— 2. التصاريح —— *@
-            <li class="nav-group @(_openPermits ? "expanded" : null)">
-                <button type="button" class="nav-link-item nav-group-toggle" @onclick="TogglePermits">
-                    <i class="fas fa-file-signature" aria-hidden="true"></i>
-                    <span class="links_name">التصاريح</span>
-                    <i class="fas fa-chevron-down nav-group-chevron" aria-hidden="true"></i>
-                </button>
-                <span class="tooltip">التصاريح</span>
-                <ul class="nav-sublist">
-                    <li>
-                        <NavLink href="/permits" class="nav-link-item sub" Match="NavLinkMatch.All">
-                            <i class="fas fa-list" aria-hidden="true"></i>
-                            <span class="links_name">قائمة التصاريح</span>
-                        </NavLink>
-                    </li>
-                    <li>
-                        <NavLink href="@ReturnUrl.Go(Navigation, "/permits/employee/create")" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
-                            <i class="fas fa-user-check" aria-hidden="true"></i>
-                            <span class="links_name">إصدار تصريح موظف</span>
-                        </NavLink>
-                    </li>
-                    <li>
-                        <NavLink href="/permits/labor" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
-                            <i class="fas fa-helmet-safety" aria-hidden="true"></i>
-                            <span class="links_name">تصاريح العمالة</span>
-                        </NavLink>
-                    </li>
-                    <li>
-                        <NavLink href="@ReturnUrl.Go(Navigation, "/permits/visitors/create")" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
-                            <i class="fas fa-user-tag" aria-hidden="true"></i>
-                            <span class="links_name">تصريح زوار</span>
-                        </NavLink>
-                    </li>
-                    <li>
-                        <NavLink href="@ReturnUrl.Go(Navigation, "/permits/materials/create")" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
-                            <i class="fas fa-boxes" aria-hidden="true"></i>
-                            <span class="links_name">تصريح مواد</span>
-                        </NavLink>
-                    </li>
-                    <li>
-                        <NavLink href="@ReturnUrl.Go(Navigation, "/permits/vehicles/create")" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
-                            <i class="fas fa-truck" aria-hidden="true"></i>
-                            <span class="links_name">تصريح مركبات</span>
-                        </NavLink>
-                    </li>
-                    <li>
-                        <NavLink href="/permits/approve" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
-                            <i class="fas fa-stamp" aria-hidden="true"></i>
-                            <span class="links_name">اعتماد تصريح</span>
-                        </NavLink>
-                    </li>
-                    <li>
-                        <NavLink href="/permits/execute" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
-                            <i class="fas fa-qrcode" aria-hidden="true"></i>
-                            <span class="links_name">تنفيذ تصريح</span>
-                        </NavLink>
-                    </li>
-                </ul>
-            </li>
-
-            @* —— 3. التقارير والمتابعة —— *@
-            <li class="nav-group @(_openReports ? "expanded" : null)">
-                <button type="button" class="nav-link-item nav-group-toggle" @onclick="ToggleReports">
-                    <i class="fas fa-chart-line" aria-hidden="true"></i>
-                    <span class="links_name">التقارير والمتابعة</span>
-                    <i class="fas fa-chevron-down nav-group-chevron" aria-hidden="true"></i>
-                </button>
-                <span class="tooltip">التقارير والمتابعة</span>
-                <ul class="nav-sublist">
-                    <li>
-                        <NavLink href="/reports/active-permits" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
-                            <i class="fas fa-bolt" aria-hidden="true"></i>
-                            <span class="links_name">التصاريح النشطة</span>
-                        </NavLink>
-                    </li>
-                    <li>
-                        <NavLink href="/reports/open-permits" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
-                            <i class="fas fa-hourglass-split" aria-hidden="true"></i>
-                            <span class="links_name">تصاريح مفتوحة</span>
-                        </NavLink>
-                    </li>
-                    <li>
-                        <NavLink href="/movements" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
-                            <i class="fas fa-exchange-alt" aria-hidden="true"></i>
-                            <span class="links_name">سجل الحركة</span>
-                        </NavLink>
-                    </li>
-                    <li>
-                        <NavLink href="/devices/monitor" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
-                            <i class="fas fa-heartbeat" aria-hidden="true"></i>
-                            <span class="links_name">حالة الأجهزة</span>
-                        </NavLink>
-                    </li>
-                    <li>
-                        <NavLink href="/reports/attendance" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
-                            <i class="fas fa-user-clock" aria-hidden="true"></i>
-                            <span class="links_name">تقارير الحضور</span>
-                        </NavLink>
-                    </li>
-                    <li>
-                        <NavLink href="/reports/audit-log" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
-                            <i class="fas fa-clipboard-list" aria-hidden="true"></i>
-                            <span class="links_name">سجل التدقيق</span>
-                        </NavLink>
-                    </li>
-                </ul>
-            </li>
-
-            @* —— 4. الإدارة —— *@
-            <li class="nav-group @(_openAdmin ? "expanded" : null)">
-                <button type="button" class="nav-link-item nav-group-toggle" @onclick="ToggleAdmin">
-                    <i class="fas fa-cogs" aria-hidden="true"></i>
-                    <span class="links_name">الإدارة</span>
-                    <i class="fas fa-chevron-down nav-group-chevron" aria-hidden="true"></i>
-                </button>
-                <span class="tooltip">الإدارة</span>
-                <ul class="nav-sublist">
-                    <li>
-                        <NavLink href="/devices/readers" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
-                            <i class="fas fa-fingerprint" aria-hidden="true"></i>
-                            <span class="links_name">إدارة القارئات</span>
-                        </NavLink>
-                    </li>
-                    @* مؤقتاً: إخفاء استيراد البصمات من القائمة
-                    <li>
-                        <NavLink href="/devices/biometrics" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
-                            <i class="fas fa-id-badge" aria-hidden="true"></i>
-                            <span class="links_name">استيراد البصمات</span>
-                        </NavLink>
-                    </li>
-                    *@
-                    <li>
-                        <NavLink href="/employees" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
-                            <i class="fas fa-users" aria-hidden="true"></i>
-                            <span class="links_name">الموظفون</span>
-                        </NavLink>
-                    </li>
-                    <li>
-                        <NavLink href="/admin/gates" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
-                            <i class="fas fa-door-open" aria-hidden="true"></i>
-                            <span class="links_name">إدارة البوابات</span>
-                        </NavLink>
-                    </li>
-                    <li>
-                        <NavLink href="/access/permissions" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
-                            <i class="fas fa-key" aria-hidden="true"></i>
-                            <span class="links_name">إدارة صلاحيات الدخول</span>
-                        </NavLink>
-                    </li>
-                    <li>
-                        <NavLink href="/admin/workflows" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
-                            <i class="fas fa-project-diagram" aria-hidden="true"></i>
-                            <span class="links_name">إعدادات التصريح</span>
-                        </NavLink>
-                    </li>
-                    <li>
-                        <NavLink href="/admin/access-levels" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
-                            <i class="fas fa-shield-alt" aria-hidden="true"></i>
-                            <span class="links_name">مستويات الدخول</span>
-                        </NavLink>
-                    </li>
-                    <li>
-                        <NavLink href="/admin/users" class="nav-link-item sub" Match="NavLinkMatch.Prefix">
-                            <i class="fas fa-user-cog" aria-hidden="true"></i>
-                            <span class="links_name">إدارة المستخدمين</span>
-                        </NavLink>
-                    </li>
-                </ul>
-            </li>
+            @foreach (var group in VisibleGroups)
+            {
+                <li class="nav-group @(_openGroups.Contains(group.Key) ? "expanded" : null)">
+                    <button type="button" class="nav-link-item nav-group-toggle" @onclick="() => ToggleGroup(group.Key)">
+                        <i class="@group.Icon" aria-hidden="true"></i>
+                        <span class="links_name">@group.Title</span>
+                        <i class="fas fa-chevron-down nav-group-chevron" aria-hidden="true"></i>
+                    </button>
+                    <span class="tooltip">@group.Title</span>
+                    <ul class="nav-sublist">
+                        @foreach (var item in group.Items)
+                        {
+                            <li>
+                                <NavLink href="@MenuHref(item)" class="nav-link-item sub" Match="@(item.ExactMatch ? NavLinkMatch.All : NavLinkMatch.Prefix)">
+                                    <i class="@item.Icon" aria-hidden="true"></i>
+                                    <span class="links_name">@item.NameAr</span>
+                                </NavLink>
+                            </li>
+                        }
+                    </ul>
+                </li>
+            }
         </ul>
 
         <div class="pms-profile-dock">
@@ -251,9 +106,8 @@
     private string _userRoleLine = "";
     private string _selectedGateLabel = "";
 
-    private bool _openPermits;
-    private bool _openReports;
-    private bool _openAdmin;
+    private readonly HashSet<string> _openGroups = new(StringComparer.OrdinalIgnoreCase);
+    private HashSet<string> _allowedTasks = new(StringComparer.OrdinalIgnoreCase);
     private int _unreadNotifications;
     private string? _userId;
     private readonly CancellationTokenSource _noticesStop = new();
@@ -339,7 +193,17 @@
                 _userDisplayName = "زائر";
                 _userRoleLine = "";
                 _selectedGateLabel = "";
+                _allowedTasks = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 return;
+            }
+
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!string.IsNullOrEmpty(userId))
+            {
+                using var scope = ScopeFactory.CreateScope();
+                var access = scope.ServiceProvider.GetRequiredService<IUserAccessService>();
+                var codes = await access.GetTaskCodesForUserAsync(userId);
+                _allowedTasks = new HashSet<string>(codes, StringComparer.OrdinalIgnoreCase);
             }
 
             _userDisplayName =
@@ -361,8 +225,20 @@
             _userDisplayName = "مستخدم";
             _userRoleLine = "";
             _selectedGateLabel = "";
+            _allowedTasks = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         }
     }
+
+    private bool CanSee(SystemTaskDefinition item) =>
+        _designMode || _allowedTasks.Contains(item.Code);
+
+    private IEnumerable<SystemTaskDefinition> VisibleTopLinks =>
+        SystemTaskCatalog.TopLinks.Where(CanSee);
+
+    private IEnumerable<SystemMenuGroup> VisibleGroups =>
+        SystemTaskCatalog.Groups
+            .Select(group => group with { Items = group.Items.Where(CanSee).ToList() })
+            .Where(group => group.Items.Count > 0);
 
     private void OpenNotifications() => Navigation.NavigateTo("/notifications");
 
@@ -401,39 +277,46 @@
 
     private void ExpandGroupForCurrentPath(string path)
     {
-        path = path.TrimStart('/');
-        if (path.StartsWith("permits", StringComparison.OrdinalIgnoreCase))
-            _openPermits = true;
-        else if (path.StartsWith("reports", StringComparison.OrdinalIgnoreCase)
-                 || path.StartsWith("movements", StringComparison.OrdinalIgnoreCase)
-                 || path.StartsWith("devices/monitor", StringComparison.OrdinalIgnoreCase))
-            _openReports = true;
-        else if (path.StartsWith("admin", StringComparison.OrdinalIgnoreCase)
-                 || path.StartsWith("devices/readers", StringComparison.OrdinalIgnoreCase)
-                 || path.StartsWith("devices/biometrics", StringComparison.OrdinalIgnoreCase)
-                 || path.StartsWith("employees", StringComparison.OrdinalIgnoreCase)
-                 || path.StartsWith("access", StringComparison.OrdinalIgnoreCase))
-            _openAdmin = true;
+        var current = NormalizePath(path);
+        foreach (var group in SystemTaskCatalog.Groups)
+        {
+            if (group.Items.Any(item => RouteMatches(item.Route, current)))
+                _openGroups.Add(group.Key);
+        }
+    }
+
+    private static string NormalizePath(string path)
+    {
+        var query = path.IndexOf('?');
+        if (query >= 0)
+            path = path[..query];
+        path = "/" + path.Trim().TrimStart('/');
+        return path.Length > 1 ? path.TrimEnd('/') : path;
+    }
+
+    private static bool RouteMatches(string? route, string path)
+    {
+        if (string.IsNullOrWhiteSpace(route))
+            return false;
+        return string.Equals(path, route, StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith(route + "/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string MenuHref(SystemTaskDefinition item)
+    {
+        var route = item.Route ?? "/";
+        return route.Contains("/create", StringComparison.OrdinalIgnoreCase)
+            ? ReturnUrl.Go(Navigation, route)
+            : route;
     }
 
     private void ToggleSidebar() => _sidebarOpen = !_sidebarOpen;
 
-    private void TogglePermits()
+    private void ToggleGroup(string key)
     {
         EnsureSidebarOpen();
-        _openPermits = !_openPermits;
-    }
-
-    private void ToggleReports()
-    {
-        EnsureSidebarOpen();
-        _openReports = !_openReports;
-    }
-
-    private void ToggleAdmin()
-    {
-        EnsureSidebarOpen();
-        _openAdmin = !_openAdmin;
+        if (!_openGroups.Add(key))
+            _openGroups.Remove(key);
     }
 
     private void EnsureSidebarOpen()
