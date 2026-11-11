@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @inject IGates GateService
 @inject NavigationManager Navigation
+@inject PMS.web.Notifications.IUiToast Toast
 
 <PageTitle>البوابات - PMS</PageTitle>
 
@@ -23,6 +24,11 @@
         </div>
     </div>
 </div>
+
+@if (!string.IsNullOrEmpty(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
 
 @if (loading)
 {
@@ -79,6 +85,7 @@ else
 }
 
 @code {
+    private string? error;
     private bool loading = true;
     private string quickSearch = "";
     private List<Gate> gates = new();
@@ -111,9 +118,21 @@ else
 
     private async Task DeleteAsync(Guid id)
     {
-        var gate = await GateService.GetByIdAsync(id, false);
+        var gate = await GateService.GetByIdAsync(id);
         if (gate == null) return;
-        await GateService.DeleteAsync(gate);
-        await LoadAsync();
+        var label = string.IsNullOrWhiteSpace(gate.description) ? gate.no : $"{gate.no} — {gate.description}";
+        if (!await Toast.ConfirmAsync($"هل أنت متأكد من حذف البوابة «{label}»؟", "حذف", "لا", "danger"))
+            return;
+
+        error = null;
+        try
+        {
+            await GateService.DeleteAsync(gate);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
     }
 }

@@ -1,5 +1,6 @@
 using Core.Common;
 using Core.Entities;
+using Core.Interfaces.Services;
 using Core.Interfaces.Services.Permits;
 using Core.Interfaces.Services.Workflow;
 using Core.Interfaces.UnitOfWork;
@@ -19,15 +20,18 @@ namespace Services.Workflow
         private readonly IUnitOfWork _unitOfWork;
         private readonly IPermitNotifier _notifier;
         private readonly IDbContextFactory<DataContext> _dbFactory;
+        private readonly IAuditLogService _audit;
 
         public WorkflowEngine(
             IUnitOfWork unitOfWork,
             IPermitNotifier notifier,
-            IDbContextFactory<DataContext> dbFactory)
+            IDbContextFactory<DataContext> dbFactory,
+            IAuditLogService audit)
         {
             _unitOfWork = unitOfWork;
             _notifier = notifier;
             _dbFactory = dbFactory;
+            _audit = audit;
         }
 
         public async Task<WorkflowDefinition?> GetActiveWorkflowAsync(PermitClassification classification)
@@ -187,6 +191,23 @@ namespace Services.Workflow
             permit.updatedBy = approver.UserName;
             permit.updatedOn = DateTime.Now;
             await _unitOfWork.SaveAsync();
+
+            var action = decision switch
+            {
+                ApprovalDecision.Rejected => AuditAction.Reject,
+                ApprovalDecision.Returned => AuditAction.Return,
+                _ => AuditAction.Approve
+            };
+            await _audit.WriteAsync(new AuditLogEntry
+            {
+                SourceKey = "permit-decision:" + approval.Id,
+                Area = AuditArea.Permits,
+                Action = action,
+                Summary = AuditAction.Label(action) + " التصريح " + permit.no,
+                ActorFileNumber = approver.UserName,
+                ActorName = approver.FullName,
+                OccurredAt = approval.DecidedOn
+            });
 
             await NotifyAfterDecisionAsync(permit, decision, approver, currentStep, comment);
             return approval;

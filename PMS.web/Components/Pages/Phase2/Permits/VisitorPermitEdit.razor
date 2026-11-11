@@ -60,7 +60,7 @@ else
                         <div class="row g-2 mb-3">
                             <div class="col-6">
                                 <label class="form-label fw-bold">ساعة الزيارة</label>
-                                <InputText type="time" class="form-control" @bind-Value="request.ExpectedVisitTime" @bind-Value:after="ApplyShiftApproval" />
+                                <input type="time" class="form-control" value="@request.ExpectedVisitTime" @oninput="OnVisitTime" />
                             </div>
                             <div class="col-6">
                                 <label class="form-label fw-bold">ساعة المغادرة</label>
@@ -76,7 +76,7 @@ else
                             <InputTextArea class="form-control" rows="2" @bind-Value="request.Purpose" />
                         </div>
                         <div class="mb-3">
-                            <label class="form-label fw-bold">الجهة الطالبة</label>
+                            <label class="form-label fw-bold">الجهة الطالبة <span class="pms-req">*</span></label>
                             <InputSelect class="form-select" @bind-Value="request.RequestingDepartmentCode">
                                 <option value="">-- اختر الجهة الطالبة --</option>
                                 @foreach (var dep in departments)
@@ -297,10 +297,17 @@ else
         }
     }
 
+    private void OnVisitTime(ChangeEventArgs e)
+    {
+        if (request == null) return;
+        request.ExpectedVisitTime = e.Value?.ToString();
+        ApplyShiftApproval();
+    }
+
     private void ApplyShiftApproval()
     {
-        if (request != null && NeedsShiftApproval(request.PermitDate, request.ExpectedVisitTime))
-            request.ShiftApproval = true;
+        if (request == null) return;
+        request.ShiftApproval = NeedsShiftApproval(request.PermitDate, request.ExpectedVisitTime);
     }
 
     private static bool NeedsShiftApproval(DateTime permitDate, string? expectedTime)
@@ -367,7 +374,9 @@ else
             await Toast.WarningAsync(missing);
             return;
         }
-        if (submit && !await Toast.ConfirmAsync("هل تريد إرسال هذا التصريح للاعتماد؟", "نعم", "لا", "confirm"))
+        if (submit && !await Toast.ConfirmAsync(request.ShiftApproval
+            ? "هذا التصريح سوف يُعتمد من المناوب فقط. هل تريد الإرسال؟"
+            : "هل تريد إرسال هذا التصريح للاعتماد؟", "نعم", "لا", "confirm"))
             return;
         errorMessage = null;
         saving = true;
@@ -402,7 +411,6 @@ else
         }
         catch (Exception ex)
         {
-            errorMessage = ex.Message;
             await Toast.ErrorAsync(ex.Message);
         }
         finally

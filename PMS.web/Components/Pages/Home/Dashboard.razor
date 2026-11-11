@@ -1,16 +1,241 @@
 @page "/"
 @page "/dashboard"
 @rendermode InteractiveServer
+@using System.Globalization
+@using Core.Entities
+@using Core.Models
+@using Microsoft.AspNetCore.Identity
+@inject AuthenticationStateProvider Auth
+@inject UserManager<User> Users
+@inject NavigationManager Navigation
+@inject IDashboardService Boards
 
 <PageTitle>الرئيسية - PMS</PageTitle>
 
-<div class="pms-dash-hero">
-    <h1><i class="fas fa-home me-2"></i>الرئيسية</h1>
-    <p>لوحة عرض إحصائيات النظام — الشركة الليبية للحديد والصلب</p>
-</div>
+@if (loading)
+{
+    <div class="text-center p-5"><div class="spinner-border text-secondary"></div></div>
+}
+else if (!string.IsNullOrEmpty(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+else if (board == null || !board.IsLeader)
+{
+    <div class="text-center p-5"><div class="spinner-border text-secondary"></div></div>
+}
+else if (board.IsSecurity && board.Security is not null)
+{
+    var stats = board.Security;
+    var onTime = Math.Max(0, stats.PresentToday - stats.LateAfterNine);
+    <section class="pms-board pms-board-compact">
+        <header class="pms-board-head">
+            <div>
+                <div class="pms-board-kicker">لوحة الشؤون الأمنية</div>
+                <h1>@Title(board)</h1>
+                <p>@board.LeaderName · @DayText(board.Day)</p>
+            </div>
+            <div class="pms-board-window">المتابعة من 8:00 صباحاً إلى 3:30 مساءً</div>
+        </header>
 
-<div class="pms-empty-stats">
-    <i class="fas fa-chart-pie" aria-hidden="true"></i>
-    <h3>لا توجد إحصائيات</h3>
-    <p class="text-muted mb-0">ستُعرض هنا مؤشرات التصاريح والحركة وحالة الأجهزة بعد تفعيل مصادر البيانات.</p>
-</div>
+        <div class="pms-quad">
+            <article class="pms-panel">
+                <div class="pms-panel-top">
+                    <div>
+                        <div class="pms-panel-label">الموظفون في النظام</div>
+                        <strong class="pms-figure">@stats.Employees</strong>
+                    </div>
+                    <span class="pms-kpi-icon"><i class="bi bi-people"></i></span>
+                </div>
+                <div class="pms-mix" aria-hidden="true">
+                    <span class="pms-mix-ok" style="width:@Pct(onTime, stats.Employees)"></span>
+                    <span class="pms-mix-late" style="width:@Pct(stats.LateAfterNine, stats.Employees)"></span>
+                    <span class="pms-mix-off" style="width:@Pct(stats.AbsentToday, stats.Employees)"></span>
+                </div>
+                <ul class="pms-legend">
+                    <li><i class="pms-dot pms-dot-ok"></i> في الوقت <b>@onTime</b></li>
+                    <li><i class="pms-dot pms-dot-good"></i> عدد الحضور <b>@stats.PresentToday</b></li>
+                    <li><i class="pms-dot"></i> بلا حضور <b>@stats.AbsentToday</b></li>
+                    <li class="pms-legend-line"><i class="pms-dot pms-dot-late"></i> تسجيل دخول بعد التاسعة (تأخير) <b>@stats.LateAfterNine</b></li>
+                    <li class="pms-legend-line"><i class="pms-dot pms-dot-late"></i> تسجيل خروج قبل الثالثة (خروج أثناء الدوام) <b>@stats.LeftBeforeThree</b></li>
+                </ul>
+            </article>
+            <article class="pms-panel">
+                <div class="pms-panel-top">
+                    <div>
+                        <div class="pms-panel-label">التصاريح</div>
+                        <strong class="pms-figure">@stats.PermitsTotal</strong>
+                    </div>
+                    <span class="pms-kpi-icon"><i class="bi bi-file-earmark-text"></i></span>
+                </div>
+                <div class="pms-bar-list">
+                    <div class="pms-bar-row"><span>مواد</span><span class="pms-bar"><span style="width:@Pct(stats.Materials, stats.PermitsTotal)"></span></span><b>@stats.Materials</b></div>
+                    <div class="pms-bar-row"><span>زوار</span><span class="pms-bar"><span style="width:@Pct(stats.Visitors, stats.PermitsTotal)"></span></span><b>@stats.Visitors</b></div>
+                    <div class="pms-bar-row"><span>مركبات</span><span class="pms-bar"><span style="width:@Pct(stats.Vehicles, stats.PermitsTotal)"></span></span><b>@stats.Vehicles</b></div>
+                    <div class="pms-bar-row"><span>دخول موظفين</span><span class="pms-bar"><span style="width:@Pct(stats.EmployeeAccess, stats.PermitsTotal)"></span></span><b>@stats.EmployeeAccess</b></div>
+                </div>
+                <ul class="pms-legend">
+                    <li><a href="@UnderExecutionHref">تحت التنفيذ <b>@stats.ActivePermits</b></a></li>
+                    <li>مفتوحة <b>@stats.OpenPermits</b></li>
+                    <li>معلقة <b>@stats.PendingPermits</b></li>
+                    <li>منفذة <b>@stats.ExecutedPermits</b></li>
+                </ul>
+            </article>
+            <article class="pms-panel">
+                <div class="pms-panel-top">
+                    <div>
+                        <div class="pms-panel-label">القارئات</div>
+                        <strong class="pms-figure">@stats.Readers</strong>
+                    </div>
+                    <span class="pms-kpi-icon"><i class="bi bi-fingerprint"></i></span>
+                </div>
+                <div class="pms-mix" aria-hidden="true">
+                    <span class="pms-mix-ok" style="width:@Pct(stats.ReadersOnline, stats.Readers);background:#1f7a4d"></span>
+                    <span class="pms-mix-off" style="width:@Pct(stats.ReadersOffline, stats.Readers)"></span>
+                    <span class="pms-mix-late" style="width:@Pct(stats.ReadersFaulty, stats.Readers)"></span>
+                </div>
+                <ul class="pms-legend">
+                    <li><i class="pms-dot pms-dot-good"></i> متصلة <b>@stats.ReadersOnline</b></li>
+                    <li><i class="pms-dot"></i> غير متصلة <b>@stats.ReadersOffline</b></li>
+                    <li><i class="pms-dot pms-dot-late"></i> معطلة <b>@stats.ReadersFaulty</b></li>
+                </ul>
+            </article>
+            <article class="pms-panel">
+                <div class="pms-panel-top">
+                    <div>
+                        <div class="pms-panel-label">البوابات العاملة</div>
+                        <strong class="pms-figure">@stats.ActiveGates</strong>
+                    </div>
+                    <span class="pms-kpi-icon"><i class="bi bi-door-open"></i></span>
+                </div>
+                <ul class="pms-legend">
+                    <li>المسجلة <b>@stats.Gates</b></li>
+                    <li>تحركت اليوم <b>@stats.GatesUsedToday</b></li>
+                    <li>حركات اليوم <b>@stats.MovementsToday</b></li>
+                </ul>
+            </article>
+        </div>
+    </section>
+}
+else if (board.Division is not null)
+{
+    var stats = board.Division;
+    var present = Math.Max(0, stats.RegisteredEmployees - stats.AbsentToday);
+    var onTime = Math.Max(0, present - stats.LateAfterNine);
+    <section class="pms-board">
+        <header class="pms-board-head">
+            <div>
+                <div class="pms-board-kicker">لوحة التقسيم</div>
+                <h1>@Title(board)</h1>
+                <p>@board.LeaderName · @DayText(board.Day)</p>
+            </div>
+            <div class="pms-board-window">المتابعة من 8:00 صباحاً إلى 3:30 مساءً</div>
+        </header>
+
+        <div class="pms-split">
+            <article class="pms-panel">
+                <div class="pms-panel-top">
+                    <div>
+                        <div class="pms-panel-label">موظفون مسجلون في التقسيم</div>
+                        <strong class="pms-figure">@stats.RegisteredEmployees</strong>
+                    </div>
+                    <span class="pms-kpi-icon"><i class="bi bi-people"></i></span>
+                </div>
+                <div class="pms-mix" aria-hidden="true">
+                    <span class="pms-mix-ok" style="width:@Pct(onTime, stats.RegisteredEmployees)"></span>
+                    <span class="pms-mix-late" style="width:@Pct(stats.LateAfterNine, stats.RegisteredEmployees)"></span>
+                    <span class="pms-mix-off" style="width:@Pct(stats.AbsentToday, stats.RegisteredEmployees)"></span>
+                </div>
+                <ul class="pms-legend">
+                    <li><i class="pms-dot pms-dot-ok"></i> في الوقت <b>@onTime</b></li>
+                    <li><i class="pms-dot pms-dot-late"></i> بعد التاسعة <b>@stats.LateAfterNine</b></li>
+                    <li><i class="pms-dot"></i> بلا حضور <b>@stats.AbsentToday</b></li>
+                </ul>
+            </article>
+            <div class="pms-stack">
+                <a class="pms-kpi pms-kpi-warn" href="/movements">
+                    <span class="pms-kpi-icon pms-kpi-icon-warn"><i class="bi bi-person-x"></i></span>
+                    <span class="pms-kpi-copy"><span>لم يسجلوا حضوراً</span><strong>@stats.AbsentToday</strong><small>لا دخول اليوم</small></span>
+                </a>
+                <a class="pms-kpi pms-kpi-warn" href="/movements">
+                    <span class="pms-kpi-icon pms-kpi-icon-warn"><i class="bi bi-clock"></i></span>
+                    <span class="pms-kpi-copy"><span>حضور بعد التاسعة</span><strong>@stats.LateAfterNine</strong><small>أول دخول بعد 9:00</small></span>
+                </a>
+                <a class="pms-kpi pms-kpi-warn" href="/movements">
+                    <span class="pms-kpi-icon pms-kpi-icon-warn"><i class="bi bi-box-arrow-right"></i></span>
+                    <span class="pms-kpi-copy"><span>خروج قبل الثالثة</span><strong>@stats.LeftBeforeThree</strong><small>آخر خروج قبل 3:00</small></span>
+                </a>
+            </div>
+        </div>
+
+        <div class="pms-rail">
+            <a class="pms-kpi" href="@UnderExecutionHref">
+                <span class="pms-kpi-icon"><i class="bi bi-hourglass-split"></i></span>
+                <span class="pms-kpi-copy"><span>تصاريح تحت التنفيذ</span><strong>@stats.InExecution</strong><small>جاهزة للتنفيذ</small></span>
+            </a>
+            <a class="pms-kpi pms-kpi-warn" href="/permits/approve">
+                <span class="pms-kpi-icon pms-kpi-icon-warn"><i class="bi bi-stamp"></i></span>
+                <span class="pms-kpi-copy"><span>تصاريح تحتاج اعتمادك</span><strong>@stats.AwaitingLeader</strong><small>بانتظار قرارك</small></span>
+            </a>
+            <a class="pms-kpi" href="/permits">
+                <span class="pms-kpi-icon"><i class="bi bi-check2-circle"></i></span>
+                <span class="pms-kpi-copy"><span>تصاريح منفذة للتقسيم</span><strong>@stats.Executed</strong><small>أُغلق تنفيذها</small></span>
+            </a>
+        </div>
+    </section>
+}
+
+@code {
+    private bool loading = true;
+    private string? error;
+    private LeaderDashboard? board;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var auth = await Auth.GetAuthenticationStateAsync();
+            var name = auth.User.Identity?.Name;
+            var user = name == null ? null : await Users.FindByNameAsync(name);
+            if (user == null)
+            {
+                error = "تعذر تحديد المستخدم الحالي.";
+                return;
+            }
+
+            board = await Boards.BuildAsync(user);
+            if (!board.IsLeader)
+            {
+                Navigation.NavigateTo("/permits", replace: true);
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            error = "تعذر تحميل لوحة الإحصائيات: " + ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private static string Title(LeaderDashboard item)
+    {
+        var name = (item.UnitName ?? "").Trim();
+        var code = (item.UnitCode ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(name))
+            return code;
+        if (string.IsNullOrWhiteSpace(code) || name.Contains(code, StringComparison.Ordinal))
+            return name;
+        return name + " · " + code;
+    }
+
+    private static string DayText(DateTime day) =>
+        day.ToString("dddd d MMMM yyyy", CultureInfo.GetCultureInfo("ar"));
+
+    private static string UnderExecutionHref => "/permits?status=" + Uri.EscapeDataString("تحت التنفيذ");
+
+    private static string Pct(int part, int total) =>
+        total <= 0 ? "0%" : Math.Round(100.0 * part / total).ToString(CultureInfo.InvariantCulture) + "%";
+}

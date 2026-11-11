@@ -30,9 +30,9 @@
                     <i class="bi bi-person-vcard text-warning"></i>
                     شاشة تسجيل موظف
                 </h3>
-                <span class="emp-total-pill" title="إجمالي الموظفين في النظام">
+                <span class="emp-total-pill" title="موظفون لهم بصمة أو رقم كرت">
                     <i class="bi bi-people-fill"></i>
-                    <strong>@employees.Count</strong>
+                    <strong>@VisibleCount</strong>
                     <span>موظف مسجّل</span>
                 </span>
             </div>
@@ -41,11 +41,9 @@
                 <span class="emp-hub-path-sep" aria-hidden="true">←</span>
                 <span class="emp-hub-path-step"><span class="emp-hub-path-num">2</span> مزامنة</span>
                 <span class="emp-hub-path-sep" aria-hidden="true">←</span>
-                <span class="emp-hub-path-step"><span class="emp-hub-path-num">3</span> تسجيل البيانات</span>
+                <span class="emp-hub-path-step"><span class="emp-hub-path-num">3</span> تسجيل البيانات والربط مع البوابات</span>
                 <span class="emp-hub-path-sep" aria-hidden="true">←</span>
-                <span class="emp-hub-path-step"><span class="emp-hub-path-num">4</span> البوابات</span>
-                <span class="emp-hub-path-sep" aria-hidden="true">←</span>
-                <span class="emp-hub-path-step"><span class="emp-hub-path-num">5</span> طباعة الكرت</span>
+                <span class="emp-hub-path-step"><span class="emp-hub-path-num">4</span> طباعة الكرت</span>
             </div>
         </div>
         <div class="d-flex gap-2 flex-wrap">
@@ -62,17 +60,13 @@
     <div class="card shadow-sm mb-3">
         <div class="card-body py-3">
             <div class="emp-hub-toolbar d-flex flex-wrap gap-2 align-items-center justify-content-between">
-                <div class="btn-group btn-group-sm flex-wrap" role="group" aria-label="خيارات العرض">
-                    <button type="button" class="btn @(listTab == "all" ? "btn-primary" : "btn-outline-primary")"
+                <div class="btn-group btn-group-sm flex-wrap emp-filter" role="group" aria-label="خيارات العرض">
+                    <button type="button" class="btn @(listTab == "all" ? "emp-filter-on" : "")"
                             @onclick='() => listTab = "all"'>الكل</button>
-                    <button type="button" class="btn @(listTab == "ready" ? "btn-primary" : "btn-outline-primary")"
-                            @onclick='() => listTab = "ready"'>جاهز للتسجيل (@CountPhase(EmployeeEnrollmentPhase.ReadyToRegister))</button>
-                    <button type="button" class="btn @(listTab == "awaiting" ? "btn-primary" : "btn-outline-primary")"
-                            @onclick='() => listTab = "awaiting"'>بانتظار بصمة/كرت (@CountPhase(EmployeeEnrollmentPhase.AwaitingCredential))</button>
-                    <button type="button" class="btn @(listTab == "gates" ? "btn-primary" : "btn-outline-primary")"
-                            @onclick='() => listTab = "gates"'>بانتظار بوابات (@CountPhase(EmployeeEnrollmentPhase.NeedsGates))</button>
-                    <button type="button" class="btn @(listTab == "complete" ? "btn-primary" : "btn-outline-primary")"
-                            @onclick='() => listTab = "complete"'>مكتمل</button>
+                    <button type="button" class="btn @(listTab == "ready" ? "emp-filter-on" : "")"
+                            @onclick='() => listTab = "ready"'>جاهز للتسجيل (@CountReady)</button>
+                    <button type="button" class="btn @(listTab == "complete" ? "emp-filter-on" : "")"
+                            @onclick='() => listTab = "complete"'>مكتمل (@CountComplete)</button>
                 </div>
 
                 <div class="d-flex flex-wrap gap-2 align-items-center flex-grow-1 justify-content-end pms-search-actions">
@@ -143,10 +137,10 @@
 
     @if (syncing)
     {
-        <div class="card border-primary mb-3">
+        <div class="card border-secondary mb-3">
             <div class="card-body">
                 <div class="d-flex align-items-center gap-3 mb-2">
-                    <div class="spinner-border text-primary" role="status"></div>
+                    <div class="spinner-border text-secondary" role="status"></div>
                     <div>
                         <div class="fw-semibold">جاري المزامنة من القارئات...</div>
                         <div class="small text-muted">
@@ -157,31 +151,21 @@
                     </div>
                 </div>
                 <div class="progress" style="height: 8px;">
-                    <div class="progress-bar progress-bar-striped progress-bar-animated"
+                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-secondary"
                          style="width:@SyncProgressPercent%"></div>
                 </div>
             </div>
         </div>
     }
 
-    @if (showSyncResult)
-    {
-        <div class="alert alert-success alert-dismissible fade show">
-            <div class="fw-semibold mb-1">
-                اكتملت المزامنة — تم رصد @syncedEmployees.Count موظفاً (@(syncedEmployees.Count == 0 ? "لا يوجد جدد في هذه الجولة" : "تمت إضافتهم/تحديثهم"))
-            </div>
-            <div class="small">الإجمالي في النظام الآن: @employees.Count</div>
-            <button type="button" class="btn-close" @onclick="() => showSyncResult = false"></button>
-        </div>
-
-        @if (syncedEmployees.Count > 0)
+    @if (showSyncResult && syncedEmployees.Count > 0)
         {
             <div class="card shadow-sm mb-3 border-success">
                 <div class="card-header bg-success-subtle fw-semibold py-2">
                     الموظفون الذين تمت مزامنتهم (@syncedEmployees.Count)
                 </div>
                 <div class="table-responsive" style="max-height: 260px; overflow:auto;">
-                    <table class="table table-sm table-hover mb-0 align-middle">
+                    <table class="table table-sm table-bordered table-hover mb-0 align-middle emp-hub-grid">
                         <thead class="table-light sticky-top">
                             <tr>
                                 <th>الرقم الوظيفي</th>
@@ -203,14 +187,9 @@
                                         }
                                         @switch (syncPhase)
                                         {
-                                            case EmployeeEnrollmentPhase.AwaitingCredential:
-                                                <span class="badge text-bg-warning">بانتظار بصمة/كرت</span>
-                                                break;
                                             case EmployeeEnrollmentPhase.ReadyToRegister:
-                                                <span class="badge text-bg-primary">جاهز للتسجيل</span>
-                                                break;
                                             case EmployeeEnrollmentPhase.NeedsGates:
-                                                <span class="badge" style="background:#fd7e14;color:#fff;">بانتظار بوابات</span>
+                                                <span class="badge text-bg-secondary">جاهز للتسجيل</span>
                                                 break;
                                             case EmployeeEnrollmentPhase.Complete:
                                                 <span class="badge text-bg-success">مكتمل</span>
@@ -226,7 +205,6 @@
                     </table>
                 </div>
             </div>
-        }
     }
 
     @* التنبيهات عبر pmsToast *@
@@ -239,15 +217,19 @@
     {
         <div class="pms-placeholder">
             <i class="bi bi-people"></i>
-            <h5>@(employees.Count == 0 ? "لا يوجد موظفون مسجلون بعد" : "لا توجد نتائج مطابقة للبحث")</h5>
+            <h5>@(VisibleCount == 0 ? "لا يوجد موظفون ببصمة أو رقم كرت" : "لا توجد نتائج مطابقة للبحث")</h5>
             <p>
                 @if (employees.Count == 0)
                 {
-                    <span>سجّل الموظف على القارئة أولاً (بصمة/كرت)، ثم اضغط «مزامنة من القارئات»، وبعدها أكمل التسجيل من قائمة الانتظار.</span>
+                    <span>سجّل الموظف على القارئة وأضف البصمة أو رقم الكرت، ثم اضغط «مزامنة من القارئات».</span>
                 }
                 else if (listTab == "ready")
                 {
                     <span>لا يوجد موظفون جاهزون للتسجيل. سجّل على القارئة ثم زامن.</span>
+                }
+                else if (employees.Count > 0 && VisibleCount == 0)
+                {
+                    <span>لا يُعرض الموظف هنا إلا بعد تسجيله على القارئة وإضافة البصمة أو رقم الكرت.</span>
                 }
                 else
                 {
@@ -260,7 +242,7 @@
     {
         <div class="card shadow-sm">
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
+                <table class="table table-bordered table-hover align-middle mb-0 emp-hub-grid">
                     <thead class="table-light">
                         <tr>
                             <th>الرقم الوظيفي</th>
@@ -269,7 +251,7 @@
                             <th>الوظيفة</th>
                             <th>الهاتف</th>
                             <th>الحالة</th>
-                            <th>إجراء</th>
+                            <th>الإجراءات</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -285,14 +267,9 @@
                                 <td>
                                     @switch (phase)
                                     {
-                                        case EmployeeEnrollmentPhase.AwaitingCredential:
-                                            <span class="badge text-bg-warning">بانتظار بصمة/كرت</span>
-                                            break;
                                         case EmployeeEnrollmentPhase.ReadyToRegister:
-                                            <span class="badge text-bg-primary">جاهز للتسجيل</span>
-                                            break;
                                         case EmployeeEnrollmentPhase.NeedsGates:
-                                            <span class="badge" style="background:#fd7e14;color:#fff;">بانتظار بوابات</span>
+                                            <span class="badge text-bg-secondary">جاهز للتسجيل</span>
                                             break;
                                         case EmployeeEnrollmentPhase.Complete:
                                             <span class="badge text-bg-success">مكتمل</span>
@@ -322,8 +299,7 @@
                                         </button>
                                     }
                                     else if (phase == EmployeeEnrollmentPhase.ReadyToRegister
-                                          || phase == EmployeeEnrollmentPhase.NeedsGates
-                                          || phase == EmployeeEnrollmentPhase.AwaitingCredential)
+                                          || phase == EmployeeEnrollmentPhase.NeedsGates)
                                     {
                                         @if (phase == EmployeeEnrollmentPhase.NeedsGates)
                                         {
@@ -379,6 +355,23 @@
         font-size: .7rem; font-weight: 700; line-height: 1;
     }
     .emp-hub-path-sep { color: #adb5bd; font-size: .8rem; }
+    .emp-hub .emp-filter .btn {
+        color: #495057;
+        background: #fff;
+        border-color: #adb5bd;
+    }
+    .emp-hub .emp-filter .btn.emp-filter-on {
+        color: #fff;
+        background: #6c757d;
+        border-color: #6c757d;
+    }
+    .emp-hub .emp-hub-grid {
+        font-size: .875rem;
+    }
+    .emp-hub .emp-hub-grid th,
+    .emp-hub .emp-hub-grid td {
+        border-color: #d5d9de;
+    }
 </style>
 
 @code {
@@ -410,8 +403,17 @@
     private int SyncProgressPercent =>
         expectedSyncSeconds <= 0 ? 0 : Math.Min(100, (int)(100.0 * elapsedSyncSeconds / expectedSyncSeconds));
 
-    private int CountPhase(EmployeeEnrollmentPhase phase)
-        => enrollmentMap.Values.Count(x => x.Phase == phase);
+    private int VisibleCount => employees.Count(e => HasCredential(e.Id));
+
+    private int CountReady => employees.Count(e =>
+        HasCredential(e.Id) && GetPhase(e.Id) is EmployeeEnrollmentPhase.ReadyToRegister or EmployeeEnrollmentPhase.NeedsGates);
+
+    private int CountComplete => employees.Count(e =>
+        HasCredential(e.Id) && GetPhase(e.Id) == EmployeeEnrollmentPhase.Complete);
+
+    private bool HasCredential(Guid employeeId)
+        => enrollmentMap.TryGetValue(employeeId, out var info)
+           && (info.TemplateCount > 0 || info.HasCard);
 
     private EmployeeEnrollmentPhase? GetPhase(Guid employeeId)
         => enrollmentMap.TryGetValue(employeeId, out var info) ? info.Phase : null;
@@ -420,7 +422,7 @@
     {
         get
         {
-            IEnumerable<Employee> q = employees;
+            IEnumerable<Employee> q = employees.Where(e => HasCredential(e.Id));
 
             if (!string.IsNullOrWhiteSpace(filterFileNo))
             {
@@ -463,9 +465,7 @@
 
             q = listTab switch
             {
-                "ready" => q.Where(e => GetPhase(e.Id) == EmployeeEnrollmentPhase.ReadyToRegister),
-                "awaiting" => q.Where(e => GetPhase(e.Id) == EmployeeEnrollmentPhase.AwaitingCredential),
-                "gates" => q.Where(e => GetPhase(e.Id) == EmployeeEnrollmentPhase.NeedsGates),
+                "ready" => q.Where(e => GetPhase(e.Id) is EmployeeEnrollmentPhase.ReadyToRegister or EmployeeEnrollmentPhase.NeedsGates),
                 "complete" => q.Where(e => GetPhase(e.Id) == EmployeeEnrollmentPhase.Complete),
                 _ => q
             };
@@ -644,15 +644,13 @@
             else if (newlyAdded.Count > 0)
                 syncedEmployees = newlyAdded;
 
+            syncedEmployees = syncedEmployees.Where(e => HasCredential(e.Id)).ToList();
             showSyncResult = true;
 
-            var readyCount = CountPhase(EmployeeEnrollmentPhase.ReadyToRegister);
-            var awaitingCount = CountPhase(EmployeeEnrollmentPhase.AwaitingCredential);
-
-            if (newlyReady.Count > 0 || newlyAdded.Count > 0)
+            if (newlyReady.Count > 0 || syncedEmployees.Count > 0)
             {
                 await Toast.SuccessAsync(
-                    $"اكتملت المزامنة. جاهزون للتسجيل: {readyCount}، بانتظار بصمة/كرت: {awaitingCount}" +
+                    $"اكتملت المزامنة. جاهزون للتسجيل: {CountReady}" +
                     (newlyReady.Count > 0 ? $" (جدد جاهزون: {newlyReady.Count})." : "."));
                 if (newlyReady.Count > 0)
                     listTab = "ready";
@@ -660,7 +658,7 @@
             else
             {
                 await Toast.InfoAsync(
-                    $"اكتملت المزامنة. لا يوجد موظفون جدد. جاهزون للتسجيل: {readyCount}، بانتظار بصمة/كرت: {awaitingCount}.");
+                    $"اكتملت المزامنة. لا يوجد موظفون جدد ببصمة أو رقم كرت. جاهزون للتسجيل: {CountReady}.");
             }
         }
         catch (Exception ex)
@@ -745,13 +743,24 @@
         }
     }
 
+    private static bool IsImagesFolderPhoto(string relative)
+    {
+        var parts = relative.Split('/');
+        if (parts.Length != 3 || !parts[0].Equals("images", StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (parts[1].Length == 0 || parts[2].Length == 0 || relative.Contains("..", StringComparison.Ordinal))
+            return false;
+        return parts[1].All(c => char.IsLetterOrDigit(c) || c is '-' or '_');
+    }
+
     private string? TryReadPhotoDataUrl(string? photoPath)
     {
         try
         {
             if (string.IsNullOrWhiteSpace(photoPath)) return null;
             var relative = photoPath.Split('?', 2)[0].Replace('\\', '/').TrimStart('/');
-            if (!relative.StartsWith("uploads/employees/", StringComparison.OrdinalIgnoreCase))
+            if (!relative.StartsWith("uploads/employees/", StringComparison.OrdinalIgnoreCase)
+                && !IsImagesFolderPhoto(relative))
                 return null;
 
             var candidates = new[]
@@ -790,9 +799,16 @@
             $"هل أنت متأكد من حذف الموظف «{name}»؟\nلا يمكن التراجع عن هذا الإجراء بسهولة.",
             "نعم", "لا", "danger");
         if (!ok) return;
-        await EmployeeService.DeleteAsync(employee.Id);
-        employees.Remove(employee);
-        syncedEmployees.RemoveAll(e => e.Id == employee.Id);
-        enrollmentMap.Remove(employee.Id);
+        try
+        {
+            await EmployeeService.DeleteAsync(employee.Id);
+            employees.Remove(employee);
+            syncedEmployees.RemoveAll(e => e.Id == employee.Id);
+            enrollmentMap.Remove(employee.Id);
+        }
+        catch (Exception ex)
+        {
+            await Toast.ErrorAsync(ex.Message);
+        }
     }
 }

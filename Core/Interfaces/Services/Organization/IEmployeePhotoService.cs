@@ -4,8 +4,8 @@ namespace Core.Interfaces.Services.Organization
     public interface IEmployeePhotoService
     {
         /// <summary>
-        /// Saves a JPEG (or other image) for the given file number.
-        /// Returns a web-relative path like /uploads/employees/{fileNumber}.jpg
+        /// Saves a JPEG (or other image) under wwwroot/images/{fileNumber}/.
+        /// Returns a web-relative path like /images/{fileNumber}/photo.jpg
         /// </summary>
         Task<string> SavePhotoAsync(string fileNumber, byte[] imageBytes, string? contentType = null, CancellationToken ct = default);
 

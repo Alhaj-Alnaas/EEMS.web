@@ -8,6 +8,8 @@
 @inject IUserAccountService Users
 @inject IAccessLevelService AccessLevels
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthState
+@inject PMS.web.Notifications.IUiToast Toast
 
 <PageTitle>إدارة المستخدمين - PMS</PageTitle>
 
@@ -46,7 +48,7 @@
                            placeholder="أدخل رقم الملف الوظيفي..." @onkeydown="OnSearchKey" />
                 </div>
                 <div class="col-lg-3">
-                    <button class="btn btn-warning w-100 fw-bold" @onclick="LoadUserAsync" disabled="@busy">
+                    <button class="btn user-silver-btn w-100 fw-bold" @onclick="LoadUserAsync" disabled="@busy">
                         <i class="bi bi-search"></i> عرض البيانات
                     </button>
                 </div>
@@ -89,26 +91,26 @@
                         <h5 class="mb-4"><i class="bi bi-shield-lock me-2"></i>مستوى الدخول</h5>
 
                         <label class="form-label fw-bold">مستوى الدخول</label>
-                        <div class="d-flex gap-2 mb-4">
-                            <select class="form-select border-warning fw-bold" @bind="selectedLevelId">
+                        <div class="d-flex gap-2 mb-4 align-items-stretch">
+                            <select class="form-select fw-bold" @bind="selectedLevelId">
                                 <option value="">-- اختر المستوى --</option>
                                 @foreach (var l in levels)
                                 {
                                     <option value="@l.Id">@l.Name</option>
                                 }
                             </select>
-                            <button class="btn btn-warning" @onclick="SaveLevelAsync" title="حفظ المستوى" disabled="@busy">
-                                <i class="bi bi-floppy"></i>
+                            <button class="btn user-silver-btn user-level-btn" @onclick="SaveLevelAsync" disabled="@busy">
+                                تعديل مستوى
                             </button>
                         </div>
 
                         <label class="form-label fw-bold">إجراءات الحساب</label>
-                        <div class="d-grid gap-2">
-                            <button class="btn btn-outline-primary text-end fw-bold" @onclick="ResetPasswordAsync" disabled="@busy">
-                                <i class="bi bi-key ms-2"></i> تصفير كلمة المرور
+                        <div class="user-account-actions">
+                            <button class="btn btn-outline-primary fw-bold" @onclick="ResetPasswordAsync" disabled="@busy">
+                                <i class="bi bi-key"></i> تصفير كلمة المرور
                             </button>
-                            <button class="btn btn-outline-danger text-end fw-bold" @onclick="DeleteAsync" disabled="@busy">
-                                <i class="bi bi-trash ms-2"></i> حذف المستخدم
+                            <button class="btn btn-outline-danger fw-bold" @onclick="DeleteAsync" disabled="@busy">
+                                <i class="bi bi-trash"></i> حذف المستخدم
                             </button>
                         </div>
                     </div>
@@ -118,25 +120,13 @@
     }
     else if (searched)
     {
-        <div class="pms-placeholder">
-            <i class="bi bi-person-x"></i>
-            <h5>لا يوجد مستخدم بهذا الرقم</h5>
-            <p class="text-muted">يمكنك إضافته من شاشة إضافة مستخدم.</p>
-        </div>
-    }
-    else
-    {
-        <div class="pms-placeholder">
-            <i class="bi bi-people"></i>
-            <h5>جاهز لاستعراض البيانات</h5>
-            <p class="text-muted">أدخل رقم الملف الوظيفي أعلاه لإظهار خيارات الحساب.</p>
-        </div>
+        <div class="alert alert-light border text-center mb-4">لا يوجد مستخدم بهذا الرقم.</div>
     }
 
     <div class="card mt-4">
         <div class="card-header fw-bold">آخر المستخدمين</div>
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
+            <table class="table table-bordered table-hover align-middle mb-0 user-list">
                 <thead>
                     <tr>
                         <th>الرقم الوظيفي</th>
@@ -180,6 +170,12 @@
     private UserAccountDetail? detail;
     private List<Core.Entities.Security.AccessLevel> levels = new();
     private List<UserAccountListItem> recent = new();
+
+    private async Task<string?> ActorFileAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        return state.User.Identity?.Name;
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -238,7 +234,7 @@
         busy = true;
         try
         {
-            var (ok, msg) = await Users.UpdateAccessLevelAsync(detail.Id, levelId);
+            var (ok, msg) = await Users.UpdateAccessLevelAsync(detail.Id, levelId, await ActorFileAsync());
             messageOk = ok;
             message = msg;
             if (ok)
@@ -256,7 +252,7 @@
         busy = true;
         try
         {
-            var (ok, msg, pwd) = await Users.ResetPasswordAsync(detail.Id);
+            var (ok, msg, pwd) = await Users.ResetPasswordAsync(detail.Id, await ActorFileAsync());
             messageOk = ok;
             message = msg;
             tempPassword = pwd;
@@ -267,10 +263,14 @@
     private async Task DeleteAsync()
     {
         if (detail == null) return;
+        var label = string.IsNullOrWhiteSpace(detail.EmpName) ? detail.EmpFileNo : detail.EmpName;
+        if (!await Toast.ConfirmAsync($"هل أنت متأكد من حذف المستخدم «{label}»؟", "حذف", "لا", "danger"))
+            return;
+
         busy = true;
         try
         {
-            var (ok, msg) = await Users.DeleteAsync(detail.Id);
+            var (ok, msg) = await Users.DeleteAsync(detail.Id, await ActorFileAsync());
             messageOk = ok;
             message = msg;
             if (ok)

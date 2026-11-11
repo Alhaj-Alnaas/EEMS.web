@@ -33,10 +33,6 @@ else if (editBlocked)
 }
 else
 {
-    @if (!string.IsNullOrEmpty(saveError))
-    {
-        <div class="alert alert-danger">@saveError</div>
-    }
     <EditForm Model="model" class="pms-create-form" OnSubmit="PreventSubmit">
         <div class="pms-create-body">
         <div class="row g-4">
@@ -75,7 +71,7 @@ else
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label fw-bold">الجهة الطالبة</label>
+                            <label class="form-label fw-bold">الجهة الطالبة <span class="pms-req">*</span></label>
                             <InputSelect class="form-select" @bind-Value="selectedRespCode">
                                 <option value="">-- اختر الجهة الطالبة --</option>
                                 @foreach (var dep in departments)
@@ -236,7 +232,6 @@ else
     private bool saving;
     private bool notFound;
     private bool editBlocked;
-    private string? saveError;
     private PermitViewModel model = new();
     private List<DepartmentDto> departments = new();
     private string selectedRespCode = "";
@@ -333,8 +328,6 @@ else
         }
         if (submit && !await Toast.ConfirmAsync("هل تريد إرسال هذا التصريح للاعتماد؟", "نعم", "لا", "confirm"))
             return;
-        saveError = null;
-
         saving = true;
         try
         {
@@ -395,7 +388,6 @@ else
         }
         catch (Exception ex)
         {
-            saveError = ex.Message;
             await Toast.ErrorAsync(ex.Message);
         }
         finally
@@ -418,7 +410,6 @@ else
         }
         catch (Exception ex)
         {
-            saveError = ex.Message;
             await Toast.ErrorAsync(ex.Message);
         }
         finally

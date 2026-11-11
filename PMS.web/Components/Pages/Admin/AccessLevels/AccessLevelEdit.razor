@@ -49,7 +49,7 @@ else
                     <div class="card-header fw-bold">بيانات المستوى</div>
                     <div class="card-body">
                         <div class="mb-3">
-                            <label class="form-label">اسم المستوى</label>
+                            <label class="form-label">اسم المستوى <span class="pms-req">*</span></label>
                             <InputText class="form-control" @bind-Value="model.Name" placeholder="مثال: مدير النظام" />
                             <ValidationMessage For="() => model.Name" />
                         </div>

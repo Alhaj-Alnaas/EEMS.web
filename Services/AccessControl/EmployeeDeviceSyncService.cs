@@ -1,4 +1,6 @@
+using Core.Common;
 using Core.Entities;
+using Core.Interfaces.Services;
 using Core.Interfaces.Services.AccessControl;
 using Core.Interfaces.UnitOfWork;
 using Microsoft.EntityFrameworkCore;
@@ -15,15 +17,18 @@ namespace Services.AccessControl
         private readonly IUnitOfWork _unitOfWork;
         private readonly IDeviceCommandService _commands;
         private readonly ILogger<EmployeeDeviceSyncService> _logger;
+        private readonly IAuditLogService _audit;
 
         public EmployeeDeviceSyncService(
             IUnitOfWork unitOfWork,
             IDeviceCommandService commands,
-            ILogger<EmployeeDeviceSyncService> logger)
+            ILogger<EmployeeDeviceSyncService> logger,
+            IAuditLogService audit)
         {
             _unitOfWork = unitOfWork;
             _commands = commands;
             _logger = logger;
+            _audit = audit;
         }
 
         public Task<int> SyncEmployeeStatusToReadersAsync(Employee employee, CancellationToken ct = default)
@@ -134,6 +139,21 @@ namespace Services.AccessControl
                 await SupersedePendingUpdatesAsync(reader.Id, pin, ct);
                 queued += await QueueAccAccessAsync(reader, pin, name, disable, enrollUser: true, ct);
             }
+
+            var devices = string.Join("، ", readers.Select(r => string.IsNullOrWhiteSpace(r.Name) ? r.DeviceSerial : r.Name));
+            var addresses = string.Join("، ", readers.Select(r => r.IpAddress).Where(ip => !string.IsNullOrWhiteSpace(ip)));
+            await _audit.WriteAsync(new AuditLogEntry
+            {
+                SourceKey = "enroll:" + employee.Id + ":" + DateTime.Now.Ticks,
+                Area = AuditArea.Administration,
+                Action = AuditAction.Enroll,
+                Summary = "إضافة الموظف " + pin + " " + name + " على أجهزة البصمة",
+                ActorFileNumber = employee.updatedBy,
+                ActorName = name,
+                OccurredAt = DateTime.Now,
+                DeviceName = devices,
+                NetworkAddress = addresses
+            });
 
             return queued;
         }

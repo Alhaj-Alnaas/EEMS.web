@@ -1,6 +1,4 @@
-﻿using Core.Entities;
 using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
 public class EditGateViewModel
@@ -21,12 +19,4 @@ public class EditGateViewModel
 
     [Display(Name = "ملاحظات")]
     public string Remarks { get; set; }
-
-    // قائمة كل أنواع التصاريح المتاحة للعرض
-    public List<PermitType> PermitTypes { get; set; } = new List<PermitType>();
-
-    // قائمة الـ IDs المحددة من قبل المستخدم (Many-to-Many)
-    [Required(ErrorMessage = "يجب اختيار نوع واحد على الأقل من التصاريح")]
-    [Display(Name = "أنواع التصاريح المسموح بها")]
-    public List<Guid> SelectedPermitTypeIds { get; set; } = new List<Guid>();
 }

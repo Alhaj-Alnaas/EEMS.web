@@ -1,10 +1,203 @@
 @page "/reports/audit-log"
 @rendermode InteractiveServer
-@using PMS.web.Components.Shared
+@using Core.Common
+@using Core.Models
+@inject IAuditLogService Audit
+@inject IJSRuntime JS
 
 <PageTitle>سجل التدقيق - PMS</PageTitle>
 
-<PlaceholderPage Title="سجل التدقيق"
-                 Icon="fas fa-clipboard-list"
-                 Description="تتبع العمليات الحساسة: منح صلاحيات، اعتماد/رفض تصاريح، تعديلات المستخدمين، والتسجيل اليدوي للحركة."
-                 Message="الشاشة قيد التجهيز (AuditLogs) ضمن التقارير والمتابعة." />
+<section class="pms-audit-list">
+    <div class="pms-permit-list-head">
+        <h3><i class="bi bi-clipboard-check"></i> سجل التدقيق</h3>
+        <div class="d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-sm pms-permit-view-btn" @onclick="ExportExcelAsync" disabled="@(loading || exporting || rows.Count == 0)">
+                <i class="bi bi-file-earmark-excel"></i> ترحيل إلى إكسل
+            </button>
+            @if (!loading && string.IsNullOrEmpty(loadError))
+            {
+                <span class="pms-permit-count">@rows.Count</span>
+            }
+        </div>
+    </div>
+    <p class="pms-audit-note">
+        يتابع الإلغاء والاعتماد والرفض والترجيع وتسجيل الحركة على البوابات، وحذف الموظفين والقارئات ومستويات الدخول، وتعديل الإعدادات وإضافة موظف على أجهزة البصمة.
+        عنوان الشبكة هو عنوان القارئة عند ارتباط العملية بها. عنوان MAC غير متاح من المتصفح وغير مخزن على القارئة.
+    </p>
+
+    @if (!string.IsNullOrEmpty(loadError))
+    {
+        <div class="alert alert-danger">@loadError</div>
+    }
+    @if (!string.IsNullOrEmpty(exportError))
+    {
+        <div class="alert alert-danger">@exportError</div>
+    }
+
+    <div class="card mb-3">
+        <div class="card-body py-3">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label mb-1">التبويب</label>
+                    <select class="form-select form-select-sm" @bind="area">
+                        <option value="">الكل</option>
+                        <option value="@AuditArea.Permits">تصاريح</option>
+                        <option value="@AuditArea.Administration">إدارة</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label mb-1">نوع العملية</label>
+                    <select class="form-select form-select-sm" @bind="action">
+                        <option value="">الكل</option>
+                        @foreach (var choice in AuditAction.Choices)
+                        {
+                            <option value="@choice.Code">@choice.Label</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label mb-1">رقم الملف</label>
+                    <input class="form-control form-control-sm" @bind="fileNumber" @bind:event="oninput" placeholder="رقم الملف" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label mb-1">من تاريخ</label>
+                    <input class="form-control form-control-sm" type="date" @bind="fromDate" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label mb-1">إلى تاريخ</label>
+                    <input class="form-control form-control-sm" type="date" @bind="toDate" />
+                </div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-sm pms-permit-view-btn w-100" @onclick="SearchAsync" disabled="@loading">عرض</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (loading)
+    {
+        <div class="text-center p-5"><div class="spinner-border text-secondary"></div></div>
+    }
+    else if (rows.Count == 0)
+    {
+        <div class="pms-placeholder">
+            <i class="bi bi-clipboard"></i>
+            <h5>لا توجد عمليات ضمن هذه الفترة</h5>
+        </div>
+    }
+    else
+    {
+        <div class="card pms-permit-sheet">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 pms-permit-grid">
+                    <thead>
+                        <tr>
+                            <th>الوقت</th>
+                            <th>التبويب</th>
+                            <th>نوع العملية</th>
+                            <th>البيان</th>
+                            <th>رقم الملف</th>
+                            <th>الاسم</th>
+                            <th>البوابة</th>
+                            <th>الجهاز</th>
+                            <th>عنوان الشبكة</th>
+                            <th>MAC</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in rows)
+                        {
+                            <tr>
+                                <td class="text-nowrap">@row.OccurredAt.ToString("yyyy/MM/dd HH:mm")</td>
+                                <td>@row.AreaLabel</td>
+                                <td>@row.ActionLabel</td>
+                                <td class="pms-permit-purpose">@row.Summary</td>
+                                <td class="text-nowrap">@row.FileNumber</td>
+                                <td>@row.ActorName</td>
+                                <td>@row.GateName</td>
+                                <td>@row.DeviceName</td>
+                                <td class="text-nowrap">@row.NetworkAddress</td>
+                                <td class="text-nowrap">@row.MacAddress</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</section>
+
+@code {
+    private bool loading = true;
+    private bool exporting;
+    private string? loadError;
+    private string? exportError;
+    private string area = "";
+    private string action = "";
+    private string fileNumber = "";
+    private DateTime? fromDate = DateTime.Today.AddDays(-30);
+    private DateTime? toDate = DateTime.Today;
+    private List<AuditRow> rows = new();
+
+    protected override async Task OnInitializedAsync() => await SearchAsync();
+
+    private async Task SearchAsync()
+    {
+        loading = true;
+        loadError = null;
+        try
+        {
+            rows = await Audit.SearchAsync(new AuditQuery
+            {
+                Area = string.IsNullOrWhiteSpace(area) ? null : area,
+                Action = string.IsNullOrWhiteSpace(action) ? null : action,
+                FileNumber = fileNumber,
+                From = fromDate,
+                To = toDate
+            });
+        }
+        catch (Exception ex)
+        {
+            rows = new();
+            loadError = "تعذر تحميل سجل التدقيق: " + ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task ExportExcelAsync()
+    {
+        exportError = null;
+        exporting = true;
+        try
+        {
+            var bytes = ExcelSheet.Build(
+                "سجل التدقيق",
+                new[] { "الوقت", "التبويب", "نوع العملية", "البيان", "رقم الملف", "الاسم", "البوابة", "الجهاز", "عنوان الشبكة", "MAC" },
+                rows.Select(row => new string?[]
+                {
+                    row.OccurredAt.ToString("yyyy/MM/dd HH:mm"),
+                    row.AreaLabel,
+                    row.ActionLabel,
+                    row.Summary,
+                    row.FileNumber,
+                    row.ActorName,
+                    row.GateName,
+                    row.DeviceName,
+                    row.NetworkAddress,
+                    row.MacAddress
+                }));
+            await FileDownload.SaveAsync(JS, "سجل-التدقيق.xls", bytes);
+        }
+        catch (Exception ex)
+        {
+            exportError = "تعذر ترحيل سجل التدقيق إلى إكسل: " + ex.Message;
+        }
+        finally
+        {
+            exporting = false;
+        }
+    }
+}

@@ -224,7 +224,6 @@ namespace Services.Security
 
                 SystemTaskCodes.Dashboard,
                 SystemTaskCodes.PermitsList,
-                SystemTaskCodes.ReportsActive,
                 SystemTaskCodes.ReportsOpen,
                 SystemTaskCodes.Movements,
                 SystemTaskCodes.DevicesMonitor,

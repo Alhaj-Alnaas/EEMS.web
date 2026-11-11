@@ -10,6 +10,15 @@ C:\Users\10067\AppData\Local\Temp\pms-build-check\PMS.web.deps.json
 C:\Users\10067\AppData\Local\Temp\pms-build-check\PMS.web.runtimeconfig.json
 C:\Users\10067\AppData\Local\Temp\pms-build-check\PMS.web.dll
 C:\Users\10067\AppData\Local\Temp\pms-build-check\PMS.web.pdb
+D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\PMS.web.csproj.AssemblyReference.cache
+D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\rpswa.dswa.cache.json
+D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\PMS.web.GeneratedMSBuildEditorConfig.editorconfig
+D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\PMS.web.AssemblyInfoInputs.cache
+D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\PMS.web.AssemblyInfo.cs
+D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\PMS.web.csproj.CoreCompileInputs.cache
+D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\PMS.web.RazorAssemblyInfo.cache
+D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\PMS.web.RazorAssemblyInfo.cs
+D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\PMS.web.sourcelink.json
 D:\EEMS Project\PMS\PMS.web\bin\Debug\net8.0\web.config
 D:\EEMS Project\PMS\PMS.web\bin\Debug\net8.0\appsettings.Development.json
 D:\EEMS Project\PMS\PMS.web\bin\Debug\net8.0\appsettings.json
@@ -315,15 +324,6 @@ D:\EEMS Project\PMS\PMS.web\bin\Debug\net8.0\Services.dll
 D:\EEMS Project\PMS\PMS.web\bin\Debug\net8.0\Services.pdb
 D:\EEMS Project\PMS\PMS.web\bin\Debug\net8.0\Core.pdb
 D:\EEMS Project\PMS\PMS.web\bin\Debug\net8.0\DataAccess.pdb
-D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\PMS.web.csproj.AssemblyReference.cache
-D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\rpswa.dswa.cache.json
-D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\PMS.web.GeneratedMSBuildEditorConfig.editorconfig
-D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\PMS.web.AssemblyInfoInputs.cache
-D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\PMS.web.AssemblyInfo.cs
-D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\PMS.web.csproj.CoreCompileInputs.cache
-D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\PMS.web.RazorAssemblyInfo.cache
-D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\PMS.web.RazorAssemblyInfo.cs
-D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\PMS.web.sourcelink.json
 D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\rjimswa.dswa.cache.json
 D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\rjsmrazor.dswa.cache.json
 D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\rjsmcshtml.dswa.cache.json
@@ -337,10 +337,10 @@ D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\staticwebassets.build.json.cache
 D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\staticwebassets.development.json
 D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\staticwebassets.build.endpoints.json
 D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\swae.build.ex.cache
+D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\staticwebassets.upToDateCheck.txt
 D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\PMS.web.csproj.Up2Date
 D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\PMS.web.dll
 D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\refint\PMS.web.dll
 D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\PMS.web.pdb
 D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\PMS.web.genruntimeconfig.cache
 D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\ref\PMS.web.dll
-D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\staticwebassets.upToDateCheck.txt

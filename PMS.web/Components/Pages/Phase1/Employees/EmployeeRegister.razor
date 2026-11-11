@@ -11,6 +11,8 @@
 @inject IEmployeePermissionService PermissionService
 @inject IEmployeeDeviceSyncService DeviceSync
 @inject IHrEmployeeLookupService HrLookup
+@inject ICerpsPersonnelLookup CerpsPersonnel
+@inject IDivisionGateService DivisionGates
 @inject IEmployeeEnrollmentService EnrollmentService
 @inject IJSRuntime JS
 @inject NavigationManager Navigation
@@ -18,399 +20,214 @@
 @inject PMS.web.Notifications.IUiToast Toast
 @using Microsoft.AspNetCore.Hosting
 @using Core.Interfaces.Services.Organization
+@using Core.Interfaces.Services.AccessControl
+@using Services.Organization
 @using Core.Models
 
 <PageTitle>تسجيل موظف - PMS</PageTitle>
 
-<div class="emp-reg">
-    <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
-        <div>
-            <h3 class="mb-1">
-                <i class="bi bi-person-badge text-warning"></i>
-                تسجيل موظف
-            </h3>
-            <div class="text-muted small">قارئة ← مزامنة ← بيانات HR ← بوابات ← طباعة (اختياري)</div>
-        </div>
-        <BackLink Fallback="/employees">
-            <i class="bi bi-arrow-right"></i> رجوع
-        </BackLink>
-    </div>
+<div class="pms-create-page emp-reg">
+    <h3 class="mb-1">
+        <i class="bi bi-person-badge text-warning"></i>
+        تسجيل بيانات الموظف
+    </h3>
+    <p class="text-muted small mb-2">التحقق من شؤون الأفراد، ثم استكمال البيانات وربط البوابات.</p>
 
-    @* ===== مسار الخطوات ===== *@
-    <div class="emp-reg-steps mb-3">
-        <div class="emp-reg-step @StepClass(1)">
-            <span class="emp-reg-step-num">1</span>
-            <span>تسجيل على القارئة</span>
+    @if (screenLoading)
+    {
+        <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+    }
+    else if (personnelMissing)
+    {
+        <div class="alert alert-warning mb-3">@personnelMessage</div>
+        <BackLink Fallback="/employees" Css="btn btn-outline-secondary px-4">رجوع</BackLink>
+    }
+    else if (personnelReady)
+    {
+        <div class="emp-reg-tabs mb-3" role="tablist">
+            <button type="button" class="@(activeTab == 1 ? "is-on" : "")" @onclick="() => activeTab = 1">
+                <i class="bi bi-person-vcard"></i> بيانات الموظف
+            </button>
+            <button type="button" class="@(activeTab == 2 ? "is-on" : "")" @onclick="() => activeTab = 2">
+                <i class="bi bi-door-open"></i> البوابات
+            </button>
         </div>
-        <div class="emp-reg-step-line @StepLineClass(1)"></div>
-        <div class="emp-reg-step @StepClass(2)">
-            <span class="emp-reg-step-num">2</span>
-            <span>مزامنة</span>
-        </div>
-        <div class="emp-reg-step-line @StepLineClass(2)"></div>
-        <div class="emp-reg-step @StepClass(3)">
-            <span class="emp-reg-step-num">3</span>
-            <span>البيانات</span>
-        </div>
-        <div class="emp-reg-step-line @StepLineClass(3)"></div>
-        <div class="emp-reg-step @StepClass(4)">
-            <span class="emp-reg-step-num">4</span>
-            <span>البوابات</span>
-        </div>
-        <div class="emp-reg-step-line @StepLineClass(4)"></div>
-        <div class="emp-reg-step @StepClass(5)">
-            <span class="emp-reg-step-num">5</span>
-            <span>طباعة</span>
-        </div>
-    </div>
 
-    @* ===== تنبيهات المسار ===== *@
-    @if (!credentialOk && !Id.HasValue)
-    {
-        <div class="alert alert-warning d-flex align-items-start gap-2 mb-3 py-2">
-            <i class="bi bi-exclamation-triangle-fill mt-1"></i>
-            <div class="small mb-0">
-                <strong>المسار الصحيح:</strong>
-                سجّل البصمة/الكرت على القارئة ← مزامنة من
-                <a href="/employees" class="alert-link">شاشة الموظفين</a>
-                ← ثم أدخل الرقم هنا
-            </div>
-        </div>
-    }
-    @if (awaitingCredentialBlock)
-    {
-        <div class="alert alert-warning d-flex align-items-start gap-2 mb-3 py-2">
-            <i class="bi bi-fingerprint mt-1"></i>
-            <div class="small mb-0">
-                هذا الموظف بانتظار بصمة/كرت على القارئة. أكمل التسجيل ثم
-                <a href="/employees" class="alert-link">زامِن من شاشة الموظفين</a>
-                قبل إكمال التسجيل.
-            </div>
-        </div>
-    }
-    @if (credentialOk)
-    {
-        <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-            <span class="badge text-bg-success">
-                <i class="bi bi-shield-check me-1"></i>
-                تحقق الجهاز
-                @if (credentialTemplates > 0)
-                {
-                    <span>— @credentialTemplates قالب</span>
-                }
-                @if (credentialHasCard)
-                {
-                    <span>— كرت</span>
-                }
-            </span>
-            @if (!string.IsNullOrWhiteSpace(credentialMessage))
-            {
-                <span class="small text-muted">@credentialMessage</span>
-            }
-        </div>
-    }
-
-    @* ========== المرحلة 1 ========== *@
-    <div class="card emp-reg-card shadow-sm mb-3">
-        <div class="card-header emp-reg-card-head d-flex justify-content-between align-items-center">
-            <span><i class="bi bi-person-lines-fill me-1"></i> المرحلة الأولى — البيانات الأساسية</span>
-            @if (phase1Saved)
-            {
-                <span class="badge bg-success">تم الحفظ</span>
-            }
-            else
-            {
-                <span class="badge text-bg-light border">قيد الإدخال</span>
-            }
-        </div>
-        <div class="card-body">
-            <div class="row g-4">
+        @if (activeTab == 1)
+        {
+            <div class="row g-2 align-items-start">
                 <div class="col-lg-8">
-                    <div class="emp-reg-section-title">استعلام الموظف من الموارد البشرية</div>
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label">الرقم الوظيفي <span class="text-danger">*</span></label>
-                            <div class="input-group">
-                                <input id="regEmpFileNo" class="form-control" value="@fileNumber"
-                                       disabled="@(phase1Saved || verifying)" placeholder="أدخل الرقم الوظيفي"
-                                       onkeydown="pmsEmpReg.onFileKey(event)" />
-                                <button id="regShowBtn" type="button" class="btn btn-info"
-                                        data-blazor-managed="1"
-                                        disabled="@(phase1Saved || verifying)"
-                                        @onclick="VerifyAndShowAsync">
-                                    @if (verifying)
+                    <div class="card pms-basic-card emp-reg-card">
+                        <div class="card-header pms-header">البيانات الأساسية</div>
+                        <div class="card-body">
+                            <div class="row g-2">
+                                <div class="col-md-4">
+                                    <div class="mb-2">
+                                        <label class="form-label">رقم الملف</label>
+                                        <input class="form-control" value="@fileNumber" readonly />
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label">الجنسية</label>
+                                        <input class="form-control" value="@model.Nationality" readonly />
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label">الحالة</label>
+                                        <input class="form-control" value="@personnelStatusName" readonly />
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label">فصيلة الدم</label>
+                                        <input class="form-control" value="@model.BloodType" readonly />
+                                    </div>
+                                    <div class="mb-0">
+                                        <label class="form-label">رقم الهاتف</label>
+                                        <input class="form-control" value="@displayPhone" readonly />
+                                    </div>
+                                </div>
+                                <div class="col-md-8">
+                                    <div class="mb-2">
+                                        <label class="form-label">الاسم</label>
+                                        <input class="form-control" value="@displayFullName" readonly />
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label">التقسيم</label>
+                                        <input class="form-control" value="@displayDepartment" readonly />
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label">الإدارة</label>
+                                        <input class="form-control" value="@administrationName" readonly />
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label">الوظيفة</label>
+                                        <input class="form-control" value="@displayJobTitle" readonly />
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label">العنوان</label>
+                                        <input class="form-control" value="@model.Address" readonly />
+                                    </div>
+                                    <div class="mb-0">
+                                        <label class="form-label">البريد</label>
+                                        <input class="form-control" value="@displayEmail" readonly />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="card pms-basic-card emp-reg-card">
+                        <div class="card-header pms-header">بيانات تُضاف في النظام</div>
+                        <div class="card-body">
+                            <div class="mb-2">
+                                <label class="form-label">رقم الكرت</label>
+                                <InputText class="form-control" inputmode="numeric" @bind-Value="model.CardNumber" @bind-Value:after="NormalizeCard" />
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <InputCheckbox class="form-check-input" @bind-Value="model.IsActive" id="empActive" />
+                                <label class="form-check-label fw-bold" for="empActive">@(model.IsActive ? "موظف نشط" : "موظف غير نشط")</label>
+                            </div>
+                            <div class="emp-reg-photo-panel">
+                                <div class="emp-reg-photo-frame">
+                                    <video id="emp-cam-video" class="@(cameraOn ? "is-live" : "")" autoplay muted playsinline></video>
+                                    @if (!string.IsNullOrEmpty(photoPreviewUrl))
                                     {
-                                        <span class="spinner-border spinner-border-sm"></span>
+                                        <img src="@photoPreviewUrl" alt="صورة الموظف" />
+                                    }
+                                    else if (!cameraOn)
+                                    {
+                                        <div class="emp-reg-photo-empty">
+                                            <i class="bi bi-person-bounding-box"></i>
+                                            <span>بدون صورة</span>
+                                        </div>
+                                    }
+                                </div>
+                                <div class="d-flex flex-wrap justify-content-center gap-2">
+                                    @if (!cameraOn)
+                                    {
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="StartCamera" disabled="@cameraBusy">
+                                            <i class="bi bi-camera-video"></i> كاميرا
+                                        </button>
                                     }
                                     else
                                     {
-                                        <i class="bi bi-search"></i>
+                                        <button type="button" class="btn btn-sm btn-secondary" @onclick="CapturePhotoAsync" disabled="@cameraBusy">
+                                            <i class="bi bi-camera-fill"></i> @(cameraBusy ? "جاري تشغيل الكاميرا..." : "التقاط")
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="StopCameraAsync">إيقاف</button>
+                                        <div class="form-text w-100 text-center mb-0">المعاينة لضبط الوجه، والتقاط يحفظ صورة ثابتة فقط.</div>
                                     }
-                                    عرض
-                                </button>
-                            </div>
-                            <div class="form-text">يُستخدم كـ PIN على أجهزة البصمة — يُتحقق من الجهاز قبل جلب HR</div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">الاسم الكامل</label>
-                            <input id="regEmpName" class="form-control bg-body-secondary" value="@displayFullName" readonly placeholder="يُجلب تلقائياً" />
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">الوظيفة</label>
-                            <input id="regJobTypeName" class="form-control bg-body-secondary" value="@displayJobTitle" readonly placeholder="يُجلب تلقائياً" />
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">الإدارة (من الموارد البشرية)</label>
-                            <input id="regDepartment" class="form-control bg-body-secondary" value="@displayDepartment" readonly placeholder="يُجلب تلقائياً" />
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">الحالة الوظيفية</label>
-                            <input id="regJobStatus" class="form-control bg-body-secondary" value="@displayJobStatus" readonly placeholder="—" />
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">الهاتف</label>
-                            <input id="regEmpPhone" class="form-control bg-body-secondary" value="@displayPhone" readonly placeholder="—" />
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">البريد</label>
-                            <input id="regEmpEmail" class="form-control bg-body-secondary" value="@displayEmail" readonly placeholder="—" />
-                        </div>
-                    </div>
-
-                    <div class="emp-reg-section-title mt-4">بيانات إضافية للتسجيل</div>
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <label class="form-label">عنوان السكن</label>
-                            <input id="regAddress" class="form-control" value="@model.Address"
-                                   disabled="@phase1Saved" placeholder="عنوان السكن للطباعة على الكرت"
-                                   @onchange="e => model.Address = e.Value?.ToString()" />
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">رقم الكرت</label>
-                            <input id="regCardNumber" class="form-control" value="@model.CardNumber"
-                                   disabled="@phase1Saved" placeholder="اختياري"
-                                   @onchange="e => model.CardNumber = e.Value?.ToString()" />
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">الجنسية</label>
-                            <input id="regNationality" class="form-control" value="@model.Nationality"
-                                   disabled="@phase1Saved"
-                                   @onchange="e => model.Nationality = e.Value?.ToString()" />
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">فصيلة الدم</label>
-                            <input id="regBloodType" class="form-control" value="@model.BloodType"
-                                   disabled="@phase1Saved" placeholder="مثال: O+"
-                                   @onchange="e => model.BloodType = e.Value?.ToString()" />
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">الإدارة (ربط النظام)</label>
-                            <InputSelect class="form-select" @bind-Value="selectedDepartmentId" disabled="@phase1Saved">
-                                <option value="">-- اختر --</option>
-                                @foreach (var d in departments)
-                                {
-                                    <option value="@d.Id">@d.NameAr</option>
-                                }
-                            </InputSelect>
-                        </div>
-                        <div class="col-md-8">
-                            <div class="form-text text-muted mt-4 pt-1">
-                                <i class="bi bi-info-circle me-1"></i>
-                                التسجيل يتم على القارئة أولاً. بعد الحفظ استخدم ربط البوابات لتوزيع البصمات.
-                            </div>
-                        </div>
-                        <div class="col-md-6 d-flex align-items-end gap-4 flex-wrap">
-                            <div>
-                                <div class="form-check">
-                                    <InputCheckbox class="form-check-input" @bind-Value="model.IsActive" id="regActive" disabled="@saving" />
-                                    <label class="form-check-label" for="regActive">موظف نشط</label>
+                                    @if (!string.IsNullOrEmpty(photoPreviewUrl))
+                                    {
+                                        <button type="button" class="btn btn-sm btn-outline-danger" @onclick="ClearPhotoAsync">حذف</button>
+                                    }
                                 </div>
-                                <div class="form-text">غير النشط يُمنع من الدخول على القارئات ولا تُسجَّل حركته.</div>
-                            </div>
-                            <div class="form-check">
-                                <InputCheckbox class="form-check-input" @bind-Value="model.HostCapable" id="regHost" disabled="@phase1Saved" />
-                                <label class="form-check-label" for="regHost">مضيف زوار</label>
+                                <InputFile class="form-control form-control-sm mt-2" OnChange="OnPhotoFileAsync" accept="image/*" />
                             </div>
                         </div>
-                    </div>
-
-                    <div class="mt-4 d-flex gap-2 flex-wrap">
-                        <button type="button" class="btn btn-warning px-4" @onclick="SavePhase1Async"
-                                disabled="@(saving || phase1Saved || awaitingCredentialBlock)">
-                            @if (saving)
-                            {
-                                <span class="spinner-border spinner-border-sm me-1"></span>
-                            }
-                            else
-                            {
-                                <i class="bi bi-save me-1"></i>
-                            }
-                            @(savedEmployeeId != Guid.Empty ? "تعديل وحفظ" : "حفظ البيانات")
-                        </button>
-                        @if (phase1Saved && savedEmployeeId != Guid.Empty)
-                        {
-                            <button type="button" class="btn btn-outline-warning" @onclick="SaveActiveStatusAsync" disabled="@saving">
-                                @if (saving)
-                                {
-                                    <span class="spinner-border spinner-border-sm me-1"></span>
-                                }
-                                else
-                                {
-                                    <i class="bi bi-shield-check me-1"></i>
-                                }
-                                حفظ الحالة ومزامنة القارئات
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary" @onclick="UnlockForEdit">
-                                <i class="bi bi-pencil"></i> تعديل البيانات
-                            </button>
-                        }
-                    </div>
-                </div>
-
-                <div class="col-lg-4">
-                    <div class="emp-reg-photo-panel h-100">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <strong><i class="bi bi-camera me-1"></i> صورة الموظف</strong>
-                            <span class="badge bg-secondary">اختياري</span>
-                        </div>
-                        <p class="small text-muted mb-2">تُستخدم عند طباعة كرت الموظف.</p>
-                        <div class="ratio ratio-4x3 bg-dark rounded mb-2 overflow-hidden emp-reg-photo-frame">
-                            @if (!string.IsNullOrEmpty(photoPreviewUrl))
-                            {
-                                <img src="@photoPreviewUrl" alt="صورة الموظف" style="object-fit:cover; width:100%; height:100%;" />
-                            }
-                            else
-                            {
-                                <video id="emp-cam-video" class="w-100 h-100" playsinline muted
-                                       style="object-fit:cover; display:@(cameraOn ? "block" : "none");"></video>
-                                @if (!cameraOn)
-                                {
-                                    <div class="d-flex align-items-center justify-content-center text-white-50">
-                                        <div class="text-center">
-                                            <i class="bi bi-person-bounding-box" style="font-size:2.2rem;"></i>
-                                            <div class="small mt-1">بدون صورة</div>
-                                        </div>
-                                    </div>
-                                }
-                            }
-                        </div>
-                        @if (!phase1Saved)
-                        {
-                            <div class="d-flex flex-wrap gap-2 mb-2">
-                                @if (!cameraOn)
-                                {
-                                    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="StartCameraAsync" disabled="@cameraBusy">
-                                        <i class="bi bi-camera-video"></i> كاميرا
-                                    </button>
-                                }
-                                else
-                                {
-                                    <button type="button" class="btn btn-sm btn-success" @onclick="CapturePhotoAsync" disabled="@cameraBusy">
-                                        <i class="bi bi-camera-fill"></i> التقاط
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="StopCameraAsync">إيقاف</button>
-                                }
-                                @if (!string.IsNullOrEmpty(photoPreviewUrl))
-                                {
-                                    <button type="button" class="btn btn-sm btn-outline-danger" @onclick="ClearPhoto">حذف</button>
-                                }
-                            </div>
-                            <InputFile class="form-control form-control-sm" OnChange="OnPhotoFileAsync" accept="image/*" />
-                        }
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-
-    @* ========== المرحلة 2 ========== *@
-    <div class="card emp-reg-card shadow-sm @(phase1Saved ? "" : "emp-reg-locked")">
-        <div class="card-header emp-reg-card-head d-flex justify-content-between align-items-center">
-            <span><i class="bi bi-door-open me-1"></i> المرحلة الثانية — ربط البوابات ثم الطباعة (اختياري)</span>
-            @if (phase1Saved)
-            {
-                <span class="badge bg-success">متاحة</span>
-            }
-            else
-            {
-                <span class="badge bg-secondary">احفظ البيانات أولاً</span>
-            }
-        </div>
-        <div class="card-body">
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <div class="emp-reg-action-box h-100">
-                        <div class="emp-reg-action-icon text-success"><i class="bi bi-door-open-fill"></i></div>
-                        <h5 class="h6 mb-1">تحديد البوابات وربط القارئات</h5>
-                        <p class="small text-muted mb-2">اختر البوابات المسموح بها ثم احفظ لمزامنة الموظف على قارئاتها. (الخطوة الأساسية بعد الحفظ)</p>
-                        @if (gates.Count == 0)
-                        {
-                            <div class="text-muted small mb-2">لا توجد بوابات مسجّلة.</div>
-                        }
-                        else
-                        {
-                            <div class="border rounded p-2 mb-2 bg-white emp-reg-gate-list">
-                                @foreach (var g in gates)
+        }
+        else
+        {
+            <div class="card pms-basic-card">
+                <div class="card-header pms-header">البوابات المتاحة</div>
+                <div class="card-body">
+                    <div class="d-flex flex-column gap-2 mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="linkMode" id="linkEmployee" checked="@(linkMode == "employee")" @onchange='() => linkMode = "employee"' />
+                            <label class="form-check-label" for="linkEmployee">ربط برقم الموظف @fileNumber</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="linkMode" id="linkDivision" checked="@(linkMode == "division")" @onchange='() => linkMode = "division"' disabled="@string.IsNullOrWhiteSpace(responsibilityCode)" />
+                            <label class="form-check-label" for="linkDivision">
+                                ربط التقسيم بالكامل
+                                @if (!string.IsNullOrWhiteSpace(displayDepartment))
                                 {
-                                    var gid = g.Id;
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="gate-@gid"
-                                               checked="@selectedGateIds.Contains(gid)"
-                                               disabled="@(!phase1Saved)"
-                                               @onchange="e => ToggleGate(gid, ToBool(e.Value))" />
-                                        <label class="form-check-label" for="gate-@gid">
-                                            @(!string.IsNullOrWhiteSpace(g.description) ? g.description : g.no)
-                                            @{
-                                                var gateReaders = readers.Count(r => r.GateId == gid && r.IsActive && !r.isDeleted);
-                                            }
-                                            <span class="text-muted small">(@gateReaders قارئة)</span>
-                                        </label>
-                                    </div>
+                                    <span class="text-muted">— @displayDepartment</span>
                                 }
-                            </div>
-                        }
-                        <button type="button" class="btn btn-success"
-                                disabled="@(!phase1Saved || syncingGates || selectedGateIds.Count == 0)"
-                                @onclick="SaveGatesAsync">
-                            @if (syncingGates)
-                            {
-                                <span class="spinner-border spinner-border-sm me-1"></span>
-                            }
-                            else
-                            {
-                                <i class="bi bi-cloud-upload me-1"></i>
-                            }
-                            حفظ ومزامنة للقارئات
-                        </button>
+                            </label>
+                            <div class="form-text">عند إضافة أي موظف من هذا التقسيم تُربط هذه البوابات به تلقائياً.</div>
+                        </div>
                     </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="emp-reg-action-box h-100">
-                        <div class="emp-reg-action-icon text-primary"><i class="bi bi-printer-fill"></i></div>
-                        <h5 class="h6 mb-1">طباعة كرت الموظف <span class="badge text-bg-light border ms-1">اختياري</span></h5>
-                        <p class="small text-muted mb-3">
-                            يطبع رقم الملف والاسم والجنسية والعنوان والوظيفة والجهة مع الصورة.
-                            الطباعة متاحة بعد حفظ البيانات الأساسية (بعد ربط البوابات أو قبله).
-                        </p>
-                        <button type="button" class="btn btn-outline-primary"
-                                disabled="@(!CanPrintFromRegister || printing)"
-                                @onclick="PrintCardAsync">
-                            @if (printing)
+                    @if (gates.Count == 0)
+                    {
+                        <div class="text-muted">لا توجد بوابات مسجّلة.</div>
+                    }
+                    else
+                    {
+                        <div class="border rounded p-2 emp-reg-gate-list">
+                            @foreach (var g in gates)
                             {
-                                <span class="spinner-border spinner-border-sm me-1"></span>
+                                var gid = g.Id;
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="gate-@gid"
+                                           checked="@selectedGateIds.Contains(gid)"
+                                           @onchange="e => ToggleGate(gid, ToBool(e.Value))" />
+                                    <label class="form-check-label" for="gate-@gid">
+                                        @g.no — @g.description
+                                    </label>
+                                </div>
                             }
-                            else
-                            {
-                                <i class="bi bi-printer-fill me-1"></i>
-                            }
-                            طباعة كرت
-                        </button>
-                    </div>
+                        </div>
+                    }
                 </div>
             </div>
+        }
+
+        <div class="pms-create-actions">
+            <button type="button" class="btn btn-warning px-4" @onclick="SaveRegistrationAsync" disabled="@saving">
+                <i class="bi bi-save"></i> @(saving ? "جاري الحفظ..." : "حفظ")
+            </button>
+            <BackLink Fallback="/employees" Css="btn btn-outline-secondary px-4">رجوع</BackLink>
         </div>
-    </div>
+    }
+    else
+    {
+        <div class="alert alert-warning mb-3">افتح التسجيل من قائمة الموظفين بعد مزامنة القارئة.</div>
+        <BackLink Fallback="/employees" Css="btn btn-outline-secondary px-4">رجوع</BackLink>
+    }
 </div>
+
 
 <style>
     .emp-reg-steps {
@@ -439,15 +256,58 @@
         font-size: .78rem; font-weight: 700; letter-spacing: .02em; text-transform: uppercase;
         color: #6c757d; margin-bottom: .75rem; padding-bottom: .35rem; border-bottom: 1px solid #eef1f4;
     }
-    .emp-reg-photo-panel {
-        background: #f8f9fb; border: 1px dashed #ced4da; border-radius: .75rem; padding: 1rem;
+    .emp-reg.pms-create-page {
+        height: auto; flex: none;
+        padding-inline: 0.65rem;
     }
-    .emp-reg-photo-frame { border: 1px solid #343a40; }
+    .emp-reg .pms-basic-card { height: auto; }
+    .emp-reg .card-header.pms-header { padding: 0.4rem 0.75rem; font-size: 0.95rem; }
+    .emp-reg .card-body { padding: 0.7rem 0.85rem; }
+    .emp-reg .form-label { margin-bottom: 0.15rem; font-size: 0.82rem; font-weight: 700; color: #495057; }
+    .emp-reg .form-control { padding: 0.32rem 0.55rem; font-size: 0.92rem; }
+    .emp-reg .form-control[readonly] { background: #f4f6f8; }
+    .emp-reg-photo-panel {
+        background: #f7f8fa; border: 1px dashed #ced4da; border-radius: .65rem;
+        padding: 0.85rem 1rem 0.75rem; margin-top: 0.35rem;
+    }
+    .emp-reg-photo-frame {
+        width: 136px; height: 170px; margin: 0.25rem auto 0.75rem;
+        border: 1px solid #343a40; border-radius: .45rem; overflow: hidden;
+        background: #212529; position: relative;
+    }
+    .emp-reg-photo-frame img,
+    .emp-reg-photo-frame video {
+        width: 100%; height: 100%; object-fit: cover;
+    }
+    .emp-reg-photo-frame img { display: block; }
+    .emp-reg-photo-frame video { display: none; }
+    .emp-reg-photo-frame video.is-live { display: block; }
+    .emp-reg-photo-empty {
+        height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+        color: rgba(255,255,255,.55); gap: .2rem; font-size: .75rem;
+    }
+    .emp-reg-photo-empty i { font-size: 1.45rem; }
     .emp-reg-action-box {
         border: 1px solid #e8ecf0; border-radius: .75rem; padding: 1.1rem; background: #fff;
     }
     .emp-reg-action-icon { font-size: 1.5rem; margin-bottom: .35rem; }
-    .emp-reg-gate-list { max-height: 200px; overflow: auto; }
+    .emp-reg-gate-list {
+        max-height: 240px; overflow: auto;
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: .15rem .75rem;
+    }
+    .emp-reg-tabs {
+        display: inline-flex; gap: .35rem; padding: .28rem;
+        background: #e7eaee; border-radius: .7rem;
+    }
+    .emp-reg-tabs button {
+        border: 0; background: transparent; color: #5c6570;
+        border-radius: .5rem; padding: .42rem .95rem; font-weight: 700;
+    }
+    .emp-reg-tabs button.is-on {
+        background: #fff; color: #11101d;
+        box-shadow: 0 1px 3px rgba(17, 16, 29, .08);
+        border-bottom: 3px solid #fd7e14;
+    }
 </style>
 
 @code {
@@ -472,16 +332,28 @@
     private string displayEmail = "";
 
     private bool hrLoaded;
+    private bool screenLoading = true;
+    private bool personnelReady;
+    private bool personnelMissing;
+    private string? personnelMessage;
+    private string personnelStatusName = "";
+    private string administrationName = "";
+    private string responsibilityCode = "";
+    private string linkMode = "employee";
+    private int activeTab = 1;
     private bool saving;
     private bool phase1Saved;
     private bool printing;
     private bool syncingGates;
     private bool cameraOn;
     private bool cameraBusy;
+    private bool cameraStartPending;
     private bool verifying;
     private string? photoPreviewUrl;
     private byte[]? photoBytes;
     private string photoContentType = "image/jpeg";
+    private bool photoRemoved;
+    private string? photoBeforeCamera;
     private Guid savedEmployeeId;
 
     private bool credentialChecked;
@@ -500,32 +372,24 @@
 
     private string StepClass(int step)
     {
-        // !credentialOk → 1–2 active guidance
-        // credentialOk && !phase1Saved → 3 active
-        // phase1Saved && no gates → 4 active
-        // print (5) optional after phase1Saved
+        var registrationDone = phase1Saved && HasGatesSelected;
         return step switch
         {
             1 => !credentialOk ? "active" : "done",
             2 => !credentialOk ? "active" : "done",
-            3 => credentialOk && !phase1Saved ? "active"
-                : phase1Saved || credentialOk ? "done" : "",
-            4 => phase1Saved && !HasGatesSelected ? "active"
-                : HasGatesSelected ? "done" : "",
-            5 => phase1Saved && HasGatesSelected ? "active"
-                : phase1Saved ? "" : "",
+            3 => credentialOk && !registrationDone ? "active"
+                : registrationDone ? "done" : "",
+            4 => registrationDone ? "active" : "",
             _ => ""
         };
     }
 
     private string StepLineClass(int afterStep)
     {
-        // line after step N is "done" when that step is complete
         return afterStep switch
         {
             1 or 2 => credentialOk ? "done" : "",
-            3 => phase1Saved ? "done" : "",
-            4 => HasGatesSelected ? "done" : "",
+            3 => phase1Saved && HasGatesSelected ? "done" : "",
             _ => ""
         };
     }
@@ -558,6 +422,10 @@
         {
             SetMessage(false, "تعذر تحميل قوائم الشاشة: " + ex.Message);
         }
+        finally
+        {
+            screenLoading = false;
+        }
     }
 
     private static bool HasBasicRegistration(Employee e)
@@ -589,89 +457,55 @@
         var existing = await EmployeeService.GetByIdAsync(empId);
         if (existing == null)
         {
-            await NotifyAsync(false, "الموظف غير موجود.");
+            personnelMissing = true;
+            personnelMessage = "الموظف غير موجود.";
             return;
         }
 
         ApplyEmployeeToForm(existing);
-
         var info = await EnrollmentService.GetEnrollmentInfoAsync(empId);
         if (info != null)
             ApplyEnrollmentCredential(info);
 
-        if (info?.Phase == EmployeeEnrollmentPhase.AwaitingCredential)
-        {
-            awaitingCredentialBlock = true;
-            credentialOk = false;
-            phase1Saved = false;
-            await NotifyAsync(false,
-                "بانتظار بصمة/كرت على القارئة. سجّل على الجهاز ثم زامن من شاشة الموظفين.");
-            return;
-        }
-
-        if (info?.Phase == EmployeeEnrollmentPhase.ReadyToRegister)
-        {
-            awaitingCredentialBlock = false;
-            phase1Saved = false;
-            if (info.TemplateCount > 0 || info.HasCard)
-                credentialOk = true;
-
-            if (string.IsNullOrWhiteSpace(existing.FileNumber))
-            {
-                await NotifyAsync(false, "لا يوجد رقم ملف لهذا الموظف لجلب البيانات من الموارد البشرية.");
-                return;
-            }
-
-            var hrReady = await HrLookup.LookupAsync(existing.FileNumber);
-            if (!hrReady.Success)
-            {
-                await NotifyAsync(false, hrReady.Error ?? "تعذر جلب بيانات الموظف من الموارد البشرية.");
-                return;
-            }
-
-            ApplyHrResult(hrReady, keepLocalExtras: true);
-            TryMatchDepartment(displayDepartment, hrReady.ResponsibilityCode);
-            await SyncExtraFieldsToDomAsync();
-            await NotifyAsync(true, "جاهز لإكمال التسجيل — راجع البيانات ثم احفظ.");
-            return;
-        }
-
-        if (HasBasicRegistration(existing)
-            || info?.Phase is EmployeeEnrollmentPhase.NeedsGates or EmployeeEnrollmentPhase.Complete)
-        {
-            phase1Saved = true;
-            hrLoaded = true;
-            wasCompleteOnLoad = true;
-            credentialOk = true;
-            awaitingCredentialBlock = false;
-
-            // قد تكون البيانات الأساسية محفوظة بدون عنوان/جنسية/فصيلة — جلبها من HR
-            if (NeedsHrExtras(existing) && !string.IsNullOrWhiteSpace(existing.FileNumber))
-                await TryMergeHrExtrasAsync(existing.FileNumber);
-
-            await LoadSelectedGatesAsync(existing.Id);
-            return;
-        }
-
-        // بيانات أساسية ناقصة بدون مرحلة واضحة: جلب من HR
-        phase1Saved = false;
         if (string.IsNullOrWhiteSpace(existing.FileNumber))
         {
-            await NotifyAsync(false, "لا يوجد رقم ملف لهذا الموظف لجلب البيانات من الموارد البشرية.");
+            personnelMissing = true;
+            personnelMessage = CerpsPersonnelLookup.NotRegisteredMessage;
             return;
         }
 
-        var hr = await HrLookup.LookupAsync(existing.FileNumber);
+        var hr = await CerpsPersonnel.LookupAsync(existing.FileNumber);
         if (!hr.Success)
         {
-            await NotifyAsync(false, hr.Error ?? "تعذر جلب بيانات الموظف من الموارد البشرية.");
+            personnelMissing = true;
+            personnelMessage = hr.Error ?? CerpsPersonnelLookup.NotRegisteredMessage;
             return;
         }
 
         ApplyHrResult(hr, keepLocalExtras: true);
-        TryMatchDepartment(displayDepartment, hr.ResponsibilityCode);
-        await SyncExtraFieldsToDomAsync();
-        await NotifyAsync(true, "تم جلب البيانات الأساسية — احفظ لتفعيل ربط البوابات.");
+        personnelStatusName = string.IsNullOrWhiteSpace(hr.JobStatusName) ? (hr.JobStatus ?? "") : hr.JobStatusName;
+        administrationName = hr.AdministrationName ?? "";
+        responsibilityCode = new string((hr.ResponsibilityCode ?? "").Where(char.IsDigit).ToArray());
+        if (responsibilityCode.Length > 5)
+            responsibilityCode = responsibilityCode[..5];
+        if (string.IsNullOrWhiteSpace(displayDepartment))
+            displayDepartment = hr.DepartmentName ?? "";
+        model.DepartmentName = string.IsNullOrWhiteSpace(hr.DepartmentName) ? model.DepartmentName : hr.DepartmentName;
+
+        await LoadSelectedGatesAsync(existing.Id);
+        var divisionGates = await DivisionGates.GetGateIdsAsync(responsibilityCode);
+        foreach (var gateId in divisionGates)
+            selectedGateIds.Add(gateId);
+        if (divisionGates.Count > 0)
+        {
+            linkMode = "division";
+            await GrantGatesAsync(existing.Id, divisionGates);
+        }
+
+        personnelReady = true;
+        hrLoaded = true;
+        phase1Saved = true;
+        credentialOk = true;
     }
 
     private void ApplyEnrollmentCredential(EmployeeEnrollmentInfo info)
@@ -871,6 +705,38 @@
             pinAutoPending = false;
             await VerifyAndShowAsync();
         }
+
+        if (!cameraStartPending)
+            return;
+
+        cameraStartPending = false;
+        try
+        {
+            var started = await JS.InvokeAsync<bool>("employeeCamera.start", "emp-cam-video");
+            if (!cameraOn)
+            {
+                try { await JS.InvokeVoidAsync("employeeCamera.stop"); } catch { }
+                return;
+            }
+            if (!started)
+                throw new InvalidOperationException("لم تُفتح الكاميرا.");
+        }
+        catch (Exception ex)
+        {
+            if (cameraOn && ex is not JSDisconnectedException)
+            {
+                cameraOn = false;
+                if (string.IsNullOrEmpty(photoPreviewUrl))
+                    photoPreviewUrl = photoBeforeCamera;
+                photoBeforeCamera = null;
+                SetMessage(false, "تعذر تشغيل الكاميرا: " + CameraErrorText(ex));
+            }
+        }
+        finally
+        {
+            cameraBusy = false;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     private static bool ToBool(object? value)
@@ -1027,21 +893,32 @@
             selectedDepartmentId = match.Id.ToString();
     }
 
-    private async Task StartCameraAsync()
+    private void NormalizeCard() => model.CardNumber = FieldRules.Digits(model.CardNumber);
+
+    private void StartCamera()
     {
+        photoBeforeCamera = photoPreviewUrl;
+        photoPreviewUrl = null;
+        cameraOn = true;
         cameraBusy = true;
-        try
-        {
-            photoPreviewUrl = null;
-            await JS.InvokeVoidAsync("employeeCamera.start", "emp-cam-video");
-            cameraOn = true;
-        }
-        catch (Exception ex)
-        {
-            SetMessage(false, "تعذر تشغيل الكاميرا: " + ex.Message);
-            cameraOn = false;
-        }
-        finally { cameraBusy = false; }
+        cameraStartPending = true;
+    }
+
+    private static string CameraErrorText(Exception ex)
+    {
+        if (ex is TaskCanceledException or OperationCanceledException)
+            return "انتهت مهلة تشغيل الكاميرا. اسمح للمتصفح باستخدام الكاميرا ثم أعد المحاولة.";
+
+        var msg = ex.Message ?? "";
+        if (msg.Contains("canceled", StringComparison.OrdinalIgnoreCase))
+            return "انتهت مهلة تشغيل الكاميرا. اسمح للمتصفح باستخدام الكاميرا ثم أعد المحاولة.";
+        if (msg.Contains("NotAllowed", StringComparison.OrdinalIgnoreCase) || msg.Contains("Permission", StringComparison.OrdinalIgnoreCase))
+            return "رُفض استخدام الكاميرا. اسمح للموقع بالكاميرا من شريط المتصفح.";
+        if (msg.Contains("NotFound", StringComparison.OrdinalIgnoreCase))
+            return "لم يُعثر على كاميرا متصلة بالجهاز.";
+        if (msg.Contains("NotReadable", StringComparison.OrdinalIgnoreCase) || msg.Contains("TrackStart", StringComparison.OrdinalIgnoreCase))
+            return "الكاميرا مستخدمة في برنامج آخر. أغلقه ثم أعد المحاولة.";
+        return msg;
     }
 
     private async Task CapturePhotoAsync()
@@ -1051,6 +928,8 @@
         {
             var dataUrl = await JS.InvokeAsync<string>("employeeCamera.capture", "emp-cam-video", 0.85);
             ApplyDataUrl(dataUrl);
+            await StorePhotoFileAsync();
+            photoBeforeCamera = null;
             await StopCameraAsync();
         }
         catch (Exception ex)
@@ -1062,15 +941,26 @@
 
     private async Task StopCameraAsync()
     {
-        try { await JS.InvokeVoidAsync("employeeCamera.stop"); } catch { }
+        cameraStartPending = false;
+        cameraBusy = false;
         cameraOn = false;
+        try { await JS.InvokeVoidAsync("employeeCamera.stop"); } catch { }
+        if (string.IsNullOrEmpty(photoPreviewUrl) && !string.IsNullOrEmpty(photoBeforeCamera))
+            photoPreviewUrl = photoBeforeCamera;
+        photoBeforeCamera = null;
     }
 
-    private void ClearPhoto()
+    private async Task ClearPhotoAsync()
     {
+        if (!await Toast.ConfirmAsync("هل تريد حذف صورة الموظف؟", "حذف", "لا", "danger"))
+            return;
+        if (cameraOn) await StopCameraAsync();
+        PhotoService.TryDeletePhoto(model.PhotoPath);
         photoPreviewUrl = null;
         photoBytes = null;
+        photoBeforeCamera = null;
         model.PhotoPath = null;
+        photoRemoved = true;
     }
 
     private async Task OnPhotoFileAsync(InputFileChangeEventArgs e)
@@ -1088,8 +978,33 @@
         await stream.CopyToAsync(ms);
         photoBytes = ms.ToArray();
         photoContentType = string.IsNullOrWhiteSpace(file.ContentType) ? "image/jpeg" : file.ContentType;
-        photoPreviewUrl = $"data:{photoContentType};base64,{Convert.ToBase64String(photoBytes)}";
         if (cameraOn) await StopCameraAsync();
+        await StorePhotoFileAsync();
+    }
+
+    private async Task StorePhotoFileAsync()
+    {
+        if (photoBytes is not { Length: > 0 })
+            return;
+
+        var pin = string.IsNullOrWhiteSpace(fileNumber) ? model.FileNumber : fileNumber;
+        if (string.IsNullOrWhiteSpace(pin))
+        {
+            SetMessage(false, "رقم الملف غير متوفر لحفظ الصورة.");
+            return;
+        }
+
+        var previous = model.PhotoPath;
+        var path = await PhotoService.SavePhotoAsync(pin.Trim(), photoBytes, photoContentType);
+        if (!string.IsNullOrWhiteSpace(previous)
+            && !string.Equals(previous.Split('?', 2)[0], path, StringComparison.OrdinalIgnoreCase))
+        {
+            PhotoService.TryDeletePhoto(previous);
+        }
+
+        model.PhotoPath = path;
+        photoPreviewUrl = path + "?t=" + DateTime.Now.Ticks;
+        photoRemoved = false;
     }
 
     private void ApplyDataUrl(string dataUrl)
@@ -1100,7 +1015,100 @@
         var b64 = dataUrl[(comma + 1)..];
         photoContentType = meta.Contains("image/png") ? "image/png" : "image/jpeg";
         photoBytes = Convert.FromBase64String(b64);
-        photoPreviewUrl = dataUrl;
+    }
+
+    private async Task SaveRegistrationAsync()
+    {
+        if (!personnelReady)
+            return;
+
+        saving = true;
+        try
+        {
+            model.FileNumber = fileNumber.Trim();
+            model.FullName = displayFullName.Trim();
+            model.JobTitle = displayJobTitle;
+            model.DepartmentName = string.IsNullOrWhiteSpace(displayDepartment) ? model.DepartmentName : displayDepartment;
+            model.Phone = displayPhone;
+            model.Email = displayEmail;
+
+            if (string.IsNullOrWhiteSpace(model.FileNumber) || string.IsNullOrWhiteSpace(model.FullName))
+            {
+                SetMessage(false, "بيانات شؤون الأفراد غير مكتملة.");
+                return;
+            }
+
+            if (photoBytes is { Length: > 0 })
+            {
+                model.PhotoPath = await PhotoService.SavePhotoAsync(model.FileNumber, photoBytes, photoContentType);
+                photoPreviewUrl = model.PhotoPath + "?t=" + DateTime.Now.Ticks;
+            }
+
+            if (savedEmployeeId != Guid.Empty)
+                model.Id = savedEmployeeId;
+
+            await EmployeeService.UpsertByFileNumberAsync(
+                model,
+                clearPhoto: photoRemoved && string.IsNullOrWhiteSpace(model.PhotoPath));
+            savedEmployeeId = model.Id;
+
+            if (linkMode == "division")
+            {
+                await DivisionGates.ReplaceAsync(responsibilityCode, selectedGateIds.ToList());
+                var people = await EmployeeService.GetAllAsync();
+                foreach (var person in people.Where(e => BelongsToDivision(e, responsibilityCode)))
+                    await GrantGatesAsync(person.Id, selectedGateIds);
+            }
+            else
+            {
+                await GrantGatesAsync(savedEmployeeId, selectedGateIds);
+            }
+
+            var readerIds = readers
+                .Where(r => selectedGateIds.Contains(r.GateId) && r.IsActive && !r.isDeleted)
+                .Select(r => r.Id)
+                .Distinct()
+                .ToList();
+            var queued = readerIds.Count == 0 ? 0 : await DeviceSync.EnrollEmployeeOnReadersAsync(model, readerIds);
+            var linkText = linkMode == "division" ? "ورُبط التقسيم بالبوابات المختارة" : "ورُبط الموظف بالبوابات المختارة";
+            await NotifyAsync(true, $"تم حفظ البيانات {linkText}. أوامر المزامنة: {queued}.");
+        }
+        catch (Exception ex)
+        {
+            SetMessage(false, "فشل الحفظ: " + (ex.InnerException?.Message ?? ex.Message));
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private static bool BelongsToDivision(Employee employee, string code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            return false;
+        var name = employee.DepartmentName ?? employee.Department?.NameAr ?? "";
+        return name.Contains(code, StringComparison.Ordinal);
+    }
+
+    private async Task GrantGatesAsync(Guid employeeId, IEnumerable<Guid> gateIds)
+    {
+        var existing = await PermissionService.GetByEmployeeAsync(employeeId);
+        foreach (var gateId in gateIds.Distinct())
+        {
+            var already = existing.Any(p => p.GateId == gateId && p.IsActive && !p.isDeleted);
+            if (already)
+                continue;
+            await PermissionService.GrantAsync(new EmployeePermission
+            {
+                Id = Guid.NewGuid(),
+                EmployeeId = employeeId,
+                GateId = gateId,
+                IsActive = true,
+                ValidFrom = DateTime.Today,
+                createdOn = DateTime.Now
+            });
+        }
     }
 
     private async Task SavePhase1Async()
@@ -1378,13 +1386,24 @@
         }
     }
 
+    private static bool IsImagesFolderPhoto(string relative)
+    {
+        var parts = relative.Split('/');
+        if (parts.Length != 3 || !parts[0].Equals("images", StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (parts[1].Length == 0 || parts[2].Length == 0 || relative.Contains("..", StringComparison.Ordinal))
+            return false;
+        return parts[1].All(c => char.IsLetterOrDigit(c) || c is '-' or '_');
+    }
+
     private string? TryReadPhotoDataUrlFromWebRoot(string? photoPath)
     {
         try
         {
             if (string.IsNullOrWhiteSpace(photoPath)) return null;
             var relative = photoPath.Split('?', 2)[0].Replace('\\', '/').TrimStart('/');
-            if (!relative.StartsWith("uploads/employees/", StringComparison.OrdinalIgnoreCase))
+            if (!relative.StartsWith("uploads/employees/", StringComparison.OrdinalIgnoreCase)
+                && !IsImagesFolderPhoto(relative))
                 return null;
 
             var physical = Path.Combine(HostEnvironment.WebRootPath, relative.Replace('/', Path.DirectorySeparatorChar));
@@ -1414,7 +1433,9 @@
     }
 
     private void SetMessage(bool ok, string text)
-        => _ = NotifyAsync(ok, text);
+    {
+        _ = NotifyAsync(ok, text);
+    }
 
     private Task NotifyAsync(bool ok, string text)
     {

@@ -306,6 +306,10 @@
             "QRCoder": {
               "target": "Package",
               "version": "[1.7.0, )"
+            },
+            "iTextSharp.LGPLv2.Core": {
+              "target": "Package",
+              "version": "[3.7.7, )"
             }
           },
           "imports": [

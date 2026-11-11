@@ -1,10 +1,12 @@
 @page "/permits"
 @rendermode InteractiveServer
 @inject IMaterialPermitService MaterialPermits
+@inject IPermitExecutionService Execution
 @inject IDepartmentService DepartmentService
 @inject UserManager<User> UserManager
 @inject AuthenticationStateProvider AuthProvider
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 @using Microsoft.AspNetCore.Identity
 @using Core.Extensions
 @using Core.Security
@@ -12,11 +14,27 @@
 
 <PageTitle>قائمة التصاريح - PMS</PageTitle>
 
-<h3 class="mb-3"><i class="bi bi-list-check text-warning"></i> قائمة التصاريح</h3>
+<section class="pms-permit-list">
+<div class="pms-permit-list-head">
+    <h3><i class="bi bi-list-check"></i> قائمة التصاريح</h3>
+    <div class="d-flex align-items-center gap-2">
+        <button type="button" class="btn btn-sm pms-permit-view-btn" @onclick="ExportExcelAsync" disabled="@(loading || exporting || FilteredPermits.Count == 0)">
+            <i class="bi bi-file-earmark-excel"></i> ترحيل إلى إكسل
+        </button>
+        @if (!loading && string.IsNullOrEmpty(loadError))
+        {
+            <span class="pms-permit-count">@FilteredPermits.Count من @permits.Count</span>
+        }
+    </div>
+</div>
 
 @if (!string.IsNullOrEmpty(loadError))
 {
     <div class="alert alert-danger">@loadError</div>
+}
+@if (!string.IsNullOrEmpty(exportError))
+{
+    <div class="alert alert-danger">@exportError</div>
 }
 
 @if (loading)
@@ -52,7 +70,7 @@ else
                         <option value="مسودة">مسودة</option>
                         <option value="تحت الاعتماد">تحت الاعتماد</option>
                         <option value="مرجع">مرجع</option>
-                        <option value="معتمد">معتمد</option>
+                        <option value="تحت التنفيذ">تحت التنفيذ</option>
                         <option value="منفذ">منفذ</option>
                         <option value="مغلق">مغلق</option>
                         <option value="مرفوض">مرفوض</option>
@@ -79,9 +97,9 @@ else
     }
     else
     {
-        <div class="card">
+        <div class="card pms-permit-sheet">
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
+                <table class="table table-hover align-middle mb-0 pms-permit-grid">
                     <thead>
                         <tr>
                             <th>رقم التصريح</th>
@@ -89,6 +107,7 @@ else
                             <th>الغرض من التصريح</th>
                             <th>تاريخ التصريح</th>
                             <th>الجهة الطالبة</th>
+                            <th>بوابة التنفيذ</th>
                             <th>حالة التصريح</th>
                             <th>الإجراءات</th>
                         </tr>
@@ -98,19 +117,20 @@ else
                         {
                             var status = StatusMapper.ListStatus(permit);
                             <tr>
-                                <td class="fw-bold">@permit.no</td>
+                                <td class="pms-permit-no"><bdi>@permit.no</bdi></td>
                                 <td>@ClassificationLabel(permit.classification)</td>
-                                <td>@(string.IsNullOrWhiteSpace(PermitText.Purpose(permit)) ? "—" : PermitText.Purpose(permit))</td>
-                                <td>@permit.date.ToString("yyyy/MM/dd")</td>
+                                <td class="pms-permit-purpose">@(string.IsNullOrWhiteSpace(PermitText.Purpose(permit)) ? "—" : PermitText.Purpose(permit))</td>
+                                <td class="text-nowrap">@permit.date.ToString("yyyy/MM/dd")</td>
                                 <td>@DepartmentName(permit.reqDepartment)</td>
+                                <td>@GateText(permit)</td>
                                 <td><span class="badge @status.Css">@status.Label</span></td>
                                 <td class="text-nowrap">
-                                    <a class="btn btn-sm btn-info" href="@ReturnUrl.Go(Navigation, $"/permits/materials/view/{permit.Id}")">
+                                    <a class="btn btn-sm pms-permit-view-btn" href="@ReturnUrl.Go(Navigation, $"/permits/materials/view/{permit.Id}")">
                                         <i class="bi bi-eye"></i> عرض التفاصيل
                                     </a>
                                     @if (MaterialPermitService.CanEdit(permit, currentUser!))
                                     {
-                                        <a class="btn btn-sm btn-warning" href="@ReturnUrl.Go(Navigation, EditHref(permit))">
+                                        <a class="btn btn-sm pms-permit-edit-btn" href="@ReturnUrl.Go(Navigation, EditHref(permit))">
                                             <i class="bi bi-pencil"></i> تعديل
                                         </a>
                                     }
@@ -123,15 +143,22 @@ else
         </div>
     }
 }
+</section>
 
 @code {
     private bool loading = true;
+    private bool exporting;
     private string? loadError;
+    private string? exportError;
     private string quickSearch = "";
     private string typeFilter = "";
     private string statusFilter = "";
     private User? currentUser;
     private List<Permit> permits = new();
+    private Dictionary<Guid, string> gateLabels = new();
+
+    [SupplyParameterFromQuery(Name = "status")]
+    private string? StatusQuery { get; set; }
     private Dictionary<string, string> departmentNames = new(StringComparer.OrdinalIgnoreCase);
 
     private List<Permit> FilteredPermits
@@ -158,8 +185,17 @@ else
         }
     }
 
+    protected override void OnParametersSet()
+    {
+        if (!string.IsNullOrWhiteSpace(StatusQuery))
+            statusFilter = StatusQuery;
+    }
+
     protected override async Task OnInitializedAsync()
     {
+        if (!string.IsNullOrWhiteSpace(StatusQuery))
+            statusFilter = StatusQuery;
+
         try
         {
             var authState = await AuthProvider.GetAuthenticationStateAsync();
@@ -186,6 +222,7 @@ else
             if (Guid.TryParse(gateClaim, out var parsedGate))
                 gateId = parsedGate;
             permits = await MaterialPermits.GetForResponsibilityCenterAsync(currentUser, gateId);
+            gateLabels = await Execution.ExecutionGateLabelsAsync(permits);
 
             foreach (var code in permits
                 .Select(p => p.reqDepartment)
@@ -210,6 +247,16 @@ else
         {
             loading = false;
         }
+    }
+
+    private string GateText(Permit permit)
+    {
+        var label = StatusMapper.ListStatus(permit).Label;
+        if (label is not ("تحت التنفيذ" or "منفذ"))
+            return "—";
+        return gateLabels.TryGetValue(permit.Id, out var text) && !string.IsNullOrWhiteSpace(text)
+            ? text
+            : "—";
     }
 
     private string DepartmentName(string? code)
@@ -249,4 +296,35 @@ else
 
     private static bool Contains(string? value, string term) =>
         !string.IsNullOrEmpty(value) && value.Contains(term, StringComparison.OrdinalIgnoreCase);
+
+    private async Task ExportExcelAsync()
+    {
+        exportError = null;
+        exporting = true;
+        try
+        {
+            var bytes = ExcelSheet.Build(
+                "قائمة التصاريح",
+                new[] { "رقم التصريح", "نوع التصريح", "الغرض من التصريح", "تاريخ التصريح", "الجهة الطالبة", "بوابة التنفيذ", "حالة التصريح" },
+                FilteredPermits.Select(permit => new string?[]
+                {
+                    permit.no,
+                    ClassificationLabel(permit.classification),
+                    string.IsNullOrWhiteSpace(PermitText.Purpose(permit)) ? "—" : PermitText.Purpose(permit),
+                    permit.date.ToString("yyyy/MM/dd"),
+                    DepartmentName(permit.reqDepartment),
+                    GateText(permit),
+                    StatusMapper.ListStatus(permit).Label
+                }));
+            await FileDownload.SaveAsync(JS, "قائمة-التصاريح.xls", bytes);
+        }
+        catch (Exception ex)
+        {
+            exportError = "تعذر ترحيل قائمة التصاريح إلى إكسل: " + ex.Message;
+        }
+        finally
+        {
+            exporting = false;
+        }
+    }
 }

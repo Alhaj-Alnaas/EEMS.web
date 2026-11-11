@@ -18,11 +18,6 @@
 </div>
 <p class="text-muted">التصاريح التي تنتظر اعتمادك في خطوتك الحالية من مسار الاعتماد.</p>
 
-@if (!string.IsNullOrEmpty(message))
-{
-    <div class="alert @(messageOk ? "alert-success" : "alert-danger")">@message</div>
-}
-
 @if (loading)
 {
     <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
@@ -91,8 +86,6 @@ else
 @code {
     private bool loading = true;
     private bool busy;
-    private bool messageOk;
-    private string? message;
     private User? currentUser;
     private List<InboxRow> rows = new();
     private List<Gate> gates = new();
@@ -130,8 +123,7 @@ else
         }
         catch (Exception ex)
         {
-            messageOk = false;
-            message = "تعذر تحميل البوابات: " + ex.Message;
+            await Toast.ErrorAsync("تعذر تحميل البوابات: " + ex.Message);
             loading = false;
             return;
         }
@@ -159,9 +151,7 @@ else
 
         if (row.StepType == WorkflowStepType.GuardSection && !Guid.TryParse(GateValue(row.Permit.Id), out _))
         {
-            messageOk = false;
-            message = "حدد بوابة التنفيذ قبل الاعتماد.";
-            await Toast.WarningAsync(message);
+            await Toast.WarningAsync("حدد بوابة التنفيذ قبل الاعتماد.");
             return;
         }
 
@@ -172,20 +162,15 @@ else
         if (row.StepType == WorkflowStepType.GuardSection && Guid.TryParse(GateValue(row.Permit.Id), out var parsed))
             gateId = parsed;
 
-        message = null;
         busy = true;
         try
         {
             await MaterialPermits.DecideAsync(row.Permit.Id, currentUser, ApprovalDecision.Approved, null, gateId);
-            messageOk = true;
-            message = "تم اعتماد التصريح.";
-            await Toast.SuccessAsync(message);
+            await Toast.SuccessAsync("تم اعتماد التصريح.");
             await LoadAsync();
         }
         catch (Exception ex)
         {
-            messageOk = false;
-            message = ex.Message;
             await Toast.ErrorAsync(ex.Message);
         }
         finally

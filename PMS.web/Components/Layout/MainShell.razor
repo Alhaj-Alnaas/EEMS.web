@@ -1,5 +1,6 @@
 @inherits LayoutComponentBase
 @using Microsoft.AspNetCore.Components.Routing
+@using Microsoft.AspNetCore.Identity
 @using System.Security.Claims
 @using Core.Interfaces.Services.Workflow
 @using Core.Security
@@ -11,7 +12,7 @@
 @inject IJSRuntime JS
 @implements IDisposable
 
-<div class="pms-main-shell @(_sidebarOpen ? "sidebar-open" : null)" dir="rtl">
+<div class="pms-main-shell @(_sidebarOpen ? "sidebar-open" : null) @(_settled ? "pms-shell-settled" : null)" dir="rtl">
     <aside class="sidebar @(_sidebarOpen ? "open" : null)" id="pms-sidebar">
         <div class="logo-details">
             <button type="button" class="sidebar-toggle" @onclick="ToggleSidebar" aria-label="طي/فتح القائمة">
@@ -25,6 +26,8 @@
         </div>
 
         <ul class="nav-list">
+            @if (_profileReady)
+            {
             @foreach (var link in VisibleTopLinks)
             {
                 <li>
@@ -57,6 +60,7 @@
                         }
                     </ul>
                 </li>
+            }
             }
         </ul>
 
@@ -102,7 +106,9 @@
 @code {
     private bool _sidebarOpen = true;
     private bool _designMode;
-    private string _userDisplayName = "زائر";
+    private string _userDisplayName = "";
+    private bool _profileReady;
+    private bool _settled;
     private string _userRoleLine = "";
     private string _selectedGateLabel = "";
 
@@ -119,6 +125,7 @@
         {
             _userDisplayName = "وضع التصميم";
             _userRoleLine = "بدون مصادقة";
+            _profileReady = true;
         }
 
         Navigation.LocationChanged += OnLocationChanged;
@@ -135,6 +142,15 @@
         _ = WatchNoticesAsync(_noticesStop.Token);
     }
 
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (_profileReady && !_settled)
+        {
+            _settled = true;
+            StateHasChanged();
+        }
+    }
+
     private void OnNotice(LiveNotice notice)
     {
         if (string.IsNullOrEmpty(_userId) || !string.Equals(notice.UserId, _userId, StringComparison.Ordinal))
@@ -143,14 +159,22 @@
         _ = InvokeAsync(async () =>
         {
             await RefreshUnreadAsync();
-            var text = string.IsNullOrWhiteSpace(notice.Body) ? notice.Title : notice.Body;
-            var kind = notice.Title.Contains("رفض") ? "danger"
-                : notice.Title.Contains("إرجاع") || notice.Title.Contains("إغلاق") || notice.Title.Contains("إلغاء")
-                    ? "warning"
-                    : "info";
+            var kind = notice.Title.Contains("عادت") || notice.Title.Contains("اعتماد")
+                ? "success"
+                : notice.Title.Contains("توقف") || notice.Title.Contains("معط") || notice.Title.Contains("رفض")
+                    ? "danger"
+                    : notice.Title.Contains("إرجاع") || notice.Title.Contains("إغلاق") || notice.Title.Contains("إلغاء")
+                        ? "warning"
+                        : "info";
             try
             {
-                await JS.InvokeVoidAsync("pmsToast.show", text, kind, 8000);
+                await JS.InvokeVoidAsync("pmsNotice.show", new
+                {
+                    title = notice.Title,
+                    body = notice.Body,
+                    type = kind,
+                    duration = 4500
+                });
             }
             catch
             {
@@ -204,6 +228,10 @@
                 var access = scope.ServiceProvider.GetRequiredService<IUserAccessService>();
                 var codes = await access.GetTaskCodesForUserAsync(userId);
                 _allowedTasks = new HashSet<string>(codes, StringComparer.OrdinalIgnoreCase);
+                var accounts = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
+                var account = await accounts.FindByIdAsync(userId);
+                if (account?.JobCatId != 1)
+                    _allowedTasks.Remove(SystemTaskCodes.ReportsAttendance);
             }
 
             _userDisplayName =
@@ -226,6 +254,10 @@
             _userRoleLine = "";
             _selectedGateLabel = "";
             _allowedTasks = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            _profileReady = true;
         }
     }
 

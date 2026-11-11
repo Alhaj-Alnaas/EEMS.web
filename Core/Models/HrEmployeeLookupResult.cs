@@ -10,10 +10,14 @@ namespace Core.Models
         public string? FileNumber { get; set; }
         public string? FullName { get; set; }
         public string? DepartmentName { get; set; }
+        /// <summary>Parent administration name from personnel affairs.</summary>
+        public string? AdministrationName { get; set; }
         public string? JobTitle { get; set; }
         public string? Email { get; set; }
         public string? Phone { get; set; }
         public string? JobStatus { get; set; }
+        /// <summary>Arabic job-status description from personnel affairs.</summary>
+        public string? JobStatusName { get; set; }
         public string? ResponsibilityCode { get; set; }
         public int? RespCodeId { get; set; }
         public int? JobCatId { get; set; }

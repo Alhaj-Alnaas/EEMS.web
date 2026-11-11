@@ -18,6 +18,8 @@ namespace Core.Interfaces.Services.Permits
 
         Task<List<PermitExecutionRow>> GetActivePermitsAsync();
 
+        Task<Dictionary<Guid, string>> ExecutionGateLabelsAsync(IReadOnlyList<Permit> permits);
+
         Task<List<PermitExecutionRow>> GetExecutableAsync(Guid gateId);
 
         Task<(Permit Permit, PermitExecutionStep Step, List<PermitExecutionEventRow> History)> GetExecutionAsync(Guid permitId);

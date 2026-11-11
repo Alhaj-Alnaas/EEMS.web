@@ -14,10 +14,11 @@
 @inject IConfiguration Configuration
 @inject IHttpContextAccessor HttpContextAccessor
 @inject IJSRuntime JS
-@inject PMS.web.Notifications.IUiToast Toast
 @using Microsoft.AspNetCore.Authentication
 
 <PageTitle>تسجيل الدخول - PMS</PageTitle>
+
+<img class="pms-login-logo" src="/images/lisco-logo.png" alt="شعار الشركة الليبية للحديد والصلب" />
 
 @if (DesignMode)
 {
@@ -49,9 +50,9 @@ else
                 <DataAnnotationsValidator />
 
                 <div class="mb-3">
-                    <label class="form-label" for="loginUsername">رقم الملف</label>
+                    <label class="form-label" for="loginUsername">رقم الملف <span class="pms-req">*</span></label>
                     <InputText id="loginUsername" class="form-control" @bind-Value="Input.Username"
-                               autocomplete="username" />
+                               autocomplete="username" autofocus />
                     <ValidationMessage For="() => Input.Username" />
                 </div>
 
@@ -68,27 +69,26 @@ else
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label" for="loginPassword">كلمة المرور</label>
+                    <label class="form-label" for="loginPassword">كلمة المرور <span class="pms-req">*</span></label>
                     <div class="pms-login-password">
-                        <InputText id="loginPassword" type="@(showPassword ? "text" : "password")" class="form-control"
+                        <InputText id="loginPassword" type="password" class="form-control"
                                    @bind-Value="Input.Password" autocomplete="current-password" />
-                        <button type="button" class="pms-login-eye" @onclick="() => showPassword = !showPassword"
-                                aria-label="@(showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور")">
-                            <i class="bi @(showPassword ? "bi-eye-slash" : "bi-eye")"></i>
+                        <button type="button" id="loginEye" class="pms-login-eye" aria-label="إظهار كلمة المرور">
+                            <i class="bi bi-eye"></i>
                         </button>
                     </div>
                     <ValidationMessage For="() => Input.Password" />
                 </div>
 
-                <label class="pms-login-remember">
-                    <InputCheckbox @bind-Value="Input.RememberMe" />
+                <label class="pms-login-remember" for="loginRemember">
+                    <input type="checkbox" id="loginRemember" name="Input.RememberMe" value="true" />
                     <span>تذكرني</span>
                 </label>
 
                 <button type="submit" class="pms-login-btn">تسجيل دخول</button>
             </EditForm>
 
-            <button type="button" class="pms-login-forgot" @onclick="ForgotPasswordAsync">نسيت كلمة المرور؟</button>
+            <button type="button" id="loginForgot" class="pms-login-forgot">نسيت كلمة المرور؟</button>
         </div>
     </div>
 }
@@ -96,7 +96,6 @@ else
 @code {
     private bool DesignMode;
     private bool ShowGateSelection;
-    private bool showPassword;
 
     [SupplyParameterFromForm]
     private LoginViewModel Input { get; set; } = new();
@@ -121,7 +120,8 @@ else
 
         if (HttpContext?.User?.Identity?.IsAuthenticated == true)
         {
-            Navigation.NavigateTo(ReturnUrl ?? "/dashboard", forceLoad: true);
+            var signedIn = await UserManager.FindByNameAsync(HttpContext.User.Identity?.Name ?? "");
+            Navigation.NavigateTo(StartPage(signedIn, ReturnUrl), forceLoad: true);
             return;
         }
 
@@ -198,11 +198,16 @@ else
             extraClaims.Add(new Claim(SystemTaskCodes.SelectedGateNameClaimType, gateLabel ?? ""));
         }
 
+        var remember = false;
+        try { remember = await JS.InvokeAsync<bool>("pmsLogin.rememberChecked"); }
+        catch { remember = Input.RememberMe; }
+        Input.RememberMe = remember;
+
         var properties = new AuthenticationProperties
         {
-            IsPersistent = Input.RememberMe,
-            AllowRefresh = true,
-            ExpiresUtc = Input.RememberMe ? DateTimeOffset.UtcNow.AddDays(14) : null
+            IsPersistent = remember,
+            AllowRefresh = !remember,
+            ExpiresUtc = remember ? DateTimeOffset.UtcNow.AddDays(14) : null
         };
         await SignInManager.SignInWithClaimsAsync(user, properties, extraClaims);
 
@@ -227,24 +232,34 @@ else
             http.Session.SetString("UserType", user.UserType ?? "");
         }
 
-        Navigation.NavigateTo(ReturnUrl ?? "/dashboard", forceLoad: true);
+        Navigation.NavigateTo(StartPage(user, ReturnUrl), forceLoad: true);
     }
 
-    private Task ForgotPasswordAsync() =>
-        Toast.InfoAsync("نأمل التواصل مع مسؤول النظام في قسم النظم والبرمجة لتصفير كلمة المرور", 8000);
+    private static string StartPage(User? user, string? returnUrl)
+    {
+        if (!string.IsNullOrWhiteSpace(returnUrl) && !IsHome(returnUrl))
+            return returnUrl;
+        return user?.JobCatId == 1 ? "/dashboard" : "/permits";
+    }
+
+    private static bool IsHome(string url)
+    {
+        var path = url.Split('?', '#')[0].TrimEnd('/');
+        return path.Length == 0 || path.Equals("/dashboard", StringComparison.OrdinalIgnoreCase);
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender || DesignMode)
+        if (DesignMode)
             return;
 
         try
         {
-            await JS.InvokeVoidAsync("pmsLogin.bind");
+            await JS.InvokeVoidAsync("pmsLogin.apply");
         }
         catch
         {
-            // Gate detection stays available on the next submit.
+            // The login script keeps the eye, remember-me, and forgot-password actions.
         }
     }
 }

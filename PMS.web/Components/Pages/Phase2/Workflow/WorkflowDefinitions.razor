@@ -117,7 +117,7 @@
                     }
                 </div>
 
-                <div class="pms-settings-foot">
+                <div class="pms-settings-foot d-flex flex-wrap gap-2">
                     @if (tab == SettingsTab.Path)
                     {
                         <button class="btn btn-warning" disabled="@saving" @onclick="() => SavePathAsync(Selected)">حفظ المسار</button>
@@ -126,6 +126,7 @@
                     {
                         <button class="btn btn-warning" disabled="@saving" @onclick="() => SaveGatesAsync(Selected.Classification)">حفظ البوابات</button>
                     }
+                    <BackLink Fallback="/dashboard" Css="btn btn-outline-secondary px-4">إلغاء</BackLink>
                 </div>
             </section>
         </div>

@@ -6,6 +6,7 @@
 @using PMS.web.Authorization
 @inject IAccessLevelService AccessLevels
 @inject NavigationManager Navigation
+@inject PMS.web.Notifications.IUiToast Toast
 
 <PageTitle>مستويات الدخول - PMS</PageTitle>
 
@@ -150,6 +151,11 @@ else
 
     private async Task DeleteAsync(Guid id)
     {
+        var level = items.FirstOrDefault(a => a.Id == id);
+        var label = level?.Name ?? "هذا المستوى";
+        if (!await Toast.ConfirmAsync($"هل أنت متأكد من حذف مستوى الدخول «{label}»؟", "حذف", "لا", "danger"))
+            return;
+
         try
         {
             await AccessLevels.DeleteAsync(id, null);

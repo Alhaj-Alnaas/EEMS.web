@@ -1,11 +1,15 @@
 @page "/reports/open-permits"
 @rendermode InteractiveServer
 @inject IPermitExecutionService Execution
+@inject IJSRuntime JS
 
 <PageTitle>تصاريح مفتوحة - PMS</PageTitle>
 
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <h3 class="mb-0"><i class="bi bi-hourglass-split text-warning"></i> تصاريح مفتوحة</h3>
+    <button type="button" class="btn btn-sm pms-permit-view-btn" @onclick="ExportExcelAsync" disabled="@(loading || exporting || rows.Count == 0)">
+        <i class="bi bi-file-earmark-excel"></i> ترحيل إلى إكسل
+    </button>
 </div>
 
 <p class="text-muted">
@@ -15,6 +19,10 @@
 @if (!string.IsNullOrEmpty(loadError))
 {
     <div class="alert alert-danger">@loadError</div>
+}
+@if (!string.IsNullOrEmpty(exportError))
+{
+    <div class="alert alert-danger">@exportError</div>
 }
 
 @if (loading)
@@ -61,7 +69,9 @@ else
 
 @code {
     private bool loading = true;
+    private bool exporting;
     private string? loadError;
+    private string? exportError;
     private List<OpenPermitAlert> rows = new();
 
     protected override async Task OnInitializedAsync()
@@ -77,6 +87,35 @@ else
         finally
         {
             loading = false;
+        }
+    }
+
+    private async Task ExportExcelAsync()
+    {
+        exportError = null;
+        exporting = true;
+        try
+        {
+            var bytes = ExcelSheet.Build(
+                "تصاريح مفتوحة",
+                new[] { "رقم التصريح", "النوع", "بانتظار", "منذ", "المدة" },
+                rows.Select(row => new string?[]
+                {
+                    row.Number,
+                    row.Kind,
+                    row.Waiting,
+                    row.Since.ToString("yyyy/MM/dd HH:mm"),
+                    row.HoursOpen + " ساعة"
+                }));
+            await FileDownload.SaveAsync(JS, "تصاريح-مفتوحة.xls", bytes);
+        }
+        catch (Exception ex)
+        {
+            exportError = "تعذر ترحيل التصاريح المفتوحة إلى إكسل: " + ex.Message;
+        }
+        finally
+        {
+            exporting = false;
         }
     }
 }

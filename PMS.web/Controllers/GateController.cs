@@ -13,12 +13,10 @@ namespace PMS.web.Controllers
     public class GateController : Controller
     {
         private readonly IGates _gateService;
-        private readonly IPermitType _permitTypeService;
 
-        public GateController(IGates gateService, IPermitType permitTypeService)
+        public GateController(IGates gateService)
         {
             _gateService = gateService;
-            _permitTypeService = permitTypeService;
         }
 
         // GET: GateController
@@ -34,7 +32,7 @@ namespace PMS.web.Controllers
             if (id == Guid.Empty)
                 return NotFound();
 
-            var gate = await _gateService.GetByIdAsync(id, true);
+            var gate = await _gateService.GetByIdAsync(id);
 
             if (gate == null)
                 return NotFound();
@@ -45,12 +43,7 @@ namespace PMS.web.Controllers
         // GET: GateController/Create
         public async Task<IActionResult> Create()
         {
-            var vm = new CreateGateViewModel
-            {
-                PermitTypes = (await _permitTypeService.GetAllAsync()).ToList(),
-                SelectedPermitTypeIds = new List<Guid>()
-            };
-            return View(vm);
+            return View(new CreateGateViewModel());
         }
 
         // POST: GateController/Create
@@ -59,10 +52,7 @@ namespace PMS.web.Controllers
         public async Task<IActionResult> Create(CreateGateViewModel vm)
         {
             if (!ModelState.IsValid)
-            {
-                vm.PermitTypes = (await _permitTypeService.GetAllAsync()).ToList();
                 return View(vm);
-            }
             string userId = HttpContext.Session.GetString("UserName");
             var gate = new Gate
             {
@@ -79,14 +69,14 @@ namespace PMS.web.Controllers
                 remarks = vm.Remarks
             };
 
-            await _gateService.InsertAsync(gate, vm.SelectedPermitTypeIds);
+            await _gateService.InsertAsync(gate);
             return RedirectToAction(nameof(Index));
         }
 
         // GET: GateController/Edit/5
         public async Task<IActionResult> Edit(Guid id)
         {
-            var gate = await _gateService.GetByIdAsync(id,true);
+            var gate = await _gateService.GetByIdAsync(id);
             if (gate == null) return NotFound();
 
             var vm = new EditGateViewModel
@@ -95,9 +85,7 @@ namespace PMS.web.Controllers
                 No = gate.no,
                 Description = gate.description,
                 IsActive = gate.isActive,
-                Remarks = gate.remarks,
-                PermitTypes = (await _permitTypeService.GetAllAsync()).Where(pt=> pt.isDeleted==false).ToList(),
-                SelectedPermitTypeIds = gate.PermitTypes.Select(p => p.Id).ToList()
+                Remarks = gate.remarks
             };
 
             return View(vm);
@@ -111,7 +99,7 @@ namespace PMS.web.Controllers
             if (!ModelState.IsValid)
                 return View(vm);
 
-            var gate = await _gateService.GetByIdAsync(vm.Id, includePermitTypes: true);
+            var gate = await _gateService.GetByIdAsync(vm.Id);
             if (gate == null) return NotFound();
 
              gate = new Gate
@@ -124,18 +112,7 @@ namespace PMS.web.Controllers
                 updatedBy = "10067"
             };
 
-            gate.PermitTypes.Clear();
-
-            //foreach (var permitId in vm.SelectedPermitTypeIds)
-            //{
-            //    gate.PermitTypes.Add(new GatePermitTypes
-            //    {
-            //        gatesId = gate.Id,
-            //        permitTypesId = permitId
-            //    });
-            //}
-
-            await _gateService.UpdateAsync(gate, vm.SelectedPermitTypeIds);
+            await _gateService.UpdateAsync(gate);
 
             return RedirectToAction(nameof(Index));
         }
@@ -143,7 +120,7 @@ namespace PMS.web.Controllers
         // GET: GateController/Delete/5
         public async Task<IActionResult> Delete(Guid id)
         {
-            var gate = await _gateService.GetByIdAsync(id, false);
+            var gate = await _gateService.GetByIdAsync(id);
             if (gate == null) return NotFound();
             return View(gate);
         }
@@ -153,13 +130,19 @@ namespace PMS.web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(Guid id)
         {
-            var gate = await _gateService.GetByIdAsync(id, false );
+            var gate = await _gateService.GetByIdAsync(id);
             if (gate == null)
                 return NotFound();
 
-            await _gateService.DeleteAsync(gate);
-   
-            TempData["SuccessMessage"] = "✅ تم حذف البوابة بنجاح.";
+            try
+            {
+                await _gateService.DeleteAsync(gate);
+                TempData["SuccessMessage"] = "✅ تم حذف البوابة بنجاح.";
+            }
+            catch (InvalidOperationException ex)
+            {
+                TempData["ErrorMessage"] = ex.Message;
+            }
             return RedirectToAction(nameof(Index));
 
         }

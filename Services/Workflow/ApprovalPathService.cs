@@ -1,5 +1,6 @@
 using Core.Common;
 using Core.Entities;
+using Core.Interfaces.Services;
 using Core.Interfaces.Services.Workflow;
 using Core.Interfaces.UnitOfWork;
 using Core.Models;
@@ -11,10 +12,12 @@ namespace Services.Workflow
     public class ApprovalPathService : IApprovalPathService
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IAuditLogService _audit;
 
-        public ApprovalPathService(IUnitOfWork unitOfWork)
+        public ApprovalPathService(IUnitOfWork unitOfWork, IAuditLogService audit)
         {
             _unitOfWork = unitOfWork;
+            _audit = audit;
         }
 
         public async Task<List<ApprovalPathRow>> GetAsync()
@@ -83,6 +86,16 @@ namespace Services.Workflow
 
             _unitOfWork.WorkflowDefinitions.Insert(workflow);
             await _unitOfWork.SaveAsync();
+            await _audit.WriteAsync(new AuditLogEntry
+            {
+                SourceKey = "path:" + workflowId,
+                Area = AuditArea.Administration,
+                Action = AuditAction.Settings,
+                Summary = "تعديل مسار اعتماد " + ApprovalPathCatalog.ClassificationTitle(classification),
+                ActorFileNumber = user.UserName,
+                ActorName = user.FullName,
+                OccurredAt = DateTime.Now
+            });
         }
 
         private static ApprovalPathRow BuildRow(PermitClassification classification, List<WorkflowDefinition> workflows)

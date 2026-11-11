@@ -3,6 +3,7 @@
 @inject IReaderService ReaderService
 @inject IDeviceCommandService CommandService
 @inject NavigationManager Navigation
+@inject PMS.web.Notifications.IUiToast Toast
 
 <PageTitle>إدارة القارئات - PMS</PageTitle>
 
@@ -275,6 +276,13 @@ else
 
     private async Task DeleteAsync(Guid id)
     {
+        var reader = readers.FirstOrDefault(r => r.Id == id);
+        var label = reader == null
+            ? "هذه القارئة"
+            : (string.IsNullOrWhiteSpace(reader.Name) ? reader.DeviceSerial : reader.Name);
+        if (!await Toast.ConfirmAsync($"هل أنت متأكد من حذف القارئة «{label}»؟", "حذف", "لا", "danger"))
+            return;
+
         try
         {
             await ReaderService.DeleteAsync(id);

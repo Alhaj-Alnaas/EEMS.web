@@ -17,11 +17,6 @@
     <BackLink Fallback="/permits/execute">العودة للقائمة</BackLink>
 </div>
 
-@if (!string.IsNullOrEmpty(message))
-{
-    <div class="alert @(messageOk ? "alert-success" : "alert-danger")">@message</div>
-}
-
 @if (loading)
 {
     <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
@@ -230,8 +225,6 @@ else
 
     private bool loading = true;
     private bool busy;
-    private bool messageOk;
-    private string? message;
     private DateTime whenLocal = DateTime.Now;
     private string notes = "";
     private Guid gateId;
@@ -266,8 +259,7 @@ else
         }
         catch (Exception ex)
         {
-            messageOk = false;
-            message = ex.Message;
+            await Toast.ErrorAsync(ex.Message);
         }
         finally
         {
@@ -281,9 +273,7 @@ else
             return;
         if (gateId == Guid.Empty)
         {
-            messageOk = false;
-            message = "حدد البوابة من شاشة تنفيذ التصريح.";
-            await Toast.WarningAsync(message);
+            await Toast.WarningAsync("حدد البوابة من شاشة تنفيذ التصريح.");
             return;
         }
 
@@ -291,7 +281,6 @@ else
             return;
 
         busy = true;
-        message = null;
         try
         {
             var auth = await AuthProvider.GetAuthenticationStateAsync();
@@ -303,15 +292,11 @@ else
             await Execution.ExecuteAsync(permit.Id, gateId, whenLocal, notes, user);
             notes = "";
             whenLocal = DateTime.Now;
-            messageOk = true;
-            message = "تم تسجيل التنفيذ.";
-            await Toast.SuccessAsync(message);
+            await Toast.SuccessAsync("تم تسجيل التنفيذ.");
             await LoadAsync();
         }
         catch (Exception ex)
         {
-            messageOk = false;
-            message = ex.Message;
             await Toast.ErrorAsync(ex.Message);
         }
         finally

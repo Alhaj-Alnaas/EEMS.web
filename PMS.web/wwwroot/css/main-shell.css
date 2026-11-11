@@ -1,8 +1,7 @@
 /* PMS main shell — patterned after DMS Blazor (ACS MainShell) */
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@200;300;400;500;600;700&display=swap');
 
 .pms-main-shell {
-    font-family: "Poppins", "Segoe UI", Tahoma, sans-serif;
+    font-family: "Segoe UI", Tahoma, sans-serif;
     height: 100vh;
     max-height: 100vh;
     overflow: hidden;
@@ -531,6 +530,14 @@
     width: calc(100% - var(--pms-sidebar-expanded));
 }
 
+.pms-main-shell:not(.pms-shell-settled) .sidebar,
+.pms-main-shell:not(.pms-shell-settled) .home-section,
+.pms-main-shell:not(.pms-shell-settled) .logo_name,
+.pms-main-shell:not(.pms-shell-settled) .nav-sublist,
+.pms-main-shell:not(.pms-shell-settled) .nav-group-chevron {
+    transition: none !important;
+}
+
 .pms-main-shell .home-section-content {
     padding: 8px 12px;
     height: 100%;
@@ -644,6 +651,101 @@
     line-height: 16px;
     text-align: center;
 }
+
+.pms-notify-btn.pms-notify-pulse i {
+    animation: pms-bell-ring 0.7s ease;
+}
+
+@keyframes pms-bell-ring {
+    0%, 100% { transform: rotate(0); }
+    20% { transform: rotate(-14deg); }
+    45% { transform: rotate(12deg); }
+    70% { transform: rotate(-6deg); }
+}
+
+#pms-notice-host {
+    position: fixed;
+    z-index: 1070;
+    width: min(340px, calc(100vw - 1.25rem));
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    pointer-events: none;
+}
+
+.pms-notice {
+    pointer-events: auto;
+    display: grid;
+    grid-template-columns: 1.35rem minmax(0, 1fr) auto;
+    column-gap: 0.5rem;
+    row-gap: 0.15rem;
+    align-items: start;
+    padding: 0.7rem 0.7rem 0.72rem 0.75rem;
+    border: 1px solid #e6e8ec;
+    border-radius: 12px;
+    background: #fff;
+    color: #11101d;
+    box-shadow: 0 14px 32px rgba(17, 16, 29, 0.16);
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.pms-notice-show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.pms-notice-hide {
+    opacity: 0;
+    transform: translateY(-8px);
+}
+
+.pms-notice-icon {
+    grid-row: 1 / span 2;
+    font-size: 1.05rem;
+    line-height: 1.2;
+    padding-top: 0.05rem;
+}
+
+.pms-notice-title {
+    font-size: 0.84rem;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.pms-notice-body {
+    grid-column: 2;
+    color: #4b5563;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    white-space: pre-line;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.pms-notice-x {
+    border: 0;
+    background: transparent;
+    color: #6b7280;
+    font-size: 1.05rem;
+    line-height: 1;
+    padding: 0 0.1rem;
+    cursor: pointer;
+}
+
+.pms-notice-x:hover { color: #11101d; }
+
+.pms-notice-info { border-inline-start: 3px solid #11101d; }
+.pms-notice-info .pms-notice-icon { color: #11101d; }
+.pms-notice-success { border-inline-start: 3px solid #198754; }
+.pms-notice-success .pms-notice-icon { color: #198754; }
+.pms-notice-warning { border-inline-start: 3px solid #e0a800; }
+.pms-notice-warning .pms-notice-icon { color: #b8860b; }
+.pms-notice-danger { border-inline-start: 3px solid #dc3545; }
+.pms-notice-danger .pms-notice-icon { color: #dc3545; }
 
 /* ---- Dashboard hero + counters (DMS style) ---- */
 .pms-dash-hero {

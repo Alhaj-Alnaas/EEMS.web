@@ -9883,7 +9883,8 @@
       "Microsoft.Extensions.Hosting.WindowsServices >= 8.0.1",
       "Microsoft.VisualStudio.Web.CodeGeneration.Design >= 8.0.7",
       "QRCoder >= 1.7.0",
-      "Services >= 1.0.0"
+      "Services >= 1.0.0",
+      "iTextSharp.LGPLv2.Core >= 3.7.7"
     ]
   },
   "packageFolders": {
@@ -9974,6 +9975,10 @@
           "QRCoder": {
             "target": "Package",
             "version": "[1.7.0, )"
+          },
+          "iTextSharp.LGPLv2.Core": {
+            "target": "Package",
+            "version": "[3.7.7, )"
           }
         },
         "imports": [

@@ -92,7 +92,7 @@ namespace Core.Common
             if (permit.status == 'A'
                 || permit.UnifiedStatus == nameof(UnifiedPermitStatus.Approved)
                 || permit.UnifiedStatus == nameof(UnifiedPermitStatus.Active))
-                return ("status-approved", "معتمد");
+                return ("status-approved", "تحت التنفيذ");
 
             return ("status-pending", "تحت الاعتماد");
         }

@@ -49,11 +49,6 @@ else
         </div>
     </div>
 
-    @if (!string.IsNullOrEmpty(actionMessage))
-    {
-        <div class="alert @(actionOk ? "alert-success" : "alert-danger")">@actionMessage</div>
-    }
-
     @if (visibility.CanApprove || visibility.CanReject || visibility.CanReturn || visibility.CanClose || visibility.CanDelete)
     {
         <div class="card mb-3">
@@ -131,7 +126,7 @@ else
                     <div class="pms-fact"><div class="pms-fact-label">نهاية السريان</div><div class="pms-fact-value">@ShowDate(permit.ValidTo)</div></div>
                     @if (!IsVisitors(permit))
                     {
-                        <div class="pms-fact"><div class="pms-fact-label">الوقت المتوقع للتنفيذ</div><div class="pms-fact-value">@Show(permit.ExpectedExecutionTime)</div></div>
+                        <div class="pms-fact"><div class="pms-fact-label">المتوقع للتنفيذ</div><div class="pms-fact-value">@Show(permit.ExpectedExecutionTime)</div></div>
                     }
                     <div class="pms-fact"><div class="pms-fact-label">اعتماد مناوب</div><div class="pms-fact-value">@(permit.ShiftApproval ? "نعم" : "لا")</div></div>
                     <div class="pms-fact"><div class="pms-fact-label">بوابة التنفيذ</div><div class="pms-fact-value">@GateText(permit.Gate)</div></div>
@@ -253,8 +248,6 @@ else
     private PermitActionsVisibility visibility = new();
     private User? currentUser;
     private string departmentName = "غير معروف";
-    private string? actionMessage;
-    private bool actionOk;
     private string decisionComment = "";
     private string executionGateId = "";
     private List<Gate> gates = new();
@@ -372,9 +365,6 @@ else
         if (!await Toast.ConfirmAsync(question, yes, "لا", kind))
             return;
 
-        actionMessage = null;
-        actionOk = false;
-
         try
         {
             if (actionType is "approve" or "reject" or "return")
@@ -430,8 +420,7 @@ else
                 await PermitService.UpdatePermitAsync(permit);
             }
 
-            actionOk = true;
-            actionMessage = actionType switch
+            var done = actionType switch
             {
                 "approve" => "تم اعتماد التصريح.",
                 "reject" => "تم رفض التصريح.",
@@ -440,12 +429,10 @@ else
                 "delete" => "تم حذف التصريح.",
                 _ => "تم تنفيذ العملية."
             };
-            await Toast.SuccessAsync(actionMessage);
+            await Toast.SuccessAsync(done);
         }
         catch (Exception ex)
         {
-            actionOk = false;
-            actionMessage = ex.Message;
             await Toast.ErrorAsync(ex.Message);
         }
 
@@ -455,29 +442,29 @@ else
     private async Task SubmitForApprovalAsync()
     {
         if (permit == null || currentUser == null) return;
-        if (!await Toast.ConfirmAsync("هل تريد إحالة هذا التصريح للاعتماد؟", "نعم", "لا", "confirm"))
+        if (!await Toast.ConfirmAsync(permit.ShiftApproval
+            ? "هذا التصريح سوف يُعتمد من المناوب فقط. هل تريد الإحالة؟"
+            : "هل تريد إحالة هذا التصريح للاعتماد؟", "نعم", "لا", "confirm"))
             return;
-        actionMessage = null;
+        var submitted = false;
         try
         {
             await MaterialPermits.SubmitDraftAsync(permit.Id, currentUser);
-            actionOk = true;
+            submitted = true;
         }
         catch (Exception ex)
         {
-            actionOk = false;
-            actionMessage = ex.Message;
             await Toast.ErrorAsync(ex.Message);
         }
 
         await LoadAsync();
-        if (actionOk)
+        if (submitted)
         {
             var label = permit == null ? "" : StatusMapper.ListStatus(permit).Label;
-            actionMessage = label == "معتمد"
-                ? "أُحيل التصريح وأصبح معتمداً لأن مساره لا يحتاج اعتماداً."
+            var text = label == "تحت التنفيذ"
+                ? "أُحيل التصريح وأصبح تحت التنفيذ لأن مساره لا يحتاج اعتماداً."
                 : "تمت إحالة التصريح للاعتماد.";
-            await Toast.SuccessAsync(actionMessage);
+            await Toast.SuccessAsync(text);
         }
     }
 
@@ -496,18 +483,13 @@ else
         if (permit == null || currentUser == null) return;
         if (!await Toast.ConfirmAsync("هل تريد إلغاء هذا التصريح؟ لا يمكن التراجع عن الإلغاء.", "إلغاء التصريح", "لا", "danger"))
             return;
-        actionMessage = null;
         try
         {
             await MaterialPermits.CancelAsync(permit.Id, currentUser);
-            actionOk = true;
-            actionMessage = "تم إلغاء التصريح.";
-            await Toast.SuccessAsync(actionMessage);
+            await Toast.SuccessAsync("تم إلغاء التصريح.");
         }
         catch (Exception ex)
         {
-            actionOk = false;
-            actionMessage = ex.Message;
             await Toast.ErrorAsync(ex.Message);
         }
 

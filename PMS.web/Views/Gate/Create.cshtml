@@ -1,4 +1,4 @@
-﻿[@using PMS.web.ViewModels
+[@using PMS.web.ViewModels
 @model CreateGateViewModel
 @Html.ValidationSummary(true, "", new { @class = "text-danger" })
 
@@ -184,7 +184,7 @@
                 <form asp-action="Create">
                     <div class="row g-4">
                         <!-- العمود الأول: البيانات الأساسية -->
-                        <div class="col-md-6">
+                        <div class="col-12">
                             <div class="mb-3">
                                 <label asp-for="No" class="form-label fw-bold">رقم البوابة</label>
                                 <input asp-for="No" class="form-control" placeholder="أدخل رقم البوابة" />
@@ -207,32 +207,6 @@
                                 <label asp-for="Remarks" class="form-label fw-bold">الملاحظات</label>
                                 <textarea asp-for="Remarks" class="form-control" rows="3" placeholder="أدخل الملاحظات هنا"></textarea>
                                 <span asp-validation-for="Remarks" class="text-danger"></span>
-                            </div>
-                        </div>
-
-                        <!-- العمود الثاني: أنواع التصاريح -->
-                        <div class="col-md-6 column-divider">
-                            <h5 class="section-title">أنواع التصاريح المتاحة</h5>
-                            <div class="permit-types-container">
-                                @if (Model.PermitTypes != null && Model.PermitTypes.Any())
-                                {
-                                    @foreach (var permit in Model.PermitTypes)
-                                    {
-                                        <div class="permit-type-item">
-                                            <div class="form-check">
-                                                <input class="form-check-input" type="checkbox" name="SelectedPermitTypeIds" value="@permit.Id" id="permit_@permit.Id" />
-                                                <label class="form-check-label" for="permit_@permit.Id">@permit.Name</label>
-                                            </div>
-                                        </div>
-                                    }
-                                }
-                                else
-                                {
-                                    <div class="alert alert-info text-center">
-                                        لا توجد أنواع تصاريح متاحة حالياً
-                                    </div>
-                                }
-                                <span asp-validation-for="SelectedPermitTypeIds" class="text-danger"></span>
                             </div>
                         </div>
                     </div>
@@ -298,18 +272,6 @@
                     <label asp-for="Remarks" class="form-label fw-bold">الملاحظات</label>
                     <textarea asp-for="Remarks" class="form-control" rows="3" placeholder="أدخل الملاحظات هنا"></textarea>
                     <span asp-validation-for="Remarks" class="text-danger"></span>
-                </div>
-
-                <div class="form-group mt-3">
-                    <label class="fw-bold">أنواع التصاريح المتاحة:</label><br />
-                    @foreach (var permit in Model.PermitTypes)
-                    {
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="SelectedPermitTypeIds" value="@permit.Id" id="permit_@permit.Id" />
-                            <label class="form-check-label" for="permit_@permit.Id">@permit.Name</label>
-                        </div>
-                    }
-                    <span asp-validation-for="SelectedPermitTypeIds" class="text-danger"></span>
                 </div>
 
                 <div class="text-end mt-4">

@@ -71,6 +71,12 @@ namespace Services.AccessControl
         {
             var reader = await _unitOfWork.Readers.GetByIdAsync(id);
             if (reader == null) return;
+
+            var movements = await _unitOfWork.MovementLogs.GetQueryable()
+                .CountAsync(m => m.ReaderId == id && !m.isDeleted);
+            if (movements > 0)
+                throw new InvalidOperationException("لا يمكن حذف القارئة لأن لها سجل حركة في النظام.");
+
             reader.isDeleted = true;
             reader.deletedOn = DateTime.Now;
             _unitOfWork.Readers.Update(reader);

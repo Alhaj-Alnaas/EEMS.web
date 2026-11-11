@@ -54,6 +54,7 @@ namespace DataAccess
         public DbSet<SystemTask> SystemTasks { get; set; }
         public DbSet<AccessLevel> AccessLevels { get; set; }
         public DbSet<AccessLevelTask> AccessLevelTasks { get; set; }
+        public DbSet<AuditLogEntry> AuditLogEntries { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -362,6 +363,22 @@ namespace DataAccess
                 .WithOne(p => p.VehicleDetail)
                 .HasForeignKey<VehiclePermitDetail>(d => d.PermitId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<AuditLogEntry>(entry =>
+            {
+                entry.Property(x => x.SourceKey).HasMaxLength(160);
+                entry.Property(x => x.Area).HasMaxLength(32);
+                entry.Property(x => x.Action).HasMaxLength(32);
+                entry.Property(x => x.Summary).HasMaxLength(500);
+                entry.Property(x => x.ActorFileNumber).HasMaxLength(64);
+                entry.Property(x => x.ActorName).HasMaxLength(200);
+                entry.Property(x => x.GateName).HasMaxLength(200);
+                entry.Property(x => x.DeviceName).HasMaxLength(200);
+                entry.Property(x => x.NetworkAddress).HasMaxLength(80);
+                entry.Property(x => x.MacAddress).HasMaxLength(32);
+                entry.HasIndex(x => x.SourceKey);
+                entry.HasIndex(x => x.OccurredAt);
+            });
 
             // Prefer IEntityTypeConfiguration classes for new entities/fields.
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(DataContext).Assembly);

@@ -1,6 +1,8 @@
 @page "/movements"
 @rendermode InteractiveServer
 @inject IServiceScopeFactory ScopeFactory
+@inject IJSRuntime JS
+@using Core.Extensions
 @implements IDisposable
 
 <PageTitle>سجل الحركة - PMS</PageTitle>
@@ -11,11 +13,19 @@
         <button type="button" class="btn pms-btn-sync" @onclick="RequestAttLogAsync" disabled="@busy">
             <i class="bi bi-cloud-download@(busy ? " pms-spin" : "")"></i> مزامنة سجل الحركة
         </button>
+        <button type="button" class="btn pms-permit-view-btn" @onclick="ExportExcelAsync" disabled="@(loading || exporting || DisplayLogs.Count == 0)">
+            <i class="bi bi-file-earmark-excel"></i> ترحيل إلى إكسل
+        </button>
         <button type="button" class="btn pms-btn-refresh" @onclick="() => LoadAsync()" disabled="@loading">
             <i class="bi bi-arrow-clockwise@(loading ? " pms-spin" : "")"></i> تحديث
         </button>
     </div>
 </div>
+
+@if (!string.IsNullOrEmpty(exportError))
+{
+    <div class="alert alert-danger py-2 small">@exportError</div>
+}
 
 @if (!string.IsNullOrEmpty(message))
 {
@@ -173,7 +183,9 @@ else
 @code {
     private const int takeCount = 200;
     private bool loading = true;
+    private bool exporting;
     private bool busy;
+    private string? exportError;
     private bool messageOk;
     private string? message;
     private List<MovementLog> logs = new();
@@ -296,6 +308,43 @@ else
         finally
         {
             busy = false;
+        }
+    }
+
+    private async Task ExportExcelAsync()
+    {
+        exportError = null;
+        exporting = true;
+        try
+        {
+            var bytes = ExcelSheet.Build(
+                "سجل الحركة",
+                new[] { "الوقت", "رقم الموظف", "الاسم", "القارئة", "البوابة", "الاتجاه", "المصدر" },
+                DisplayLogs.Select(log =>
+                {
+                    var empNo = !string.IsNullOrWhiteSpace(log.Employee?.FileNumber)
+                        ? log.Employee!.FileNumber!.Trim()
+                        : (log.DevicePin ?? "").Trim();
+                    return new string?[]
+                    {
+                        log.EventTime.ToString("yyyy/MM/dd HH:mm:ss"),
+                        empNo,
+                        log.Employee?.FullName?.Trim(),
+                        log.Reader?.DeviceSerial,
+                        log.Gate?.no,
+                        log.Direction == MovementDirection.In ? "دخول" : "خروج",
+                        log.Source.GetDescription()
+                    };
+                }));
+            await FileDownload.SaveAsync(JS, "سجل-الحركة.xls", bytes);
+        }
+        catch (Exception ex)
+        {
+            exportError = "تعذر ترحيل سجل الحركة إلى إكسل: " + ex.Message;
+        }
+        finally
+        {
+            exporting = false;
         }
     }
 

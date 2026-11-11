@@ -27,13 +27,19 @@ else
     <EditForm Model="model" class="pms-create-form" OnSubmit="PreventSubmit">
         <div class="pms-create-body">
         <div class="row g-4">
-            <div class="col-md-4">
+            <div class="col-lg-6">
                 <div class="card pms-basic-card">
                     <div class="card-header pms-header">البيانات الأساسية</div>
-                    <div class="card-body pms-basic-scroll">
-                        <div class="form-check form-switch mb-3">
-                            <InputCheckbox class="form-check-input" @bind-Value="model.IsTemp" id="isTemp" />
-                            <label class="form-check-label fw-bold" for="isTemp">تصريح مؤقت</label>
+                    <div class="card-body pms-basic-scroll pms-basic-inline">
+                        <div class="pms-permit-flags">
+                            <div class="form-check form-switch mb-0">
+                                <InputCheckbox class="form-check-input" @bind-Value="model.IsTemp" id="isTemp" />
+                                <label class="form-check-label fw-bold" for="isTemp">تصريح مؤقت</label>
+                            </div>
+                            <div class="form-check form-switch mb-0">
+                                <InputCheckbox class="form-check-input" @bind-Value="shiftApproval" id="shiftApproval" />
+                                <label class="form-check-label fw-bold" for="shiftApproval">اعتماد مناوب</label>
+                            </div>
                         </div>
 
                         <div class="mb-3">
@@ -41,15 +47,10 @@ else
                             <input class="form-control text-center pms-permit-no" value="@model.No" readonly />
                         </div>
 
-                        <div class="row g-2 mb-3">
-                            <div class="col-7">
-                                <label class="form-label">تاريخ التصريح</label>
-                                <InputDate class="form-control" @bind-Value="model.Date" @bind-Value:after="ApplyShiftApproval" />
-                            </div>
-                            <div class="col-5">
-                                <label class="form-label">الوقت</label>
-                                <InputText type="time" class="form-control" @bind-Value="model.HourOfEntry" />
-                            </div>
+                        <div class="mb-3 pms-field-with-time">
+                            <label class="form-label">تاريخ التصريح</label>
+                            <InputDate class="form-control" @bind-Value="model.Date" @bind-Value:after="ApplyShiftApproval" />
+                            <InputText type="time" class="form-control" @bind-Value="model.HourOfEntry" />
                         </div>
 
                         <div class="mb-3">
@@ -61,31 +62,20 @@ else
                             </InputSelect>
                         </div>
 
-                        <div class="mb-3">
+                        <div class="mb-3 pms-field-split">
                             <label class="form-label fw-bold">ساري حتى</label>
                             <InputDate class="form-control" @bind-Value="validTo" />
-                        </div>
-
-                        <div class="row g-2 mb-3 align-items-center">
-                            <div class="col-7">
-                                <label class="form-label fw-bold">الوقت المتوقع للتنفيذ</label>
-                                <InputText type="time" class="form-control" @bind-Value="expectedExecutionTime" @bind-Value:after="ApplyShiftApproval" />
-                            </div>
-                            <div class="col-5">
-                                <div class="form-check form-switch mt-4">
-                                    <InputCheckbox class="form-check-input" @bind-Value="shiftApproval" id="shiftApproval" />
-                                    <label class="form-check-label fw-bold" for="shiftApproval">اعتماد مناوب</label>
-                                </div>
-                            </div>
+                            <label class="form-label fw-bold">المتوقع للتنفيذ</label>
+                            <input type="time" class="form-control" value="@expectedExecutionTime" @oninput="OnExpectedTime" />
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label fw-bold">الغرض</label>
+                            <label class="form-label fw-bold">الغرض <span class="pms-req">*</span></label>
                             <InputTextArea class="form-control" rows="2" @bind-Value="purpose" placeholder="الغرض من الإخراج أو الإدخال" />
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label fw-bold">الجهة الطالبة</label>
+                            <label class="form-label fw-bold">الجهة الطالبة <span class="pms-req">*</span></label>
                             <InputSelect class="form-select" @bind-Value="selectedRespCode">
                                 <option value="">-- اختر الجهة الطالبة --</option>
                                 @foreach (var dep in departments)
@@ -102,7 +92,7 @@ else
 
                         <div class="mb-3">
                             <label class="form-label">رقم الهاتف</label>
-                            <InputText class="form-control" @bind-Value="model.PhoneNo" />
+                            <InputText class="form-control" inputmode="tel" @bind-Value="model.PhoneNo" @bind-Value:after="NormalizePhone" />
                         </div>
 
                         <div class="mb-3">
@@ -118,10 +108,10 @@ else
                 </div>
             </div>
 
-            <div class="col-md-8 pms-side-scroll">
+            <div class="col-lg-6 pms-side-scroll">
                 <div class="card mb-3">
                     <div class="card-header pms-header d-flex justify-content-between align-items-center">
-                        <span>المواد والمعدات <span class="text-warning">*</span></span>
+                        <span>المواد والمعدات <span class="pms-req">*</span></span>
                         <button type="button" class="btn btn-sm btn-light" @onclick="AddEquipmentRow">
                             <i class="bi bi-plus-circle"></i> إضافة مادة
                         </button>
@@ -307,11 +297,16 @@ else
         }
     }
 
-    private void ApplyShiftApproval()
+    private void NormalizePhone() => model.PhoneNo = FieldRules.Phone(model.PhoneNo);
+
+    private void OnExpectedTime(ChangeEventArgs e)
     {
-        if (NeedsShiftApproval(model.Date, expectedExecutionTime))
-            shiftApproval = true;
+        expectedExecutionTime = e.Value?.ToString();
+        ApplyShiftApproval();
     }
+
+    private void ApplyShiftApproval() =>
+        shiftApproval = NeedsShiftApproval(model.Date, expectedExecutionTime);
 
     private static bool NeedsShiftApproval(DateTime permitDate, string? expectedTime)
     {
@@ -358,7 +353,9 @@ else
             await Toast.WarningAsync(missing);
             return;
         }
-        if (submit && !await Toast.ConfirmAsync("هل تريد إحالة هذا التصريح للاعتماد؟", "نعم", "لا", "confirm"))
+        if (submit && !await Toast.ConfirmAsync(shiftApproval
+            ? "هذا التصريح سوف يُعتمد من المناوب فقط. هل تريد الإحالة؟"
+            : "هل تريد إحالة هذا التصريح للاعتماد؟", "نعم", "لا", "confirm"))
             return;
         errorMessage = null;
         saving = true;

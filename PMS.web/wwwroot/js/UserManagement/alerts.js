@@ -1,4 +1,4 @@
-﻿function showAlert(message, type) {
+function showAlert(message, type) {
     if (window.pmsMessage) {
         window.pmsMessage.notify({ text: message, type: type || 'info' });
         return;

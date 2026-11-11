@@ -19,6 +19,7 @@ namespace Services.Permits
         private readonly IDepartmentService _departments;
         private readonly IDbContextFactory<DataContext> _dbFactory;
         private readonly IPermitNotifier _notifier;
+        private readonly IAuditLogService _audit;
 
         public MaterialPermitService(
             IUnitOfWork unitOfWork,
@@ -26,7 +27,8 @@ namespace Services.Permits
             IWorkflowEngine workflow,
             IDepartmentService departments,
             IDbContextFactory<DataContext> dbFactory,
-            IPermitNotifier notifier)
+            IPermitNotifier notifier,
+            IAuditLogService audit)
         {
             _unitOfWork = unitOfWork;
             _permits = permits;
@@ -34,6 +36,7 @@ namespace Services.Permits
             _departments = departments;
             _dbFactory = dbFactory;
             _notifier = notifier;
+            _audit = audit;
         }
 
         public async Task<Guid> SaveAsync(MaterialPermitRequest request, User user, bool submit)
@@ -559,20 +562,56 @@ namespace Services.Permits
             var hasCodes = codeList.Count > 0;
             var hasNames = nameList.Count > 0;
             var hasRelated = relatedIds.Count > 0;
-            if (!hasCodes && !hasNames && !hasRelated)
+            var wide = await SeesAllInExecutionAsync(user);
+            if (!hasCodes && !hasNames && !hasRelated && !wide)
                 return new List<Permit>();
+
+            var draft = nameof(UnifiedPermitStatus.Draft);
+            var cancelled = nameof(UnifiedPermitStatus.Cancelled);
+            var rejected = nameof(UnifiedPermitStatus.Rejected);
+            var approved = nameof(UnifiedPermitStatus.Approved);
+            var active = nameof(UnifiedPermitStatus.Active);
 
             return await _unitOfWork.Permits.GetQueryable()
                 .AsNoTracking()
                 .Include(p => p.EquipmentDetail)
                 .Include(p => p.VehicleDetail)
                 .Include(p => p.VisitorDetail)
+                .Include(p => p.Gate)
                 .Where(p => (hasCodes && codeList.Contains(p.reqDepartment!))
                     || (hasNames && nameList.Contains(p.createdBy!))
-                    || (hasRelated && relatedIds.Contains(p.Id)))
+                    || (hasRelated && relatedIds.Contains(p.Id))
+                    || (wide
+                        && !p.isDeleted
+                        && !p.isClosed
+                        && p.status != 'C'
+                        && p.status != 'D'
+                        && p.status != 'J'
+                        && p.status != 'R'
+                        && p.UnifiedStatus != draft
+                        && p.UnifiedStatus != cancelled
+                        && p.UnifiedStatus != rejected
+                        && (p.status == 'A' || p.UnifiedStatus == approved || p.UnifiedStatus == active)))
                 .OrderByDescending(p => p.date)
                 .ThenByDescending(p => p.createdOn)
                 .ToListAsync();
+        }
+
+        private async Task<bool> SeesAllInExecutionAsync(User user)
+        {
+            if (user.JobCatId == 1
+                && ApprovalRoute.BelongsTo(user.ResponsibilityCode, ApprovalRoute.SecurityAffairsCode))
+                return true;
+
+            if (string.Equals(user.UserType, "SaftyUser", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            if (user.AccessLevelId is not Guid levelId)
+                return false;
+
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            return await db.AccessLevels.AsNoTracking()
+                .AnyAsync(level => level.Id == levelId && level.IsGateOfficer && !level.isDeleted);
         }
 
         public async Task<bool> WasApprovedByAsync(Guid permitId, string userId)
@@ -784,6 +823,16 @@ namespace Services.Permits
             });
 
             await _unitOfWork.SaveAsync();
+            await _audit.WriteAsync(new AuditLogEntry
+            {
+                SourceKey = "permit-cancel:" + permit.Id,
+                Area = AuditArea.Permits,
+                Action = AuditAction.Cancel,
+                Summary = "إلغاء التصريح " + permit.no,
+                ActorFileNumber = user.UserName,
+                ActorName = user.FullName,
+                OccurredAt = DateTime.Now
+            });
             await _notifier.NotifyAsync(permit, "إلغاء تصريح", PermitNoticeText.Cancelled(permit.no), user.Id);
         }
 

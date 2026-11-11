@@ -1,10 +1,619 @@
 @page "/reports/attendance"
 @rendermode InteractiveServer
-@using PMS.web.Components.Shared
+@using DataAccess
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Identity
+@using System.Text.RegularExpressions
+@inject IDbContextFactory<DataContext> DbFactory
+@inject IDepartmentService OrgDepartments
+@inject UserManager<User> UserManager
+@inject AuthenticationStateProvider AuthProvider
+@inject IWebHostEnvironment Env
+@inject IJSRuntime JS
+@inject IReportFileCache Files
 
-<PageTitle>تقارير الحضور - PMS</PageTitle>
+<PageTitle>تقرير الحضور والانصراف - PMS</PageTitle>
 
-<PlaceholderPage Title="تقارير الحضور"
-                 Icon="fas fa-user-clock"
-                 Description="تقارير حضور وانصراف الموظفين المستندة إلى سجل الحركة البيومتري، مع استثناءات التأخير/الغياب."
-                 Message="الشاشة قيد التجهيز وفق تقارير المرحلة الأولى، مع إمكانية التكامل لاحقاً مع Attendance API." />
+<section class="pms-permit-list">
+    <div class="pms-permit-list-head">
+        <h3><i class="bi bi-person-check"></i> تقرير الحضور والانصراف</h3>
+        <button type="button" class="btn btn-sm pms-permit-view-btn" @onclick="PrintPdfAsync" disabled="@(!ready || blocked || loading || printing || !CanPrint)">
+            <i class="bi bi-file-earmark-pdf"></i> طباعة PDF
+        </button>
+    </div>
+
+    @if (!ready)
+    {
+        <div class="text-center p-5"><div class="spinner-border text-secondary"></div></div>
+    }
+    else if (blocked)
+    {
+        <div class="pms-placeholder">
+            <i class="bi bi-lock"></i>
+            <h5>@blockedMessage</h5>
+        </div>
+    }
+    else
+    {
+    <p class="pms-audit-note">@(wide ? "التقرير يشمل موظفي الشركة المسجّلين، وتظهر التقسيمات التي لها موظفون مسجّلون فقط." : "التقرير يشمل موظفي مركز مسؤوليتك " + unitLabel + "، وتظهر التقسيمات التي لها موظفون مسجّلون فقط.")</p>
+
+    <div class="pms-attend-mode">
+        <button type="button" class="btn btn-sm @(employeeMode ? "pms-permit-view-btn" : "pms-permit-edit-btn")" @onclick="ShowEmployee">
+            تقرير عن موظف
+        </button>
+        <button type="button" class="btn btn-sm @(!employeeMode ? "pms-permit-view-btn" : "pms-permit-edit-btn")" @onclick="ShowDivision">
+            تقرير عن تقسيم إداري
+        </button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(loadError))
+    {
+        <div class="alert alert-danger">@loadError</div>
+    }
+
+    <div class="card mb-3">
+        <div class="card-body py-3">
+            @if (employeeMode)
+            {
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label mb-1">رقم الموظف</label>
+                        <input class="form-control form-control-sm" @bind="fileNumber" @bind:event="oninput" placeholder="رقم الموظف" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label mb-1">من تاريخ</label>
+                        <input class="form-control form-control-sm" type="date" @bind="fromDate" @bind:format="yyyy-MM-dd" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label mb-1">إلى تاريخ</label>
+                        <input class="form-control form-control-sm" type="date" @bind="toDate" @bind:format="yyyy-MM-dd" />
+                    </div>
+                    <div class="col-md-2">
+                        <button type="button" class="btn btn-sm pms-permit-view-btn w-100" @onclick="SearchEmployeeAsync" disabled="@loading">عرض</button>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-5">
+                        <label class="form-label mb-1">التقسيم الإداري</label>
+                        <select class="form-select form-select-sm" @bind="divisionKey">
+                            <option value="">اختر التقسيم</option>
+                            @foreach (var choice in divisions)
+                            {
+                                <option value="@choice.Key">@choice.Label</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label mb-1">التاريخ</label>
+                        <input class="form-control form-control-sm" type="date" @bind="divisionDate" @bind:format="yyyy-MM-dd" />
+                    </div>
+                    <div class="col-md-2">
+                        <button type="button" class="btn btn-sm pms-permit-view-btn w-100" @onclick="SearchDivisionAsync" disabled="@loading">عرض</button>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    @if (loading)
+    {
+        <div class="text-center p-5"><div class="spinner-border text-secondary"></div></div>
+    }
+    else if (employeeReport != null)
+    {
+        <div class="card pms-permit-sheet mb-3">
+            <div class="pms-attend-title">
+                <h4>تقرير الحضور والانصراف</h4>
+                <p>رقم الموظف: <b>@employeeReport.FileNumber</b> — اسم الموظف: <b>@employeeReport.Name</b></p>
+                <p>التقسيم الإداري: <b>@employeeReport.Division</b></p>
+                <p>الفترة من <b>@employeeReport.From</b> إلى <b>@employeeReport.To</b></p>
+            </div>
+        </div>
+        <div class="card pms-permit-sheet">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 pms-permit-grid">
+                    <thead>
+                        <tr>
+                            <th>التاريخ</th>
+                            <th>اسم اليوم</th>
+                            <th>ساعة الدخول</th>
+                            <th>ساعة الخروج</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in employeeReport.Days)
+                        {
+                            <tr>
+                                <td class="text-nowrap">@row.Date</td>
+                                <td>@row.Day</td>
+                                <td class="text-nowrap">@row.Entry</td>
+                                <td class="text-nowrap">@row.Exit</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+    else if (divisionReport != null)
+    {
+        <div class="card pms-permit-sheet mb-3">
+            <div class="pms-attend-title">
+                <h4>تقرير الحضور والانصراف</h4>
+                <p>التقسيم الإداري: <b>@divisionReport.Division</b></p>
+                <p>التاريخ: <b>@divisionReport.Date</b></p>
+            </div>
+        </div>
+        @if (divisionReport.People.Count == 0)
+        {
+            <div class="pms-placeholder">
+                <i class="bi bi-people"></i>
+                <h5>لا يوجد موظفون في هذا التقسيم</h5>
+            </div>
+        }
+        else
+        {
+            <div class="card pms-permit-sheet">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 pms-permit-grid">
+                        <thead>
+                            <tr>
+                                <th>رقم ملف الموظف</th>
+                                <th>اسم الموظف</th>
+                                <th>ساعة الحضور</th>
+                                <th>ساعة الخروج</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in divisionReport.People)
+                            {
+                                <tr>
+                                    <td class="text-nowrap">@row.FileNumber</td>
+                                    <td>@row.Name</td>
+                                    <td class="text-nowrap">@row.Entry</td>
+                                    <td class="text-nowrap">@row.Exit</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    }
+    }
+</section>
+
+@code {
+    private const int MaxDays = 366;
+
+    private bool employeeMode = true;
+    private bool ready;
+    private bool blocked;
+    private bool wide;
+    private bool loading;
+    private bool printing;
+    private string? blockedMessage;
+    private string? loadError;
+    private string unit = "";
+    private string unitLabel = "";
+    private Dictionary<string, string> responsibilityByFile = new(StringComparer.OrdinalIgnoreCase);
+    private string fileNumber = "";
+    private DateTime? fromDate = DateTime.Today;
+    private DateTime? toDate = DateTime.Today;
+    private string divisionKey = "";
+    private DateTime? divisionDate = DateTime.Today;
+    private List<DivisionChoice> divisions = new();
+    private EmployeeReport? employeeReport;
+    private DivisionReport? divisionReport;
+
+    private bool CanPrint =>
+        employeeReport is { Days.Count: > 0 } || divisionReport is { People.Count: > 0 };
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var auth = await AuthProvider.GetAuthenticationStateAsync();
+            var name = auth.User.Identity?.Name;
+            var user = name == null ? null : await UserManager.FindByNameAsync(name);
+            if (user?.JobCatId != 1)
+            {
+                blocked = true;
+                blockedMessage = "تقرير الحضور والانصراف متاح للقياديين فقط.";
+                return;
+            }
+
+            unit = ApprovalRoute.Normalize(user.ResponsibilityCode);
+            wide = ApprovalRoute.BelongsTo(unit, ApprovalRoute.SecurityAffairsCode);
+            unitLabel = UnitTitle(user, unit);
+            if (!wide && string.IsNullOrWhiteSpace(unit))
+            {
+                blocked = true;
+                blockedMessage = "لا يوجد مركز مسؤولية مرتبط بحسابك لعرض الحضور.";
+                return;
+            }
+
+            await LoadResponsibilityMapAsync();
+            divisions = await LoadDivisionsAsync();
+        }
+        catch (Exception ex)
+        {
+            blocked = true;
+            blockedMessage = "تعذر فتح تقرير الحضور والانصراف: " + ex.Message;
+        }
+        finally
+        {
+            ready = true;
+        }
+    }
+
+    private void ShowEmployee()
+    {
+        employeeMode = true;
+        loadError = null;
+        employeeReport = null;
+        divisionReport = null;
+    }
+
+    private void ShowDivision()
+    {
+        employeeMode = false;
+        loadError = null;
+        employeeReport = null;
+        divisionReport = null;
+    }
+
+    private async Task SearchEmployeeAsync()
+    {
+        if (blocked)
+            return;
+        loadError = null;
+        employeeReport = null;
+        divisionReport = null;
+        var file = fileNumber.Trim();
+        if (string.IsNullOrWhiteSpace(file))
+        {
+            loadError = "أدخل رقم الموظف.";
+            return;
+        }
+        if (fromDate == null || toDate == null)
+        {
+            loadError = "حدد الفترة من وإلى.";
+            return;
+        }
+        var from = fromDate.Value.Date;
+        var to = toDate.Value.Date;
+        if (from > to)
+        {
+            loadError = "تاريخ البداية بعد تاريخ النهاية.";
+            return;
+        }
+        if ((to - from).TotalDays + 1 > MaxDays)
+        {
+            loadError = "الفترة يجب ألا تتجاوز سنة.";
+            return;
+        }
+
+        loading = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var people = await LoadPeopleAsync();
+            var person = people.FirstOrDefault(item =>
+                string.Equals((item.FileNumber ?? "").Trim(), file, StringComparison.OrdinalIgnoreCase));
+            if (person == null || !InScope(person))
+            {
+                loadError = wide
+                    ? "لا يوجد موظف بهذا الرقم."
+                    : "لا يوجد موظف بهذا الرقم ضمن مركز مسؤوليتك.";
+                return;
+            }
+
+            var end = to.AddDays(1);
+            var punches = await db.MovementLogs.AsNoTracking()
+                .Where(move => !move.isDeleted && move.EmployeeId == person.Id && move.EventTime >= from && move.EventTime < end)
+                .Select(move => new { move.Direction, move.EventTime })
+                .ToListAsync();
+            var moves = punches.Select(move => new Punch(move.Direction, move.EventTime)).ToList();
+
+            var days = new List<DayRow>();
+            for (var date = from; date <= to; date = date.AddDays(1))
+            {
+                var dayMoves = moves.Where(move => move.Time.Date == date).ToList();
+                days.Add(new DayRow(
+                    date.ToString("yyyy/MM/dd"),
+                    DayName(date),
+                    FirstIn(dayMoves),
+                    LastOut(dayMoves)));
+            }
+
+            employeeReport = new EmployeeReport(
+                string.IsNullOrWhiteSpace(person.FileNumber) ? file : person.FileNumber.Trim(),
+                Display(person.FullName),
+                DivisionName(person),
+                from.ToString("yyyy/MM/dd"),
+                to.ToString("yyyy/MM/dd"),
+                days);
+        }
+        catch (Exception ex)
+        {
+            loadError = "تعذر إعداد تقرير الموظف: " + ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task SearchDivisionAsync()
+    {
+        if (blocked)
+            return;
+        loadError = null;
+        employeeReport = null;
+        divisionReport = null;
+        var choice = divisions.FirstOrDefault(item => item.Key == divisionKey);
+        if (choice == null)
+        {
+            loadError = "اختر التقسيم الإداري.";
+            return;
+        }
+        if (divisionDate == null)
+        {
+            loadError = "حدد تاريخ اليوم.";
+            return;
+        }
+
+        var day = divisionDate.Value.Date;
+        loading = true;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var people = await LoadPeopleAsync();
+            var members = people
+                .Where(person => InScope(person) && InDivision(person, choice))
+                .OrderBy(person => person.FileNumber, StringComparer.Ordinal)
+                .ToList();
+
+            var next = day.AddDays(1);
+            var moves = await db.MovementLogs.AsNoTracking()
+                .Where(move => !move.isDeleted && move.EmployeeId != null && move.EventTime >= day && move.EventTime < next)
+                .Select(move => new { Id = move.EmployeeId!.Value, move.Direction, move.EventTime })
+                .ToListAsync();
+            var byPerson = moves.GroupBy(move => move.Id).ToDictionary(group => group.Key, group => group.Select(item => new Punch(item.Direction, item.EventTime)).ToList());
+
+            divisionReport = new DivisionReport(
+                choice.Label,
+                day.ToString("yyyy/MM/dd"),
+                members.Select(person =>
+                {
+                    byPerson.TryGetValue(person.Id, out var punches);
+                    punches ??= new List<Punch>();
+                    return new StaffRow(
+                        Display(person.FileNumber),
+                        Display(person.FullName),
+                        FirstIn(punches),
+                        LastOut(punches));
+                }).ToList());
+        }
+        catch (Exception ex)
+        {
+            loadError = "تعذر إعداد تقرير التقسيم: " + ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task PrintPdfAsync()
+    {
+        if (blocked || !CanPrint)
+            return;
+
+        printing = true;
+        loadError = null;
+        try
+        {
+            AttendancePrint print = employeeReport != null
+                ? new AttendancePrint
+                {
+                    FileName = "تقرير-حضور-موظف-" + employeeReport.FileNumber + ".pdf",
+                    Lines = new[]
+                    {
+                        "رقم الموظف: " + employeeReport.FileNumber + "    اسم الموظف: " + employeeReport.Name,
+                        "التقسيم الإداري: " + employeeReport.Division,
+                        "الفترة من " + employeeReport.From + " إلى " + employeeReport.To
+                    },
+                    Columns = new[] { "التاريخ", "اسم اليوم", "ساعة الدخول", "ساعة الخروج" },
+                    Widths = new[] { 1.5f, 1.4f, 1.3f, 1.3f },
+                    Rows = employeeReport.Days.Select(row => new string?[] { row.Date, row.Day, row.Entry, row.Exit }).ToList()
+                }
+                : new AttendancePrint
+                {
+                    FileName = "تقرير-حضور-تقسيم-" + divisionReport!.Date.Replace("/", "") + ".pdf",
+                    Lines = new[]
+                    {
+                        "التقسيم الإداري: " + divisionReport.Division,
+                        "التاريخ: " + divisionReport.Date
+                    },
+                    Columns = new[] { "رقم ملف الموظف", "اسم الموظف", "ساعة الحضور", "ساعة الخروج" },
+                    Widths = new[] { 1.4f, 2.6f, 1.3f, 1.3f },
+                    Rows = divisionReport.People.Select(row => new string?[] { row.FileNumber, row.Name, row.Entry, row.Exit }).ToList()
+                };
+
+            var bytes = AttendancePdf.Build(Env.WebRootPath, print);
+            var id = Files.Put(bytes);
+            await FileDownload.OpenPdfAsync(JS, "/reports/print/" + id);
+        }
+        catch (Exception ex)
+        {
+            loadError = "تعذر طباعة التقرير: " + ex.Message;
+        }
+        finally
+        {
+            printing = false;
+        }
+    }
+
+    private async Task<List<DivisionChoice>> LoadDivisionsAsync()
+    {
+        var catalog = await OrgDepartments.GetDepartmentsByResponsibilityAsync(wide ? "00000" : unit);
+        var labels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var department in catalog)
+        {
+            var code = ApprovalRoute.Normalize(department.RespCode);
+            var label = (department.DepartmentName ?? "").Trim();
+            if (code.Length >= 5 && label.Length > 0 && !labels.ContainsKey(code))
+                labels[code] = label;
+        }
+
+        var found = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var person in (await LoadPeopleAsync()).Where(InScope))
+        {
+            var text = FirstText(person.FreeName, person.MasterName);
+            foreach (var code in PersonCodes(person))
+            {
+                if (code.Length < 5)
+                    continue;
+                if (!wide && !ApprovalRoute.BelongsTo(code, unit))
+                    continue;
+                var label = labels.TryGetValue(code, out var official) && !string.IsNullOrWhiteSpace(official)
+                    ? official
+                    : (string.IsNullOrWhiteSpace(text) ? code : text);
+                if (!found.TryGetValue(code, out var current) || current == code)
+                    found[code] = label;
+            }
+        }
+
+        return found
+            .Select(item => new DivisionChoice(item.Key, item.Value, item.Key))
+            .OrderBy(choice => choice.Label, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private async Task<List<PersonRow>> LoadPeopleAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var loaded = await db.Employees.AsNoTracking()
+            .Where(employee => !employee.isDeleted && employee.IsActive)
+            .Select(employee => new
+            {
+                employee.Id,
+                employee.FileNumber,
+                employee.FullName,
+                employee.DepartmentId,
+                DeptCode = employee.Department != null ? employee.Department.Code : "",
+                MasterName = employee.Department != null ? employee.Department.NameAr : "",
+                employee.DepartmentName
+            })
+            .ToListAsync();
+        return loaded.Select(employee => new PersonRow(
+            employee.Id, employee.FileNumber, employee.FullName, employee.DepartmentId, employee.DeptCode, employee.MasterName, employee.DepartmentName)).ToList();
+    }
+
+    private async Task LoadResponsibilityMapAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var accounts = await db.Users.AsNoTracking()
+            .Where(account => account.FileNumber != null && account.FileNumber != "")
+            .Select(account => new { account.FileNumber, account.ResponsibilityCode })
+            .ToListAsync();
+        responsibilityByFile = accounts
+            .GroupBy(account => account.FileNumber.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First().ResponsibilityCode ?? "", StringComparer.OrdinalIgnoreCase);
+    }
+
+    private bool InScope(PersonRow person)
+    {
+        if (wide)
+            return true;
+        return PersonCodes(person).Any(code => ApprovalRoute.BelongsTo(code, unit));
+    }
+
+    private IEnumerable<string> PersonCodes(PersonRow person)
+    {
+        if (!string.IsNullOrWhiteSpace(person.DeptCode))
+            yield return ApprovalRoute.Normalize(person.DeptCode);
+        if (responsibilityByFile.TryGetValue((person.FileNumber ?? "").Trim(), out var responsibility)
+            && !string.IsNullOrWhiteSpace(responsibility))
+            yield return ApprovalRoute.Normalize(responsibility);
+        foreach (var code in CodesIn(person.MasterName))
+            yield return code;
+        foreach (var code in CodesIn(person.FreeName))
+            yield return code;
+    }
+
+    private static IEnumerable<string> CodesIn(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            yield break;
+        foreach (Match match in Regex.Matches(text, @"\d{5}"))
+            yield return match.Value;
+    }
+
+    private static string FirstText(string? first, string? second) =>
+        !string.IsNullOrWhiteSpace(first) ? first.Trim()
+        : !string.IsNullOrWhiteSpace(second) ? second.Trim()
+        : "";
+
+    private static string UnitTitle(User user, string code)
+    {
+        var name = (user.Department ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(name))
+            return code;
+        if (string.IsNullOrWhiteSpace(code) || name.Contains(code, StringComparison.Ordinal))
+            return name;
+        return name + " · " + code;
+    }
+
+    private bool InDivision(PersonRow person, DivisionChoice choice) =>
+        PersonCodes(person).Any(code => ApprovalRoute.Same(code, choice.Code));
+
+    private static string DivisionName(PersonRow person)
+    {
+        if (!string.IsNullOrWhiteSpace(person.MasterName))
+            return person.MasterName.Trim();
+        if (!string.IsNullOrWhiteSpace(person.FreeName))
+            return person.FreeName.Trim();
+        return "—";
+    }
+
+    private static string FirstIn(IReadOnlyList<Punch> punches)
+    {
+        var times = punches.Where(punch => punch.Direction == MovementDirection.In).Select(punch => punch.Time).ToList();
+        return times.Count == 0 ? "—" : times.Min().ToString("HH:mm");
+    }
+
+    private static string LastOut(IReadOnlyList<Punch> punches)
+    {
+        var times = punches.Where(punch => punch.Direction == MovementDirection.Out).Select(punch => punch.Time).ToList();
+        return times.Count == 0 ? "—" : times.Max().ToString("HH:mm");
+    }
+
+    private static string DayName(DateTime date) => date.DayOfWeek switch
+    {
+        DayOfWeek.Saturday => "السبت",
+        DayOfWeek.Sunday => "الأحد",
+        DayOfWeek.Monday => "الإثنين",
+        DayOfWeek.Tuesday => "الثلاثاء",
+        DayOfWeek.Wednesday => "الأربعاء",
+        DayOfWeek.Thursday => "الخميس",
+        DayOfWeek.Friday => "الجمعة",
+        _ => ""
+    };
+
+    private static string Display(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "—" : value.Trim();
+
+    private sealed record DivisionChoice(string Key, string Label, string Code);
+    private sealed record PersonRow(Guid Id, string? FileNumber, string? FullName, Guid? DepartmentId, string? DeptCode, string? MasterName, string? FreeName);
+    private sealed record Punch(MovementDirection Direction, DateTime Time);
+    private sealed record DayRow(string Date, string Day, string Entry, string Exit);
+    private sealed record StaffRow(string FileNumber, string Name, string Entry, string Exit);
+    private sealed record EmployeeReport(string FileNumber, string Name, string Division, string From, string To, List<DayRow> Days);
+    private sealed record DivisionReport(string Division, string Date, List<StaffRow> People);
+}

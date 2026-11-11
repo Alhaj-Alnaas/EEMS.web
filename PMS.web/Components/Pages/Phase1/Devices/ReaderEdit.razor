@@ -7,102 +7,112 @@
 
 <PageTitle>@(IsNew ? "إضافة قارئة" : "تعديل قارئة") - PMS</PageTitle>
 
-<h3 class="mb-4">
-    <i class="bi bi-hdd-network-fill text-warning"></i>
-    @(IsNew ? "إضافة قارئة جديدة" : "تعديل بيانات القارئة")
-</h3>
+<div class="pms-create-page pms-reader-page">
+    <h3 class="mb-1">
+        <i class="bi bi-hdd-network-fill text-warning"></i>
+        @(IsNew ? "إضافة قارئة جديدة" : "تعديل بيانات القارئة")
+    </h3>
+    <p class="text-muted small mb-2">اربط القارئة ببوابة وحدد اتجاه الحركة، ثم احفظ البيانات.</p>
 
-@if (!string.IsNullOrEmpty(error))
-{
-    <div class="alert alert-danger">@error</div>
-}
-
-@if (loading)
-{
-    <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
-}
-else
-{
-    <div class="card">
-        <div class="card-body">
-            <EditForm Model="model" OnValidSubmit="SaveAsync">
-                <DataAnnotationsValidator />
-
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label">اسم القارئة <span class="text-danger">*</span></label>
-                        <InputText class="form-control" @bind-Value="model.Name" />
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">الرقم التسلسلي (SN) <span class="text-danger">*</span></label>
-                        <InputText class="form-control" @bind-Value="model.DeviceSerial" placeholder="رقم ZKTeco التسلسلي" />
-                        <div class="form-text">يجب أن يطابق إعدادات الجهاز لإتمام Push Protocol.</div>
-                    </div>
-
-                    <div class="col-md-4">
-                        <label class="form-label">البوابة <span class="text-danger">*</span></label>
-                        <InputSelect class="form-select" @bind-Value="model.GateId">
-                            <option value="@Guid.Empty">— اختر البوابة —</option>
-                            @foreach (var g in gates)
-                            {
-                                <option value="@g.Id">@g.no — @g.description</option>
-                            }
-                        </InputSelect>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">نوع القارئة <span class="text-danger">*</span></label>
-                        <InputSelect class="form-select" @bind-Value="model.Direction">
-                            <option value="@MovementDirection.In">دخول</option>
-                            <option value="@MovementDirection.Out">خروج</option>
-                        </InputSelect>
-                        <div class="form-text">كل حركة تُرحَّل من هذه القارئة تُسجَّل بهذا الاتجاه.</div>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">الموديل</label>
-                        <InputText class="form-control" @bind-Value="model.Model" placeholder="مثال: SpeedFace-V5L" />
-                    </div>
-
-                    <div class="col-md-4">
-                        <label class="form-label">عنوان IP</label>
-                        <InputText class="form-control" @bind-Value="model.IpAddress" placeholder="10.10.x.x" />
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label">المنفذ</label>
-                        <InputNumber class="form-control" @bind-Value="model.Port" />
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">الحالة الحالية</label>
-                        <input class="form-control" value="@StatusLabel(model.Status)" disabled />
-                    </div>
-                    <div class="col-md-3">
-                        <div class="form-check form-switch mt-4">
-                            <InputCheckbox class="form-check-input" @bind-Value="model.IsActive" id="isActive" />
-                            <label class="form-check-label" for="isActive">قارئة نشطة</label>
+    @if (loading)
+    {
+        <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+    }
+    else
+    {
+        <EditForm Model="model" class="pms-create-form" OnValidSubmit="SaveAsync">
+            <DataAnnotationsValidator />
+            <div class="pms-create-body">
+                <div class="row g-2">
+                    <div class="col-lg-6">
+                        <div class="card pms-basic-card">
+                            <div class="card-header pms-header">بيانات القارئة</div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label">اسم القارئة <span class="text-danger">*</span></label>
+                                    <InputText class="form-control" @bind-Value="model.Name" />
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">الرقم التسلسلي <span class="text-danger">*</span></label>
+                                    <InputText class="form-control" @bind-Value="model.DeviceSerial" />
+                                    <div class="form-text">يجب أن يطابق الرقم المسجّل في الجهاز.</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">نوع القارئة <span class="text-danger">*</span></label>
+                                    <InputSelect class="form-select" @bind-Value="model.Direction">
+                                        <option value="@MovementDirection.In">دخول</option>
+                                        <option value="@MovementDirection.Out">خروج</option>
+                                    </InputSelect>
+                                    <div class="form-text">كل حركة تُرحَّل من هذه القارئة تُسجَّل بهذا الاتجاه.</div>
+                                </div>
+                                <div class="mb-0">
+                                    <label class="form-label">الموديل</label>
+                                    <InputText class="form-control" @bind-Value="model.Model" />
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="col-md-12">
-                        <label class="form-label">ملاحظات</label>
-                        <InputTextArea class="form-control" @bind-Value="model.remarks" rows="2" />
+                    <div class="col-lg-6">
+                        <div class="card pms-basic-card">
+                            <div class="card-header pms-header">الربط والتشغيل</div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label">البوابة <span class="text-danger">*</span></label>
+                                    <InputSelect class="form-select" @bind-Value="model.GateId">
+                                        <option value="@Guid.Empty">— اختر البوابة —</option>
+                                        @foreach (var g in gates)
+                                        {
+                                            <option value="@g.Id">@g.no — @g.description</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+                                <div class="row g-2 mb-3">
+                                    <div class="col-8">
+                                        <label class="form-label">عنوان IP</label>
+                                        <InputText class="form-control" inputmode="decimal" @bind-Value="model.IpAddress" @bind-Value:after="NormalizeIp" />
+                                    </div>
+                                    <div class="col-4">
+                                        <label class="form-label">المنفذ <span class="text-danger">*</span></label>
+                                        <InputNumber class="form-control" @bind-Value="model.Port" />
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">الحالة الحالية</label>
+                                    <input class="form-control pms-readonly" value="@StatusLabel(model.Status)" disabled />
+                                </div>
+                                <div class="form-check form-switch mb-3">
+                                    <InputCheckbox class="form-check-input" @bind-Value="model.IsActive" id="isActive" />
+                                    <label class="form-check-label fw-bold" for="isActive">قارئة نشطة</label>
+                                </div>
+                                <div class="mb-0">
+                                    <label class="form-label">ملاحظات</label>
+                                    <InputTextArea class="form-control" @bind-Value="model.remarks" rows="2" />
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="alert alert-info mt-3 mb-0 small">
-                    <i class="bi bi-info-circle"></i>
-                    لربط الجهاز عبر <strong>Push Protocol</strong>: عيّن في قائمة Cloud/ADMS على الجهاز عنوان الخادم
-                    <code>@pushBaseUrl</code> والمنفذ المناسب. بعد التسجيل سيظهر الاتصال في «حالة الأجهزة».
-                </div>
+                <p class="text-muted small mt-2 mb-0">
+                    لربط الجهاز: عيّن في قائمة الإعدادات على الجهاز عنوان خادم النظام والمنفذ المناسب. بعد التسجيل يظهر الاتصال في حالة الأجهزة.
+                </p>
+            </div>
 
-                <div class="mt-4 d-flex gap-2">
-                    <button type="submit" class="btn btn-warning" disabled="@saving">
-                        <i class="bi bi-save"></i> @(saving ? "جاري الحفظ..." : "حفظ")
-                    </button>
-                    <BackLink Fallback="/devices/readers">إلغاء</BackLink>
-                </div>
-            </EditForm>
-        </div>
-    </div>
-}
+            @if (!string.IsNullOrEmpty(error))
+            {
+                <div class="alert alert-danger mt-2 mb-0">@error</div>
+            }
+
+            <div class="pms-create-actions">
+                <button type="submit" class="btn btn-warning px-4" disabled="@saving">
+                    <i class="bi bi-save"></i> @(saving ? "جاري الحفظ..." : "حفظ")
+                </button>
+                <BackLink Fallback="/devices/readers" Css="btn btn-outline-secondary px-4">إلغاء</BackLink>
+            </div>
+        </EditForm>
+    }
+</div>
 
 @code {
     [Parameter] public Guid Id { get; set; }
@@ -111,13 +121,11 @@ else
     private bool loading = true;
     private bool saving;
     private string? error;
-    private string pushBaseUrl = "";
     private Reader model = new() { Name = "", DeviceSerial = "", Port = 80, IsActive = true };
     private List<Gate> gates = new();
 
     protected override async Task OnInitializedAsync()
     {
-        pushBaseUrl = Navigation.BaseUri.TrimEnd('/') + "/iclock";
         gates = (await GateService.GetAllAsync()).Where(g => !g.isDeleted).OrderBy(g => g.no).ToList();
 
         if (!IsNew)
@@ -131,6 +139,8 @@ else
 
         loading = false;
     }
+
+    private void NormalizeIp() => model.IpAddress = FieldRules.Ip(model.IpAddress);
 
     private async Task SaveAsync()
     {
@@ -148,6 +158,16 @@ else
         if (model.GateId == Guid.Empty)
         {
             error = "يجب اختيار البوابة.";
+            return;
+        }
+        if (model.Port is < 1 or > 65535)
+        {
+            error = "المنفذ يجب أن يكون رقماً بين 1 و 65535.";
+            return;
+        }
+        if (!FieldRules.IsIpv4(model.IpAddress))
+        {
+            error = "عنوان IP يجب أن يتكون من أرقام ونقاط فقط، مثل 10.10.101.4.";
             return;
         }
 

@@ -1,4 +1,4 @@
-﻿@model EditGateViewModel
+@model EditGateViewModel
 
 @{
     ViewData["Title"] = "تعديل البوابة";
@@ -117,7 +117,7 @@
                     <input type="hidden" asp-for="Id" />
 
                     <div class="row g-4">
-                        <div class="col-lg-6">
+                        <div class="col-12">
                             <h5 class="section-title text-center">البيانات الأساسية</h5>
                             <div class="mb-3">
                                 <label asp-for="No" class="form-label">رقم البوابة</label>
@@ -141,23 +141,6 @@
                                 <textarea asp-for="Remarks" class="form-control" rows="3"></textarea>
                                 <span asp-validation-for="Remarks" class="text-danger"></span>
                             </div>
-                        </div>
-
-                        <div class="col-lg-6">
-                            <h5 class="section-title text-center">أنواع التصاريح المسموح بها</h5>
-                            <div class="permit-types-container">
-                                @foreach (var permit in Model.PermitTypes)
-                                {
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox"
-                                               name="SelectedPermitTypeIds"
-                                               value="@permit.Id"
-                                               @(Model.SelectedPermitTypeIds.Contains(permit.Id) ? "checked" : "") />
-                                        <label class="form-check-label">@permit.Name</label>
-                                    </div>
-                                }
-                            </div>
-                            <span asp-validation-for="SelectedPermitTypeIds" class="text-danger"></span>
                         </div>
                     </div>
 
@@ -216,23 +199,6 @@
         <label asp-for="Remarks" class="form-label"></label>
         <textarea asp-for="Remarks" class="form-control"></textarea>
         <span asp-validation-for="Remarks" class="text-danger"></span>
-    </div>
-
-    <div class="mb-3">
-        <label asp-for="SelectedPermitTypeIds" class="form-label">أنواع التصاريح المسموح بها</label>
-        <div class="border p-2" style="max-height:200px; overflow-y:auto; direction:rtl;">
-            @foreach (var permit in Model.PermitTypes)
-            {
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox"
-                           name="SelectedPermitTypeIds"
-                           value="@permit.Id"
-                           @(Model.SelectedPermitTypeIds.Contains(permit.Id) ? "checked" : "") />
-                    <label class="form-check-label">@permit.Name</label>
-                </div>
-            }
-        </div>
-        <span asp-validation-for="SelectedPermitTypeIds" class="text-danger"></span>
     </div>
 
     <div class="mb-3">

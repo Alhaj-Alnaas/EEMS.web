@@ -6,6 +6,7 @@
 @using Core.Models.Security
 @using Core.Security
 @using PMS.web.Authorization
+@using PMS.web.Helpers
 @inject IUserAccountService Users
 @inject IAccessLevelService AccessLevels
 @inject IHrEmployeeLookupService HrLookup
@@ -37,10 +38,10 @@
                     <div class="card-header bg-light fw-bold">البيانات الأساسية</div>
                     <div class="card-body">
                         <div class="mb-3">
-                            <label class="form-label">الرقم الوظيفي</label>
+                            <label class="form-label">الرقم الوظيفي <span class="pms-req">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="bi bi-person-vcard"></i></span>
-                                <InputText class="form-control" @bind-Value="model.EmpFileNo" placeholder="الرقم الوظيفي" disabled="@hrLocked" />
+                                <InputText class="form-control" inputmode="numeric" @bind-Value="model.EmpFileNo" @bind-Value:after="NormalizeFileNo" placeholder="الرقم الوظيفي" disabled="@hrLocked" />
                                 <button type="button" class="btn btn-warning" @onclick="FetchHrAsync" disabled="@fetching">
                                     <i class="bi bi-search"></i> عرض
                                 </button>
@@ -97,6 +98,7 @@
                                 لا توجد مستويات دخول نشطة. أضف مستوى من شاشة مستويات الدخول أولاً.
                             </div>
                         }
+                        <label class="form-label">مستوى الدخول <span class="pms-req">*</span></label>
                         <InputSelect class="form-select" @bind-Value="selectedAccessLevelId" @bind-Value:after="SyncAccessLevel">
                             <option value="">-- اختر مستوى الدخول --</option>
                             @foreach (var l in levels)
@@ -113,6 +115,7 @@
                     <div class="card-header bg-light fw-bold">كلمة المرور</div>
                     <div class="card-body">
                         <div class="mb-3">
+                            <label class="form-label">كلمة المرور <span class="pms-req">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="bi bi-lock"></i></span>
                                 <InputText type="password" class="form-control" @bind-Value="model.Password"
@@ -121,6 +124,7 @@
                             <ValidationMessage For="() => model.Password" />
                         </div>
                         <div class="mb-3">
+                            <label class="form-label">تأكيد كلمة المرور <span class="pms-req">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="bi bi-key"></i></span>
                                 <InputText type="password" class="form-control" @bind-Value="model.ConfirmPassword" placeholder="تأكيد كلمة المرور" />
@@ -190,6 +194,8 @@
             error = "تعذر تحميل مستويات الدخول. تأكد من تطبيق ترحيل AccessLevels ثم أعد تشغيل النظام. " + ex.Message;
         }
     }
+
+    private void NormalizeFileNo() => model.EmpFileNo = FieldRules.Digits(model.EmpFileNo);
 
     private void SyncAccessLevel()
     {

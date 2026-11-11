@@ -106,7 +106,8 @@ namespace Services.Organization
 
         public async Task<(int Queued, bool WasUpdate)> UpsertByFileNumberAsync(
             Employee incoming,
-            IReadOnlyList<Guid>? enrollReaderIds = null)
+            IReadOnlyList<Guid>? enrollReaderIds = null,
+            bool clearPhoto = false)
         {
             var pin = incoming.FileNumber?.Trim() ?? "";
             if (string.IsNullOrWhiteSpace(pin))
@@ -120,13 +121,17 @@ namespace Services.Organization
             if (tracked != null)
             {
                 // تعديل موظف موجود  
-                if (string.IsNullOrWhiteSpace(incoming.PhotoPath)
+                if (clearPhoto)
+                    incoming.PhotoPath = null;
+                else if (string.IsNullOrWhiteSpace(incoming.PhotoPath)
                     && !string.IsNullOrWhiteSpace(tracked.PhotoPath))
                 {
                     incoming.PhotoPath = tracked.PhotoPath;
                 }
 
                 ApplyRegistrationFields(tracked, incoming);
+                if (clearPhoto)
+                    tracked.PhotoPath = null;
                 tracked.updatedOn = DateTime.Now;
                 await _unitOfWork.SaveAsync();
 
@@ -176,6 +181,17 @@ namespace Services.Organization
             var employee = await _unitOfWork.Employees.GetQueryable()
                 .FirstOrDefaultAsync(e => e.Id == id);
             if (employee == null) return;
+
+            var movements = await _unitOfWork.MovementLogs.GetQueryable()
+                .CountAsync(m => m.EmployeeId == id && !m.isDeleted);
+            if (movements > 0)
+                throw new InvalidOperationException("لا يمكن حذف الموظف لأن له سجل حركة في النظام.");
+
+            var permits = await _unitOfWork.Permits.GetQueryable()
+                .CountAsync(p => !p.isDeleted && (p.RequesterEmployeeId == id || p.HostEmployeeId == id));
+            if (permits > 0)
+                throw new InvalidOperationException("لا يمكن حذف الموظف لارتباطه بتصاريح مسجلة.");
+
             employee.isDeleted = true;
             employee.deletedOn = DateTime.Now;
             await _unitOfWork.SaveAsync();

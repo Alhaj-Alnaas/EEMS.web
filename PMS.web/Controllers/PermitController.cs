@@ -1,4 +1,4 @@
-﻿using Core.Entities;
+using Core.Entities;
 using Core.Interfaces.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;

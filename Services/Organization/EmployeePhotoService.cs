@@ -44,12 +44,18 @@ namespace Services.Organization
                 safeName = Guid.NewGuid().ToString("N");
 
             var ext = ResolveExtension(contentType);
-            var relativeDir = Path.Combine("uploads", "employees");
+            var relativeDir = Path.Combine("images", safeName);
             var physicalDir = Path.Combine(WebRootPath, relativeDir);
             Directory.CreateDirectory(physicalDir);
 
-            var fileName = $"{safeName}{ext}";
+            var fileName = "photo" + ext;
             var physicalPath = Path.Combine(physicalDir, fileName);
+            foreach (var old in Directory.EnumerateFiles(physicalDir, "photo.*"))
+            {
+                if (!string.Equals(old, physicalPath, StringComparison.OrdinalIgnoreCase))
+                    File.Delete(old);
+            }
+
             await File.WriteAllBytesAsync(physicalPath, imageBytes, ct);
 
             return "/" + relativeDir.Replace('\\', '/') + "/" + fileName;
@@ -64,7 +70,16 @@ namespace Services.Organization
             {
                 var physical = ResolvePhysicalPath(photoPath);
                 if (physical != null && File.Exists(physical))
+                {
                     File.Delete(physical);
+                    var dir = Path.GetDirectoryName(physical);
+                    if (!string.IsNullOrEmpty(dir)
+                        && Directory.Exists(dir)
+                        && !Directory.EnumerateFileSystemEntries(dir).Any())
+                    {
+                        Directory.Delete(dir);
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -101,10 +116,30 @@ namespace Services.Organization
 
             // Strip query string (e.g. ?t=ticks used for cache busting in UI)
             var pathOnly = photoPath.Split('?', 2)[0].Replace('\\', '/').TrimStart('/');
-            if (!pathOnly.StartsWith("uploads/employees/", StringComparison.OrdinalIgnoreCase))
+            if (!IsEmployeePhotoRelative(pathOnly))
                 return null;
 
             return Path.Combine(WebRootPath, pathOnly.Replace('/', Path.DirectorySeparatorChar));
+        }
+
+        private static bool IsEmployeePhotoRelative(string relative)
+        {
+            if (relative.Contains("..", StringComparison.Ordinal))
+                return false;
+
+            if (relative.StartsWith("uploads/employees/", StringComparison.OrdinalIgnoreCase))
+                return relative.Length > "uploads/employees/".Length;
+
+            var parts = relative.Split('/');
+            if (parts.Length != 3 || !parts[0].Equals("images", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            var folder = parts[1];
+            var file = parts[2];
+            if (folder.Length == 0 || file.Length == 0 || file.Contains('.', StringComparison.Ordinal) == false)
+                return false;
+
+            return folder.All(c => char.IsLetterOrDigit(c) || c is '-' or '_');
         }
 
         private static string ResolveExtension(string? contentType)

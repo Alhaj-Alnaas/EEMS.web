@@ -144,6 +144,8 @@ builder.Services.AddScoped<IEmployeeService, Services.Organization.EmployeeServi
 builder.Services.AddScoped<IEmployeeEnrollmentService, Services.Organization.EmployeeEnrollmentService>();
 builder.Services.AddScoped<IDepartmentMasterService, Services.Organization.DepartmentMasterService>();
 builder.Services.AddScoped<IHrEmployeeLookupService, Services.Organization.HrEmployeeLookupService>();
+builder.Services.AddScoped<ICerpsPersonnelLookup, Services.Organization.CerpsPersonnelLookup>();
+builder.Services.AddScoped<IDivisionGateService, Services.AccessControl.DivisionGateService>();
 builder.Services.AddScoped<IEmployeePhotoService, Services.Organization.EmployeePhotoService>();
 builder.Services.AddScoped<IEmployeeCardService, Services.Organization.EmployeeCardService>();
 builder.Services.Configure<Core.Options.HrEmployeeApiOptions>(
@@ -176,9 +178,12 @@ builder.Services.AddHostedService<Services.AccessControl.Workers.ReaderSyncSched
 builder.Services.AddHostedService<Services.Permits.PermitExecutionMaintenanceWorker>();
 
 // Phase 2: Workflow services
+builder.Services.AddSingleton<PMS.web.Reporting.IReportFileCache, PMS.web.Reporting.ReportFileCache>();
+builder.Services.AddScoped<IAuditLogService, Services.Audit.AuditLogService>();
 builder.Services.AddScoped<IWorkflowEngine, Services.Workflow.WorkflowEngine>();
 builder.Services.AddScoped<IApprovalPathService, Services.Workflow.ApprovalPathService>();
 builder.Services.AddScoped<IMaterialPermitService, Services.Permits.MaterialPermitService>();
+builder.Services.AddScoped<IDashboardService, Services.Dashboard.DashboardService>();
 builder.Services.AddScoped<IPermitExecutionService, Services.Permits.PermitExecutionService>();
 builder.Services.AddSingleton<ILiveNoticeHub, Services.Workflow.LiveNoticeHub>();
 builder.Services.AddScoped<IPermitNotifier, Services.Permits.PermitNotifier>();

@@ -1,5 +1,6 @@
 using Core.Common;
 using Core.Entities;
+using Core.Interfaces.Services;
 using Core.Interfaces.Services.Permits;
 using Core.Interfaces.Services.Workflow;
 using Core.Models;
@@ -14,15 +15,18 @@ namespace Services.Permits
         private readonly IDbContextFactory<DataContext> _dbFactory;
         private readonly INotificationService _notifications;
         private readonly IPermitNotifier _notifier;
+        private readonly IAuditLogService _audit;
 
         public PermitExecutionService(
             IDbContextFactory<DataContext> dbFactory,
             INotificationService notifications,
-            IPermitNotifier notifier)
+            IPermitNotifier notifier,
+            IAuditLogService audit)
         {
             _dbFactory = dbFactory;
             _notifications = notifications;
             _notifier = notifier;
+            _audit = audit;
         }
 
         public async Task<List<Gate>> GetActiveGatesAsync()
@@ -81,12 +85,31 @@ namespace Services.Permits
             }
 
             await db.SaveChangesAsync();
+            await _audit.WriteAsync(new AuditLogEntry
+            {
+                SourceKey = "gates:" + key + ":" + DateTime.Now.Ticks,
+                Area = AuditArea.Administration,
+                Action = AuditAction.Settings,
+                Summary = "تعديل بوابات تنفيذ " + ApprovalPathCatalog.ClassificationTitle(classification),
+                OccurredAt = DateTime.Now
+            });
         }
 
         public async Task<List<PermitExecutionRow>> GetActivePermitsAsync()
         {
             var permits = await LoadActiveAsync();
             return await DescribeAsync(permits);
+        }
+
+        public async Task<Dictionary<Guid, string>> ExecutionGateLabelsAsync(IReadOnlyList<Permit> permits)
+        {
+            if (permits.Count == 0)
+                return new Dictionary<Guid, string>();
+
+            var rows = await DescribeAsync(permits.ToList());
+            return rows.ToDictionary(
+                row => row.Permit.Id,
+                row => string.IsNullOrWhiteSpace(row.ExecutionScope) ? "—" : row.ExecutionScope);
         }
 
         public async Task<List<PermitExecutionRow>> GetExecutableAsync(Guid gateId)
@@ -255,8 +278,20 @@ namespace Services.Permits
             if (step.Completed)
                 throw new InvalidOperationException("اكتمل تنفيذ هذا التصريح.");
 
-            Record(db, permit, gate, step.Direction, when, notes, user.FullName, user.UserName, user.JobtypeName, step.ClosesPermit);
+            var movement = Record(db, permit, gate, step.Direction, when, notes, user.FullName, user.UserName, user.JobtypeName, step.ClosesPermit);
             await db.SaveChangesAsync();
+            var direction = step.Direction == MovementDirection.In ? "دخول" : "خروج";
+            await _audit.WriteAsync(new AuditLogEntry
+            {
+                SourceKey = "movement:" + movement.Id,
+                Area = AuditArea.Permits,
+                Action = AuditAction.Manual,
+                Summary = "تسجيل حركة " + direction + " للتصريح " + permit.no,
+                ActorFileNumber = user.UserName,
+                ActorName = user.FullName,
+                OccurredAt = when,
+                GateName = GateLabel(gate)
+            });
             await _notifier.NotifyAsync(
                 permit,
                 "تنفيذ تصريح",
@@ -484,7 +519,7 @@ namespace Services.Permits
                 Gate = GateLabel(m.Gate)
             }).ToList();
 
-        private static void Record(
+        private static MovementLog Record(
             DataContext db,
             Permit permit,
             Gate gate,
@@ -497,7 +532,7 @@ namespace Services.Permits
             bool closes)
         {
             var note = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
-            db.MovementLogs.Add(new MovementLog
+            var movement = new MovementLog
             {
                 Id = Guid.NewGuid(),
                 PermitId = permit.Id,
@@ -509,7 +544,8 @@ namespace Services.Permits
                 RecordedBy = fullName,
                 createdBy = userName,
                 createdOn = DateTime.Now
-            });
+            };
+            db.MovementLogs.Add(movement);
 
             db.ProceduresMovment.Add(new ProcedureMovment
             {
@@ -526,7 +562,7 @@ namespace Services.Permits
             });
 
             if (!closes)
-                return;
+                return movement;
 
             permit.isClosed = true;
             permit.status = 'C';
@@ -534,6 +570,7 @@ namespace Services.Permits
             permit.closeOn = when;
             permit.updatedBy = userName;
             permit.updatedOn = DateTime.Now;
+            return movement;
         }
 
         private static bool IsVisitors(Permit permit)

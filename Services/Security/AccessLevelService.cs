@@ -1,4 +1,7 @@
 using Core.Entities.Security;
+using Core.Common;
+using Core.Entities;
+using Core.Interfaces.Services;
 using Core.Interfaces.Services.Security;
 using Core.Interfaces.UnitOfWork;
 using Core.Models.Security;
@@ -97,11 +100,13 @@ namespace Services.Security
     {
         private readonly IDbContextFactory<DataContext> _dbFactory;
         private readonly ISystemTaskQueryService _tasks;
+        private readonly IAuditLogService _audit;
 
-        public AccessLevelService(IDbContextFactory<DataContext> dbFactory, ISystemTaskQueryService tasks)
+        public AccessLevelService(IDbContextFactory<DataContext> dbFactory, ISystemTaskQueryService tasks, IAuditLogService audit)
         {
             _dbFactory = dbFactory;
             _tasks = tasks;
+            _audit = audit;
         }
 
         public async Task<List<AccessLevel>> GetAllAsync(bool includeInactive = false)
@@ -169,6 +174,15 @@ namespace Services.Security
 
             db.AccessLevels.Add(entity);
             await db.SaveChangesAsync();
+            await _audit.WriteAsync(new AuditLogEntry
+            {
+                SourceKey = "level-add:" + entity.Id,
+                Area = AuditArea.Administration,
+                Action = AuditAction.Add,
+                Summary = "إضافة مستوى الدخول " + entity.Name,
+                ActorFileNumber = userName,
+                OccurredAt = DateTime.Now
+            });
             return entity;
         }
 
@@ -207,6 +221,15 @@ namespace Services.Security
             }
 
             await db.SaveChangesAsync();
+            await _audit.WriteAsync(new AuditLogEntry
+            {
+                SourceKey = "level-edit:" + entity.Id + ":" + DateTime.Now.Ticks,
+                Area = AuditArea.Administration,
+                Action = AuditAction.Settings,
+                Summary = "تعديل مستوى الدخول " + entity.Name,
+                ActorFileNumber = userName,
+                OccurredAt = DateTime.Now
+            });
         }
 
         public async Task DeleteAsync(Guid id, string? userName)
@@ -224,6 +247,15 @@ namespace Services.Security
             entity.deletedOn = DateTime.Now;
             entity.IsActive = false;
             await db.SaveChangesAsync();
+            await _audit.WriteAsync(new AuditLogEntry
+            {
+                SourceKey = "level-delete:" + entity.Id,
+                Area = AuditArea.Administration,
+                Action = AuditAction.Delete,
+                Summary = "حذف مستوى الدخول " + entity.Name,
+                ActorFileNumber = userName,
+                OccurredAt = DateTime.Now
+            });
         }
     }
 }

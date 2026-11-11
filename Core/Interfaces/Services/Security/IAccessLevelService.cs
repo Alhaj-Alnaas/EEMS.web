@@ -25,9 +25,9 @@ namespace Core.Interfaces.Services.Security
         Task<List<UserAccountListItem>> SearchAsync(string? fileNumber, int take = 200);
         Task<UserAccountDetail?> GetByFileNumberAsync(string fileNumber);
         Task<(bool Ok, string Message, string? UserId)> CreateAsync(CreateUserAccountModel model);
-        Task<(bool Ok, string Message)> UpdateAccessLevelAsync(string userId, Guid accessLevelId);
-        Task<(bool Ok, string Message, string? TempPassword)> ResetPasswordAsync(string userId);
-        Task<(bool Ok, string Message)> DeleteAsync(string userId);
+        Task<(bool Ok, string Message)> UpdateAccessLevelAsync(string userId, Guid accessLevelId, string? actorFile = null);
+        Task<(bool Ok, string Message, string? TempPassword)> ResetPasswordAsync(string userId, string? actorFile = null);
+        Task<(bool Ok, string Message)> DeleteAsync(string userId, string? actorFile = null);
         Task<bool> ExistsByFileNumberAsync(string fileNumber);
     }
 

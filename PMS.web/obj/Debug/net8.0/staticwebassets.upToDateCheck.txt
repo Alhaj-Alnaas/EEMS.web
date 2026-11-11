@@ -17,6 +17,7 @@ wwwroot\js\UserManagement\passwordStrength.js
 wwwroot\js\employee-camera.js
 wwwroot\js\employee-register.js
 wwwroot\js\login.js
+wwwroot\js\pms-download.js
 wwwroot\js\pms-login.js
 wwwroot\js\pms-message.js
 wwwroot\js\pms-nav.js

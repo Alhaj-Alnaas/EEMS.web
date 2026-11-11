@@ -1,5 +1,7 @@
+using Core.Common;
 using Core.Entities;
 using Core.Entities.Security;
+using Core.Interfaces.Services;
 using Core.Interfaces.Services.Security;
 using Core.Models.Security;
 using Core.Security;
@@ -13,11 +15,13 @@ namespace Services.Security
     {
         private readonly UserManager<User> _userManager;
         private readonly IDbContextFactory<DataContext> _dbFactory;
+        private readonly IAuditLogService _audit;
 
-        public UserAccountService(UserManager<User> userManager, IDbContextFactory<DataContext> dbFactory)
+        public UserAccountService(UserManager<User> userManager, IDbContextFactory<DataContext> dbFactory, IAuditLogService audit)
         {
             _userManager = userManager;
             _dbFactory = dbFactory;
+            _audit = audit;
         }
 
         public async Task<List<UserAccountListItem>> SearchAsync(string? fileNumber, int take = 200)
@@ -112,7 +116,7 @@ namespace Services.Security
             return (true, "تم إضافة المستخدم بنجاح.", user.Id);
         }
 
-        public async Task<(bool Ok, string Message)> UpdateAccessLevelAsync(string userId, Guid accessLevelId)
+        public async Task<(bool Ok, string Message)> UpdateAccessLevelAsync(string userId, Guid accessLevelId, string? actorFile = null)
         {
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null) return (false, "المستخدم غير موجود.");
@@ -125,12 +129,22 @@ namespace Services.Security
             user.AccessLevelId = level.Id;
             user.UserType = DeriveLegacyUserType(level);
             var result = await _userManager.UpdateAsync(user);
-            return result.Succeeded
-                ? (true, "تم تحديث مستوى الدخول.")
-                : (false, string.Join(" | ", result.Errors.Select(e => e.Description)));
+            if (!result.Succeeded)
+                return (false, string.Join(" | ", result.Errors.Select(e => e.Description)));
+
+            await _audit.WriteAsync(new AuditLogEntry
+            {
+                SourceKey = "user-level:" + user.Id + ":" + level.Id + ":" + DateTime.Now.Ticks,
+                Area = AuditArea.Administration,
+                Action = AuditAction.Settings,
+                Summary = "تعديل مستوى دخول " + user.FileNumber + " إلى " + level.Name,
+                ActorFileNumber = actorFile,
+                OccurredAt = DateTime.Now
+            });
+            return (true, "تم تحديث مستوى الدخول.");
         }
 
-        public async Task<(bool Ok, string Message, string? TempPassword)> ResetPasswordAsync(string userId)
+        public async Task<(bool Ok, string Message, string? TempPassword)> ResetPasswordAsync(string userId, string? actorFile = null)
         {
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null) return (false, "المستخدم غير موجود.", null);
@@ -138,20 +152,40 @@ namespace Services.Security
             var temp = "Pms@" + Random.Shared.Next(100000, 999999);
             var token = await _userManager.GeneratePasswordResetTokenAsync(user);
             var result = await _userManager.ResetPasswordAsync(user, token, temp);
-            return result.Succeeded
-                ? (true, "تم تصفير كلمة المرور.", temp)
-                : (false, string.Join(" | ", result.Errors.Select(e => e.Description)), null);
+            if (!result.Succeeded)
+                return (false, string.Join(" | ", result.Errors.Select(e => e.Description)), null);
+
+            await _audit.WriteAsync(new AuditLogEntry
+            {
+                SourceKey = "user-reset:" + user.Id + ":" + DateTime.Now.Ticks,
+                Area = AuditArea.Administration,
+                Action = AuditAction.Settings,
+                Summary = "تصفير كلمة مرور " + user.FileNumber + " " + user.FullName,
+                ActorFileNumber = actorFile,
+                OccurredAt = DateTime.Now
+            });
+            return (true, "تم تصفير كلمة المرور.", temp);
         }
 
-        public async Task<(bool Ok, string Message)> DeleteAsync(string userId)
+        public async Task<(bool Ok, string Message)> DeleteAsync(string userId, string? actorFile = null)
         {
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null) return (false, "المستخدم غير موجود.");
 
             var result = await _userManager.DeleteAsync(user);
-            return result.Succeeded
-                ? (true, "تم حذف المستخدم.")
-                : (false, string.Join(" | ", result.Errors.Select(e => e.Description)));
+            if (!result.Succeeded)
+                return (false, string.Join(" | ", result.Errors.Select(e => e.Description)));
+
+            await _audit.WriteAsync(new AuditLogEntry
+            {
+                SourceKey = "user-delete:" + user.Id,
+                Area = AuditArea.Administration,
+                Action = AuditAction.Delete,
+                Summary = "حذف المستخدم " + user.FileNumber + " " + user.FullName,
+                ActorFileNumber = actorFile,
+                OccurredAt = DateTime.Now
+            });
+            return (true, "تم حذف المستخدم.");
         }
 
         private static string DeriveLegacyUserType(AccessLevel level)

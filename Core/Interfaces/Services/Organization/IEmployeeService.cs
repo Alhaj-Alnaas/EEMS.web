@@ -22,7 +22,8 @@ namespace Core.Interfaces.Services.Organization
         /// </summary>
         Task<(int Queued, bool WasUpdate)> UpsertByFileNumberAsync(
             Employee incoming,
-            IReadOnlyList<Guid>? enrollReaderIds = null);
+            IReadOnlyList<Guid>? enrollReaderIds = null,
+            bool clearPhoto = false);
 
         /// <summary>Update IsActive only and push disable/enable to enrolled readers.</summary>
         Task<int> UpdateActiveStatusAsync(Guid employeeId, bool isActive);
