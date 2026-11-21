@@ -16,6 +16,6 @@ namespace Core.Interfaces.Services.AccessControl
 
         Task<ReaderDowntime?> GetOpenAsync(Guid readerId);
         Task<List<ReaderDowntime>> GetRecentAsync(int take = 50);
-        Task<List<ReaderDowntime>> GetByReaderAsync(Guid readerId, int take = 50);
+        Task<List<ReaderDowntime>> GetByReaderAsync(Guid readerId, int take = 50, DateTime? since = null);
     }
 }

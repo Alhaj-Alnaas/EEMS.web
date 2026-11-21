@@ -87,10 +87,19 @@ namespace Services.AccessControl
                 .ToListAsync();
         }
 
-        public async Task<List<ReaderDowntime>> GetByReaderAsync(Guid readerId, int take = 50)
+        public async Task<List<ReaderDowntime>> GetByReaderAsync(Guid readerId, int take = 50, DateTime? since = null)
         {
-            return await _unitOfWork.ReaderDowntimes.GetQueryable()
-                .Where(d => d.ReaderId == readerId && !d.isDeleted)
+            var query = _unitOfWork.ReaderDowntimes.GetQueryable()
+                .Where(d => d.ReaderId == readerId && !d.isDeleted);
+            if (since != null)
+            {
+                var from = since.Value;
+                query = query.Where(d =>
+                    d.StartedAt >= from || d.EndedAt == null || d.EndedAt >= from);
+                take = Math.Max(take, 500);
+            }
+
+            return await query
                 .OrderByDescending(d => d.StartedAt)
                 .Take(take)
                 .ToListAsync();

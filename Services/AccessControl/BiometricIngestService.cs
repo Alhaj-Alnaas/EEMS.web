@@ -63,7 +63,6 @@ namespace Services.AccessControl
                 string.Join(",", entries.Select(e => e.Pin)));
 
             var changes = 0;
-            var pendingNamePush = new List<Employee>();
             foreach (var entry in entries)
             {
                 ct.ThrowIfCancellationRequested();
@@ -76,17 +75,12 @@ namespace Services.AccessControl
 
                 if (employee == null)
                 {
-                    // Device may return users with empty name (common on SpeedFace).
-                    // Still import them — FullName falls back to PIN. Skip only empty PIN.
-                    var displayName = !string.IsNullOrWhiteSpace(entry.DeviceName)
-                        ? entry.DeviceName!.Trim()
-                        : entry.Pin;
-
+                    // The name is entered once at registration. Never copy it from the reader.
                     employee = new Employee
                     {
                         Id = Guid.NewGuid(),
                         FileNumber = entry.Pin,
-                        FullName = displayName,
+                        FullName = entry.Pin,
                         CardNumber = string.IsNullOrWhiteSpace(entry.Card) ? null : entry.Card.Trim(),
                         IsActive = true,
                         remarks = ZkTecoAccUserCommand.UpsertEnrolledSerials(
@@ -101,7 +95,7 @@ namespace Services.AccessControl
                     changes++;
                     _logger.LogWarning(
                         "Created employee from device SN={Serial} PIN={Pin} uid={Uid} name={Name} card={Card}",
-                        deviceSerial, entry.Pin, entry.Uid ?? "-", displayName, entry.Card ?? "-");
+                        deviceSerial, entry.Pin, entry.Uid ?? "-", entry.Pin, entry.Card ?? "-");
                     continue;
                 }
 
@@ -113,7 +107,7 @@ namespace Services.AccessControl
                     employee.IsActive = true;
                     employee.updatedOn = DateTime.Now;
                     if (string.IsNullOrWhiteSpace(employee.FullName))
-                        employee.FullName = entry.DeviceName ?? entry.Pin;
+                        employee.FullName = entry.Pin;
                     if (!string.IsNullOrWhiteSpace(entry.Uid))
                         employee.remarks = ZkTecoAccUserCommand.UpsertUid(employee.remarks, entry.Uid);
                     if (!string.IsNullOrWhiteSpace(entry.Card) && string.IsNullOrWhiteSpace(employee.CardNumber))
@@ -153,34 +147,11 @@ namespace Services.AccessControl
                     }
                 }
 
-                var deviceName = entry.DeviceName ?? "";
-                var hasRealPmsName = !string.IsNullOrWhiteSpace(employee.FullName)
-                    && !string.Equals(employee.FullName.Trim(), employee.FileNumber.Trim(), StringComparison.OrdinalIgnoreCase);
-
-                if (!string.IsNullOrWhiteSpace(entry.DeviceName)
-                    && !string.Equals(employee.FullName, entry.DeviceName, StringComparison.Ordinal)
-                    && !hasRealPmsName)
-                {
-                    employee.FullName = entry.DeviceName;
-                    remarksChanged = true;
-                }
-
                 if (remarksChanged)
                 {
                     employee.updatedOn = DateTime.Now;
                     _unitOfWork.Employees.Update(employee);
                     changes++;
-                }
-
-                // Do NOT auto-push name when device name is empty — that loops forever:
-                // enroll → device returns name= → push UPDATE → device push → …
-                // and duplicate UPDATE user can create blank rows on SpeedFace.
-                if (hasRealPmsName
-                    && !string.IsNullOrWhiteSpace(deviceName)
-                    && !string.Equals(employee.FullName.Trim(), deviceName, StringComparison.Ordinal)
-                    && !string.IsNullOrWhiteSpace(ZkTecoAccUserCommand.TryGetUid(employee.remarks)))
-                {
-                    pendingNamePush.Add(employee);
                 }
             }
 
@@ -199,21 +170,9 @@ namespace Services.AccessControl
                 }
             }
 
-            foreach (var employee in pendingNamePush)
-            {
-                try
-                {
-                    await _deviceSync.SyncEmployeeToReadersAsync(employee, ct);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Could not queue name push after user import PIN={Pin}", employee.FileNumber);
-                }
-            }
-
             _logger.LogInformation(
-                "USERINFO import SN={Serial} parsed={Parsed} changed={Changed} namePush={Push}",
-                deviceSerial, entries.Count, changes, pendingNamePush.Count);
+                "USERINFO import SN={Serial} parsed={Parsed} changed={Changed}",
+                deviceSerial, entries.Count, changes);
 
             try
             {

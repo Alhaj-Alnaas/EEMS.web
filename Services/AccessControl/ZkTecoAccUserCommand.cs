@@ -39,23 +39,25 @@ namespace Services.AccessControl
         public static string AccUserLine(string pin, string? name, string disable, int? uid = null, string? card = null)
         {
             pin = SanitizeToken(pin);
-            name = SanitizeName(name);
             card = SanitizeToken(card);
 
             if (string.IsNullOrWhiteSpace(pin))
                 throw new ArgumentException("PIN is required to enroll a user.");
 
+            // Name is never sent. The reader keeps the name it already stored.
+            // Name= (even empty) would overwrite or clear that name.
             // Do not send CardNo= — an empty CardNo= on UPDATE clears the badge on M4.
             // A present card is sent so an existing badge is updated and a new user receives it.
             // uid is sent only when creating a missing user. UPDATE by Pin= alone
             // returns -1004 on this firmware when the PIN is not on the device.
+            _ = name;
             var group = disable == "1" ? "99" : "1";
             var uidPart = uid is > 0 ? $"uid={uid.Value}\t" : "";
             var cardPart = string.IsNullOrWhiteSpace(card) ? "" : $"\tCardNo={card}";
 
             return "DATA UPDATE user " + uidPart +
                    $"Pin={pin}\tPassword=\tGroup={group}\tStartTime=0\tEndTime=0\t" +
-                   $"Name={name}\tPrivilege=0{cardPart}\tTZ=0000000100000000";
+                   $"Privilege=0{cardPart}\tTZ=0000000100000000";
         }
 
         /// <summary>
@@ -65,13 +67,13 @@ namespace Services.AccessControl
         public static string UserInfoUpsertLine(string pin, string? name, string? card = null)
         {
             pin = SanitizeToken(pin);
-            name = SanitizeName(name);
             card = SanitizeToken(card);
             if (string.IsNullOrWhiteSpace(pin))
                 throw new ArgumentException("PIN is required to enroll a user.");
 
+            _ = name;
             var cardPart = string.IsNullOrWhiteSpace(card) ? "" : $"\tCard={card}";
-            return $"DATA UPDATE USERINFO PIN={pin}\tName={name}\tPrivilege=0{cardPart}";
+            return $"DATA UPDATE USERINFO PIN={pin}\tPrivilege=0{cardPart}";
         }
 
         /// <summary>
@@ -146,22 +148,6 @@ namespace Services.AccessControl
 
         public static string Update(string pin, string name, string disable, string uid)
             => AccUserLine(pin, name, disable);
-
-        /// <summary>Keep Arabic/letters; strip separators that would break Acc field parsing.</summary>
-        private static string SanitizeName(string? value)
-        {
-            if (string.IsNullOrWhiteSpace(value)) return "";
-            var cleaned = value.Trim()
-                .Replace("\t", " ")
-                .Replace("\r", " ")
-                .Replace("\n", " ")
-                .Replace("=", " ");
-            var chars = cleaned.Where(c => !char.IsControl(c)).ToArray();
-            cleaned = new string(chars).Trim();
-            if (cleaned.Length > 24)
-                cleaned = cleaned[..24].Trim();
-            return cleaned;
-        }
 
         private static string SanitizeToken(string? value)
         {

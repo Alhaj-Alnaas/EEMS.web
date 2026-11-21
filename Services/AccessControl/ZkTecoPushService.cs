@@ -571,6 +571,12 @@ namespace Services.AccessControl
                 {
                     await _commands.UpdateStatusAsync(cmd.Id, DeviceCommandStatus.Failed, "Device Return=-1004");
                 }
+                else if (returnCode == "-1004"
+                         && string.Equals(cmd.CommandType, nameof(DeviceCommandType.UpdateUserInfo), StringComparison.OrdinalIgnoreCase)
+                         && ZkTecoAccUserCommand.IsCreateUserLine(cmd.Payload))
+                {
+                    await _commands.UpdateStatusAsync(cmd.Id, DeviceCommandStatus.Failed, "Device Return=-1004");
+                }
                 else
                 {
                     await _commands.UpdateStatusAsync(cmd.Id, DeviceCommandStatus.Failed, $"Device Return={returnCode}");

@@ -240,7 +240,8 @@ namespace Services.AccessControl
             var employee = await _unitOfWork.Employees.GetQueryable()
                 .FirstOrDefaultAsync(e => e.FileNumber == pin && !e.isDeleted, ct);
             var slot = ZkTecoAccUserCommand.TryGetReaderSlot(employee?.remarks, reader.DeviceSerial);
-            var userLine = ZkTecoAccUserCommand.AccUserLine(pin, name ?? employee?.FullName, disable, slot);
+            var card = string.IsNullOrWhiteSpace(employee?.CardNumber) ? null : employee!.CardNumber!.Trim();
+            var userLine = ZkTecoAccUserCommand.AccUserLine(pin, name ?? employee?.FullName, disable, slot, card);
             await _commands.EnqueueAsync(reader.Id, DeviceCommandType.UpdateUserInfo, userLine);
             await _commands.EnqueueAsync(
                 reader.Id,
@@ -526,10 +527,11 @@ namespace Services.AccessControl
                         .FirstOrDefaultAsync(e => e.FileNumber == pin, ct);
 
                 var capturedUid = pinToUid.TryGetValue(pin, out var existingUid) ? existingUid : null;
+                var card = string.IsNullOrWhiteSpace(employee?.CardNumber) ? null : employee!.CardNumber!.Trim();
                 if (capturedUid != null)
                 {
                     // PIN is already on this reader: send the same update the device accepts.
-                    wait.Payload = ZkTecoAccUserCommand.AccUserLine(pin, employee?.FullName, disable);
+                    wait.Payload = ZkTecoAccUserCommand.AccUserLine(pin, employee?.FullName, disable, card: card);
                     wait.LastError = null;
                     wait.ScheduledOn = null;
                     wait.updatedOn = DateTime.Now;
@@ -545,7 +547,7 @@ namespace Services.AccessControl
                 else
                 {
                     var createUid = await AllocateReaderSlotAsync(reader, employee, ct);
-                    wait.Payload = ZkTecoAccUserCommand.AccUserLine(pin, employee?.FullName, disable, createUid);
+                    wait.Payload = ZkTecoAccUserCommand.AccUserLine(pin, employee?.FullName, disable, createUid, card);
                     wait.LastError = null;
                     wait.ScheduledOn = null;
                     wait.updatedOn = DateTime.Now;
@@ -607,10 +609,11 @@ namespace Services.AccessControl
         {
             await SupersedePendingUpdatesAsync(reader.Id, pin, ct);
             var uid = await AllocateReaderSlotAsync(reader, employee, ct);
+            var card = string.IsNullOrWhiteSpace(employee.CardNumber) ? null : employee.CardNumber.Trim();
             var user = await _commands.EnqueueAsync(
                 reader.Id,
                 DeviceCommandType.UpdateUserInfo,
-                ZkTecoAccUserCommand.AccUserLine(pin, name, disable, uid));
+                ZkTecoAccUserCommand.AccUserLine(pin, name, disable, uid, card));
             _logger.LogWarning(
                 "Queued Acc user PIN={Pin} uid={Uid} SN={Serial}",
                 pin, uid, reader.DeviceSerial);
@@ -638,10 +641,11 @@ namespace Services.AccessControl
             await SupersedePendingUpdatesAsync(reader.Id, pin, ct);
             var ids = new List<Guid>();
             var uid = await AllocateReaderSlotAsync(reader, employee, ct);
+            var card = string.IsNullOrWhiteSpace(employee.CardNumber) ? null : employee.CardNumber.Trim();
             var user = await _commands.EnqueueAsync(
                 reader.Id,
                 DeviceCommandType.UpdateUserInfo,
-                ZkTecoAccUserCommand.AccUserLine(pin, name, disable, uid));
+                ZkTecoAccUserCommand.AccUserLine(pin, name, disable, uid, card));
             ids.Add(user.Id);
             var auth = await _commands.EnqueueAsync(
                 reader.Id,

@@ -354,3 +354,4 @@ D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\refint\PMS.web.dll
 D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\PMS.web.pdb
 D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\PMS.web.genruntimeconfig.cache
 D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\ref\PMS.web.dll
+D:\EEMS Project\PMS\PMS.web\obj\Debug\net8.0\staticwebassets.upToDateCheck.txt

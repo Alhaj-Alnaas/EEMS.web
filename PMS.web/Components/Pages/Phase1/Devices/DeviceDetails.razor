@@ -1,7 +1,6 @@
 @page "/devices/monitor/{Id:guid}"
 @rendermode InteractiveServer
 @inject IServiceScopeFactory ScopeFactory
-@inject NavigationManager Navigation
 @inject IReaderConnectionLogService ConnectionLog
 @implements IDisposable
 
@@ -36,9 +35,6 @@ else
             <button type="button" class="btn pms-btn-refresh" @onclick="() => RefreshStatsAsync()" disabled="@refreshing">
                 <i class="bi bi-arrow-clockwise@(refreshing ? " pms-spin" : "")"></i> تحديث
             </button>
-            <a class="btn pms-btn-refresh" href="@ReturnUrl.Go(Navigation, $"/devices/readers/edit/{reader.Id}")">
-                <i class="bi bi-pencil"></i> تعديل
-            </a>
         </div>
     </div>
 
@@ -140,10 +136,10 @@ else
     </div>
 
     <div class="card">
-        <div class="card-header pms-header">توقفات القارئة</div>
+        <div class="card-header pms-header">توقفات القارئة خلال شهر</div>
         @if (downtimes.Count == 0)
         {
-            <div class="card-body text-muted">لا توجد فترات توقف مسجّلة لهذه القارئة.</div>
+            <div class="card-body text-muted">لا توجد فترات توقف خلال الشهر الماضي.</div>
         }
         else
         {
@@ -189,6 +185,7 @@ else
     private List<ReaderDowntime> downtimes = new();
     private System.Threading.Timer? _timer;
     private readonly SemaphoreSlim _loadLock = new(1, 1);
+    private int _disposed;
 
     private Guid _loadedId = Guid.Empty;
     private DateTime _lastAutoRefreshAt = DateTime.MinValue;
@@ -206,14 +203,25 @@ else
     {
         _timer = new System.Threading.Timer(async _ =>
         {
-            if (!autoRefresh || refreshing) return;
+            if (System.Threading.Volatile.Read(ref _disposed) != 0 || !autoRefresh || refreshing) return;
             if ((DateTime.Now - _lastAutoRefreshAt) < TimeSpan.FromSeconds(30)) return;
 
-            await InvokeAsync(async () =>
+            try
             {
-                await LoadAsync(silent: true);
-                StateHasChanged();
-            });
+                await InvokeAsync(async () =>
+                {
+                    if (System.Threading.Volatile.Read(ref _disposed) != 0) return;
+                    await LoadAsync(silent: true);
+                    if (System.Threading.Volatile.Read(ref _disposed) == 0)
+                        StateHasChanged();
+                });
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+            catch (InvalidOperationException)
+            {
+            }
         }, null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
         return Task.CompletedTask;
     }
@@ -252,9 +260,19 @@ else
 
     private async Task LoadAsync(bool silent = false)
     {
-        await _loadLock.WaitAsync();
+        if (System.Threading.Volatile.Read(ref _disposed) != 0) return;
         try
         {
+            await _loadLock.WaitAsync();
+        }
+        catch (ObjectDisposedException)
+        {
+            return;
+        }
+
+        try
+        {
+            if (System.Threading.Volatile.Read(ref _disposed) != 0) return;
             if (!silent) loading = true;
             using var scope = ScopeFactory.CreateScope();
             var readerService = scope.ServiceProvider.GetRequiredService<IReaderService>();
@@ -265,7 +283,7 @@ else
             if (reader != null)
             {
                 stats = await statsService.GetByReaderAsync(reader.Id);
-                downtimes = await downtimeService.GetByReaderAsync(reader.Id, 50);
+                downtimes = await downtimeService.GetByReaderAsync(reader.Id, since: DateTime.Now.AddMonths(-1));
             }
             else
             {
@@ -276,7 +294,13 @@ else
         finally
         {
             if (!silent) loading = false;
-            _loadLock.Release();
+            try
+            {
+                _loadLock.Release();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
         }
     }
 
@@ -289,8 +313,8 @@ else
 
     public void Dispose()
     {
+        if (System.Threading.Interlocked.Exchange(ref _disposed, 1) != 0) return;
         _timer?.Dispose();
-        _loadLock.Dispose();
     }
 
     private static string Label(ReaderStatus s) => s switch
