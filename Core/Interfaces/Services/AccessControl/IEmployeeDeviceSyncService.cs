@@ -21,8 +21,9 @@ namespace Core.Interfaces.Services.AccessControl
         Task<int> SyncEmployeeStatusToReadersAsync(Employee employee, CancellationToken ct = default);
 
         /// <summary>
-        /// Create/enroll the employee on the given readers (SpeedFace DATA UPDATE user with allocated uid).
-        /// Persists ZkUid + enrolled serials on <paramref name="employee"/>.remarks.
+        /// Link the employee to the selected readers. Queues an update by PIN, and a create
+        /// if the reader answers that the PIN is missing. Face, card, and fingerprint are
+        /// included when they are stored. Returns how many readers were queued.
         /// </summary>
         Task<int> EnrollEmployeeOnReadersAsync(
             Employee employee,
@@ -34,6 +35,11 @@ namespace Core.Interfaces.Services.AccessControl
         /// Queue one create for a stable uid. Repeating it updates that same row.
         /// </summary>
         Task BeginCreateAfterMissingUserAsync(Guid readerId, string? failedUpdatePayload, CancellationToken ct = default);
+
+        /// <summary>
+        /// Write one audit row after a gate-link command is accepted by the reader.
+        /// </summary>
+        Task AuditGateLinkResultAsync(DeviceCommand command, Reader reader, CancellationToken ct = default);
 
         /// <summary>
         /// Push stored face, palm, and finger templates to the employee's readers

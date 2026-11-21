@@ -60,28 +60,43 @@ namespace Services.Organization
                 parameter.Value = empNo;
                 cmd.Parameters.Add(parameter);
 
-                await using var reader = await cmd.ExecuteReaderAsync(ct);
-                if (!await reader.ReadAsync(ct))
-                    return new HrEmployeeLookupResult { Success = false, Error = NotRegisteredMessage };
-
-                return new HrEmployeeLookupResult
+                HrEmployeeLookupResult result;
+                await using (var reader = await cmd.ExecuteReaderAsync(ct))
                 {
-                    Success = true,
-                    FileNumber = Text(reader, 0) ?? pin,
-                    FullName = Text(reader, 1),
-                    JobTitle = Text(reader, 2),
-                    BloodType = Text(reader, 3),
-                    Nationality = Text(reader, 4),
-                    Address = Text(reader, 5),
-                    City = Text(reader, 6),
-                    Phone = Text(reader, 7),
-                    Email = Text(reader, 8),
-                    ResponsibilityCode = Text(reader, 9),
-                    DepartmentName = Text(reader, 10),
-                    AdministrationName = Text(reader, 11),
-                    JobStatus = Text(reader, 12),
-                    JobStatusName = Text(reader, 13)
-                };
+                    if (!await reader.ReadAsync(ct))
+                        return new HrEmployeeLookupResult { Success = false, Error = NotRegisteredMessage };
+
+                    result = new HrEmployeeLookupResult
+                    {
+                        Success = true,
+                        FileNumber = Text(reader, 0) ?? pin,
+                        FullName = Text(reader, 1),
+                        JobTitle = Text(reader, 2),
+                        BloodType = Text(reader, 3),
+                        Nationality = Text(reader, 4),
+                        Address = Text(reader, 5),
+                        City = Text(reader, 6),
+                        Phone = Text(reader, 7),
+                        Email = Text(reader, 8),
+                        ResponsibilityCode = Text(reader, 9),
+                        DepartmentName = Text(reader, 10),
+                        AdministrationName = Text(reader, 11),
+                        JobStatus = Text(reader, 12),
+                        JobStatusName = Text(reader, 13)
+                    };
+                }
+
+                result.JobCatId = await TryReadJobCatAsync(conn, empNo, ct);
+                if (result.JobCatId == null)
+                {
+                    var fileNo = result.FileNumber ?? pin;
+                    result.JobCatId = await db.Users.AsNoTracking()
+                        .Where(u => u.FileNumber == fileNo || u.UserName == fileNo)
+                        .Select(u => u.JobCatId)
+                        .FirstOrDefaultAsync(ct);
+                }
+
+                return result;
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -94,6 +109,32 @@ namespace Services.Organization
                     Success = false,
                     Error = "تعذر الاتصال ببيانات شؤون الأفراد: " + ex.Message
                 };
+            }
+        }
+
+        private static async Task<int?> TryReadJobCatAsync(System.Data.Common.DbConnection conn, decimal empNo, CancellationToken ct)
+        {
+            try
+            {
+                await using var cmd = conn.CreateCommand();
+                cmd.CommandTimeout = 20;
+                cmd.CommandText = """
+                    SELECT TOP 1 job_cat_id
+                    FROM [10.10.101.4].CERPS_Hosted.dbo.v_per_m_all_emp
+                    WHERE emp_fileno = @no AND ISNULL(deletion_flag, 0) = 0
+                    """;
+                var parameter = cmd.CreateParameter();
+                parameter.ParameterName = "@no";
+                parameter.Value = empNo;
+                cmd.Parameters.Add(parameter);
+                var value = await cmd.ExecuteScalarAsync(ct);
+                if (value == null || value is DBNull)
+                    return null;
+                return int.TryParse(Convert.ToString(value, CultureInfo.InvariantCulture), out var id) ? id : null;
+            }
+            catch
+            {
+                return null;
             }
         }
 

@@ -1,11 +1,13 @@
 using Core.Common;
 using Core.Entities;
 using Core.Interfaces.Services;
+using Core.Interfaces.Services.AccessControl;
 using Core.Interfaces.Services.Permits;
 using Core.Interfaces.Services.Workflow;
 using Core.Models;
 using DataAccess;
 using Microsoft.EntityFrameworkCore;
+using Services.AccessControl;
 using static Core.Enums.BaseEnums;
 
 namespace Services.Permits
@@ -16,17 +18,20 @@ namespace Services.Permits
         private readonly INotificationService _notifications;
         private readonly IPermitNotifier _notifier;
         private readonly IAuditLogService _audit;
+        private readonly IEmployeeDeviceSyncService _deviceSync;
 
         public PermitExecutionService(
             IDbContextFactory<DataContext> dbFactory,
             INotificationService notifications,
             IPermitNotifier notifier,
-            IAuditLogService audit)
+            IAuditLogService audit,
+            IEmployeeDeviceSyncService deviceSync)
         {
             _dbFactory = dbFactory;
             _notifications = notifications;
             _notifier = notifier;
             _audit = audit;
+            _deviceSync = deviceSync;
         }
 
         public async Task<List<Gate>> GetActiveGatesAsync()
@@ -131,7 +136,7 @@ namespace Services.Permits
                     .ToListAsync();
             var byPermit = moves.GroupBy(m => m.PermitId!.Value).ToDictionary(g => g.Key, g => (IReadOnlyList<MovementLog>)g.ToList());
 
-            var executable = rows.Where(row =>
+            var executable = rows.Where(row => !EmployeeCardPermit.Is(row.Permit)).Where(row =>
             {
                 var list = byPermit.TryGetValue(row.Permit.Id, out var found) ? found : Array.Empty<MovementLog>();
                 var openGate = PermitExecutionPlan.OpenMovementGate(row.Permit, list);
@@ -152,6 +157,34 @@ namespace Services.Permits
             }
 
             return executable;
+        }
+
+        public async Task<List<PermitExecutionRow>> GetExecutableCardPermitsAsync()
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            var permits = await db.Permits.AsNoTracking()
+                .Include(p => p.RequesterEmployee)
+                .Where(p => !p.isDeleted
+                    && !p.isClosed
+                    && p.status != 'C'
+                    && p.status != 'D'
+                    && p.status != 'J'
+                    && (p.status == 'A'
+                        || p.UnifiedStatus == nameof(UnifiedPermitStatus.Active)
+                        || p.UnifiedStatus == nameof(UnifiedPermitStatus.Approved))
+                    && (p.classification == nameof(PermitClassification.EmployeeAccess)
+                        || p.classification == "دخول موظفين"
+                        || p.classification == EmployeeCardPermit.Title))
+                .OrderBy(p => p.date)
+                .ThenBy(p => p.createdOn)
+                .ToListAsync();
+
+            return permits.Select(permit => new PermitExecutionRow
+            {
+                Permit = permit,
+                PassedGuard = true,
+                NextStep = "طباعة البطاقة"
+            }).ToList();
         }
 
         private async Task<List<Permit>> LoadActiveAsync()
@@ -238,6 +271,7 @@ namespace Services.Permits
                 .Include(p => p.VisitorDetail)
                 .Include(p => p.Visitors)
                 .Include(p => p.Gate)
+                .Include(p => p.RequesterEmployee)
                 .Include(p => p.Approvals)
                     .ThenInclude(a => a.WorkflowStep)
                 .FirstOrDefaultAsync(p => p.Id == permitId)
@@ -247,7 +281,50 @@ namespace Services.Permits
             return (permit, PermitExecutionPlan.Next(permit, moves), History(moves));
         }
 
-        public async Task ExecuteAsync(Guid permitId, Guid gateId, DateTime when, string? notes, User user)
+        public async Task<List<VisitorCardOption>> GetVisitorCardsAsync(Guid gateId, Guid? permitId = null)
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            var serials = await db.Readers.AsNoTracking()
+                .Where(r => r.GateId == gateId && r.IsActive && !r.isDeleted && r.DeviceSerial != "")
+                .Select(r => r.DeviceSerial)
+                .ToListAsync();
+            var serialSet = serials
+                .Select(s => s.Trim())
+                .Where(s => s.Length > 0)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (serialSet.Count == 0)
+                return new List<VisitorCardOption>();
+
+            var people = await db.Employees.AsNoTracking()
+                .Where(e => !e.isDeleted && e.CardNumber != null && e.CardNumber != "" && e.FileNumber != "")
+                .Select(e => new { e.Id, e.FileNumber, e.CardNumber, e.FullName, e.remarks })
+                .ToListAsync();
+
+            var onGate = people
+                .Where(e => SamePinAndCard(e.FileNumber, e.CardNumber))
+                .Where(e => ZkTecoAccUserCommand.TryGetEnrolledSerials(e.remarks)
+                    .Any(sn => serialSet.Contains(sn.Trim())))
+                .GroupBy(e => e.CardNumber!.Trim(), StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.First())
+                .ToList();
+            if (onGate.Count == 0)
+                return new List<VisitorCardOption>();
+
+            var held = await HeldVisitorCardsAsync(db, permitId);
+            return onGate
+                .Where(e => !held.Contains(e.CardNumber!.Trim()))
+                .Select(e => new VisitorCardOption
+                {
+                    EmployeeId = e.Id,
+                    CardNumber = e.CardNumber!.Trim(),
+                    Pin = e.FileNumber.Trim(),
+                    Name = string.IsNullOrWhiteSpace(e.FullName) ? null : e.FullName.Trim()
+                })
+                .OrderBy(c => c.CardNumber, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        public async Task ExecuteAsync(Guid permitId, Guid gateId, DateTime when, string? notes, User user, string? visitorCard = null)
         {
             if (user == null)
                 throw new InvalidOperationException("المستخدم غير معروف.");
@@ -278,7 +355,19 @@ namespace Services.Permits
             if (step.Completed)
                 throw new InvalidOperationException("اكتمل تنفيذ هذا التصريح.");
 
-            var movement = Record(db, permit, gate, step.Direction, when, notes, user.FullName, user.UserName, user.JobtypeName, step.ClosesPermit);
+            string? card = null;
+            if (IsVisitors(permit))
+            {
+                card = visitorCard?.Trim();
+                if (string.IsNullOrWhiteSpace(card))
+                    throw new InvalidOperationException("اختر كرت الزائر قبل تسجيل الحركة.");
+
+                var available = await GetVisitorCardsAsync(gateId, permitId);
+                if (available.All(c => !string.Equals(c.CardNumber, card, StringComparison.OrdinalIgnoreCase)))
+                    throw new InvalidOperationException("الكرت المختار غير متاح على قارئات هذه البوابة.");
+            }
+
+            var movement = Record(db, permit, gate, step.Direction, when, notes, user.FullName, user.UserName, user.JobtypeName, step.ClosesPermit, card);
             await db.SaveChangesAsync();
             var direction = step.Direction == MovementDirection.In ? "دخول" : "خروج";
             await _audit.WriteAsync(new AuditLogEntry
@@ -297,6 +386,118 @@ namespace Services.Permits
                 "تنفيذ تصريح",
                 PermitNoticeText.Executed(permit.no, step.Direction == MovementDirection.In, when, step.ClosesPermit),
                 user.Id);
+        }
+
+        public async Task<int> ExecuteCardAsync(Guid permitId, string cardNumber, User user)
+        {
+            if (user == null)
+                throw new InvalidOperationException("المستخدم غير معروف.");
+
+            var card = new string((cardNumber ?? "").Where(char.IsDigit).ToArray());
+            if (card.Length == 0)
+                throw new InvalidOperationException("رقم الكرت إلزامي.");
+            if (card.Length > 20)
+                throw new InvalidOperationException("رقم الكرت أطول من المسموح.");
+
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            var permit = await db.Permits
+                .Include(p => p.RequesterEmployee)
+                .FirstOrDefaultAsync(p => p.Id == permitId)
+                ?? throw new InvalidOperationException("التصريح غير موجود.");
+
+            if (!EmployeeCardPermit.Is(permit))
+                throw new InvalidOperationException("هذا التصريح ليس طلب إصدار بطاقة.");
+            if (permit.isClosed || permit.status is 'C' or 'D' or 'J')
+                throw new InvalidOperationException("هذا التصريح مغلق.");
+            if (permit.status != 'A'
+                && permit.UnifiedStatus != nameof(UnifiedPermitStatus.Active)
+                && permit.UnifiedStatus != nameof(UnifiedPermitStatus.Approved))
+                throw new InvalidOperationException("الطلب لم يُعتمد بعد.");
+
+            var employee = permit.RequesterEmployee;
+            if (employee == null && permit.RequesterEmployeeId != null)
+            {
+                employee = await db.Employees.FirstOrDefaultAsync(e =>
+                    e.Id == permit.RequesterEmployeeId && !e.isDeleted);
+            }
+
+            var blocked = EmployeeCardPermit.PrintBlockMessage(employee);
+            if (blocked != null)
+                throw new InvalidOperationException(blocked);
+
+            var taken = await db.Employees.AnyAsync(e =>
+                !e.isDeleted
+                && e.Id != employee!.Id
+                && e.CardNumber != null
+                && e.CardNumber == card);
+            if (taken)
+                throw new InvalidOperationException("رقم الكرت مستخدم لموظف آخر.");
+
+            var previous = await db.EmployeeCards
+                .Where(c => c.EmployeeId == employee!.Id && !c.isDeleted && c.Status == "Active")
+                .ToListAsync();
+            var now = DateTime.Now;
+            foreach (var old in previous)
+            {
+                old.Status = "Cancelled";
+                old.updatedBy = user.UserName;
+                old.updatedOn = now;
+            }
+
+            employee!.CardNumber = card;
+            employee.updatedBy = user.UserName;
+            employee.updatedOn = now;
+            db.EmployeeCards.Add(new EmployeeCard
+            {
+                Id = Guid.NewGuid(),
+                EmployeeId = employee.Id,
+                CardNumber = card,
+                PhotoPath = employee.PhotoPath,
+                PrintedOn = now,
+                PrintedBy = string.IsNullOrWhiteSpace(user.FullName) ? user.UserName : user.FullName,
+                Status = "Active",
+                createdBy = user.UserName,
+                createdOn = now
+            });
+            db.ProceduresMovment.Add(new ProcedureMovment
+            {
+                Id = Guid.NewGuid(),
+                permitId = permit.Id,
+                procedureType = "print",
+                donedBy = user.FullName,
+                doneAs = user.JobtypeName,
+                shift = "A",
+                doneOn = now,
+                remarks = "كرت: " + card,
+                createdBy = user.UserName,
+                createdOn = now
+            });
+
+            permit.isClosed = true;
+            permit.status = 'C';
+            permit.statusDescription = "منفذ";
+            permit.closeOn = now;
+            permit.updatedBy = user.UserName;
+            permit.updatedOn = now;
+            await db.SaveChangesAsync();
+
+            var queued = await _deviceSync.SyncEmployeeToReadersAsync(employee);
+            await _audit.WriteAsync(new AuditLogEntry
+            {
+                SourceKey = "permit-card:" + permit.Id,
+                Area = AuditArea.Permits,
+                Action = AuditAction.Manual,
+                Summary = "تنفيذ طلب إصدار بطاقة " + permit.no + " برقم الكرت " + card,
+                ActorFileNumber = user.UserName,
+                ActorName = user.FullName,
+                OccurredAt = now
+            });
+            await _notifier.NotifyAsync(
+                permit,
+                "تنفيذ تصريح",
+                PermitNoticeText.CardPrinted(permit.no, card),
+                user.Id);
+            return queued;
         }
 
         public async Task<List<OpenPermitAlert>> GetOverdueAsync()
@@ -516,7 +717,8 @@ namespace Services.Permits
                 When = m.EventTime,
                 Action = m.Direction == MovementDirection.In ? "دخول" : "خروج",
                 Notes = m.ManualReason ?? "",
-                Gate = GateLabel(m.Gate)
+                Gate = GateLabel(m.Gate),
+                Card = m.DevicePin?.Trim() ?? ""
             }).ToList();
 
         private static MovementLog Record(
@@ -529,9 +731,16 @@ namespace Services.Permits
             string? fullName,
             string? userName,
             string? job,
-            bool closes)
+            bool closes,
+            string? visitorCard = null)
         {
             var note = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
+            var card = string.IsNullOrWhiteSpace(visitorCard) ? null : visitorCard.Trim();
+            if (card != null)
+            {
+                var cardNote = "كرت: " + card;
+                note = string.IsNullOrWhiteSpace(note) ? cardNote : note + " — " + cardNote;
+            }
             var movement = new MovementLog
             {
                 Id = Guid.NewGuid(),
@@ -540,6 +749,7 @@ namespace Services.Permits
                 Direction = direction,
                 EventTime = when,
                 Source = MovementSource.GateOfficer,
+                DevicePin = card,
                 ManualReason = note,
                 RecordedBy = fullName,
                 createdBy = userName,
@@ -571,6 +781,41 @@ namespace Services.Permits
             permit.updatedBy = userName;
             permit.updatedOn = DateTime.Now;
             return movement;
+        }
+
+        private static async Task<HashSet<string>> HeldVisitorCardsAsync(DataContext db, Guid? permitId)
+        {
+            var moves = await (
+                from m in db.MovementLogs.AsNoTracking()
+                join p in db.Permits.AsNoTracking() on m.PermitId equals p.Id
+                where m.Source == MovementSource.GateOfficer
+                    && m.DevicePin != null
+                    && m.DevicePin != ""
+                    && !p.isDeleted
+                    && !p.isClosed
+                    && p.status != 'C'
+                    && (p.classification == nameof(PermitClassification.Visitors)
+                        || p.classification == "زوار"
+                        || p.classification == "تصريح زوار")
+                select new { m.PermitId, m.DevicePin, m.Direction }
+            ).ToListAsync();
+
+            return moves
+                .Where(m => permitId == null || m.PermitId != permitId)
+                .GroupBy(m => m.DevicePin!.Trim(), StringComparer.OrdinalIgnoreCase)
+                .Where(g => g.Count(x => x.Direction == MovementDirection.In)
+                    > g.Count(x => x.Direction == MovementDirection.Out))
+                .Select(g => g.Key)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+
+        private static bool SamePinAndCard(string? pin, string? card)
+        {
+            var left = pin?.Trim() ?? "";
+            var right = card?.Trim() ?? "";
+            return left.Length > 0
+                && right.Length > 0
+                && string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool IsVisitors(Permit permit)

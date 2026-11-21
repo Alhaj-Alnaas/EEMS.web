@@ -2,6 +2,10 @@ C:\Users\10067\AppData\Local\Temp\pms-build-check\DataAccess.deps.json
 C:\Users\10067\AppData\Local\Temp\pms-build-check\DataAccess.runtimeconfig.json
 C:\Users\10067\AppData\Local\Temp\pms-build-check\DataAccess.dll
 C:\Users\10067\AppData\Local\Temp\pms-build-check\DataAccess.pdb
+D:\EEMS Project\PMS\.build-check\DataAccess.deps.json
+D:\EEMS Project\PMS\.build-check\DataAccess.runtimeconfig.json
+D:\EEMS Project\PMS\.build-check\DataAccess.dll
+D:\EEMS Project\PMS\.build-check\DataAccess.pdb
 D:\EEMS Project\PMS\DataAccess\bin\Debug\net8.0\DataAccess.deps.json
 D:\EEMS Project\PMS\DataAccess\bin\Debug\net8.0\DataAccess.runtimeconfig.json
 D:\EEMS Project\PMS\DataAccess\bin\Debug\net8.0\DataAccess.dll

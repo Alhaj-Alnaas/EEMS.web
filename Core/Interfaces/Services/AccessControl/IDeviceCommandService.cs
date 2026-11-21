@@ -10,7 +10,9 @@ namespace Core.Interfaces.Services.AccessControl
         Task<List<DeviceCommand>> GetPendingByReaderAsync(Guid readerId, int take = 50);
         Task<List<DeviceCommand>> GetByReaderAsync(Guid readerId);
         Task<DeviceCommand?> GetByProtocolIdAsync(Guid readerId, int protocolCommandId);
-        Task<DeviceCommand> EnqueueAsync(Guid readerId, DeviceCommandType type, string? payload = null, DateTime? scheduledOn = null);
+        /// <summary>Continue protocol numbers after the highest id already stored, so a restart does not reuse old ids.</summary>
+        Task EnsureProtocolSeedAsync();
+        Task<DeviceCommand> EnqueueAsync(Guid readerId, DeviceCommandType type, string? payload = null, DateTime? scheduledOn = null, string? remarks = null);
         Task UpdateStatusAsync(Guid id, DeviceCommandStatus status, string? error = null);
         Task MarkSentAsync(Guid id, int protocolCommandId);
         Task<List<DeviceCommand>> GetTimedOutSentAsync(TimeSpan timeout);

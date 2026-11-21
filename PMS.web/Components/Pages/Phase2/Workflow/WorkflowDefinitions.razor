@@ -5,7 +5,7 @@
 @inject IPermitExecutionService Execution
 @inject UserManager<User> UserManager
 @inject AuthenticationStateProvider AuthProvider
-@inject PMS.web.Notifications.IUiToast Toast
+@inject IUiToast Toast
 @using Microsoft.AspNetCore.Identity
 @using Core.Models
 @using static Core.Enums.BaseEnums
@@ -21,6 +21,10 @@
     @if (!string.IsNullOrEmpty(loadError))
     {
         <div class="alert alert-danger mb-0">@loadError</div>
+    }
+    else if (!string.IsNullOrEmpty(saveError))
+    {
+        <div class="alert alert-danger mb-0">@saveError</div>
     }
 
     @if (loading)
@@ -52,7 +56,10 @@
                     </div>
                     <div class="pms-settings-tabs" role="tablist">
                         <button type="button" role="tab" class="@(tab == SettingsTab.Path ? "active" : "")" @onclick="() => tab = SettingsTab.Path">مسار الاعتماد</button>
-                        <button type="button" role="tab" class="@(tab == SettingsTab.Gates ? "active" : "")" @onclick="() => tab = SettingsTab.Gates">بوابات التنفيذ</button>
+                        @if (Selected.Classification != PermitClassification.EmployeeAccess)
+                        {
+                            <button type="button" role="tab" class="@(tab == SettingsTab.Gates ? "active" : "")" @onclick="() => tab = SettingsTab.Gates">بوابات التنفيذ</button>
+                        }
                     </div>
                 </div>
 
@@ -87,7 +94,6 @@
                             <span>البوابات المحفوظة</span>
                             <strong>@SavedGateText(Selected.Classification)</strong>
                         </div>
-                        <p class="text-muted small mb-3">تُستخدم هذه البوابات عندما لا يمر مسار الاعتماد بقسم الحراسة.</p>
 
                         @if (!string.IsNullOrEmpty(gateError))
                         {
@@ -140,6 +146,7 @@
     private bool saving;
     private string? loadError;
     private string? gateError;
+    private string? saveError;
     private SettingsTab tab = SettingsTab.Path;
     private List<ApprovalPathRow> rows = new();
     private List<Gate> gates = new();
@@ -188,7 +195,12 @@
         }
     }
 
-    private void Select(ApprovalPathRow row) => selected = row.Classification;
+    private void Select(ApprovalPathRow row)
+    {
+        selected = row.Classification;
+        if (row.Classification == PermitClassification.EmployeeAccess)
+            tab = SettingsTab.Path;
+    }
 
     private static string TypeIcon(PermitClassification kind) => kind switch
     {
@@ -259,6 +271,7 @@
     private async Task SavePathAsync(ApprovalPathRow row)
     {
         saving = true;
+        saveError = null;
         try
         {
             var auth = await AuthProvider.GetAuthenticationStateAsync();
@@ -269,14 +282,14 @@
 
             var enabled = row.Steps.Where(s => s.Enabled).Select(s => s.Type).ToList();
             await ApprovalPaths.SaveAsync(row.Classification, enabled, user);
+            await Toast.DoneAsync("تم حفظ المسار.");
             selected = row.Classification;
             rows = await ApprovalPaths.GetAsync();
             RememberSavedPaths();
-            await Toast.SuccessAsync("حُفظ مسار " + row.Title + ".");
         }
         catch (Exception ex)
         {
-            await Toast.ErrorAsync(ex.Message);
+            saveError = ex.Message;
         }
         finally
         {
@@ -290,15 +303,16 @@
             ids = new HashSet<Guid>();
 
         saving = true;
+        saveError = null;
         try
         {
             await Execution.SaveLinksAsync(kind, ids);
+            await Toast.DoneAsync("تم حفظ البوابات.");
             savedGates[kind] = DescribeGates(ids);
-            await Toast.SuccessAsync("حُفظت بوابات التنفيذ.");
         }
         catch (Exception ex)
         {
-            await Toast.ErrorAsync(ex.Message);
+            saveError = ex.Message;
         }
         finally
         {

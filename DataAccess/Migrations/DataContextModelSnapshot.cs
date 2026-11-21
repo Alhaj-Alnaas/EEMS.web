@@ -738,6 +738,306 @@ namespace DataAccess.Migrations
                     b.ToTable("Gates");
                 });
 
+            modelBuilder.Entity("Core.Entities.LaborCompany", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTime?>("ContractEnd")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ContractStart")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("PermitCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)");
+
+                    b.Property<string>("Specialty")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("createdBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("createdOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("deletedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("deletedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("isDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("updatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("updatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Number")
+                        .IsUnique()
+                        .HasFilter("[isDeleted] = 0");
+
+                    b.HasIndex("PermitCode")
+                        .IsUnique()
+                        .HasFilter("[isDeleted] = 0");
+
+                    b.ToTable("LaborCompanies");
+                });
+
+            modelBuilder.Entity("Core.Entities.LaborImportBatch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("AppliedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("FileName")
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
+                    b.Property<string>("Mode")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("createdBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("createdOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("deletedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("deletedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("isDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("updatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("updatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.ToTable("LaborImportBatches");
+                });
+
+            modelBuilder.Entity("Core.Entities.LaborImportLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<Guid>("BatchId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CurrentPermitNo")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("CurrentStatus")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Nationality")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("PassportNo")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("ProposedPermitNo")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("ProposedStatus")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("WorkerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("createdBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("createdOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("deletedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("deletedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("isDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("updatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("updatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchId");
+
+                    b.ToTable("LaborImportLines");
+                });
+
+            modelBuilder.Entity("Core.Entities.LaborWorker", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Nationality")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("PassportNo")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("PermitNo")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<DateTime?>("PrintedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("createdBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("createdOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("deletedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("deletedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("isDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("updatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("updatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("PermitNo")
+                        .IsUnique()
+                        .HasFilter("[isDeleted] = 0");
+
+                    b.ToTable("LaborWorkers");
+                });
+
             modelBuilder.Entity("Core.Entities.MovementLog", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2177,6 +2477,39 @@ namespace DataAccess.Migrations
                     b.Navigation("Permit");
                 });
 
+            modelBuilder.Entity("Core.Entities.LaborImportBatch", b =>
+                {
+                    b.HasOne("Core.Entities.LaborCompany", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+                });
+
+            modelBuilder.Entity("Core.Entities.LaborImportLine", b =>
+                {
+                    b.HasOne("Core.Entities.LaborImportBatch", "Batch")
+                        .WithMany("Lines")
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Batch");
+                });
+
+            modelBuilder.Entity("Core.Entities.LaborWorker", b =>
+                {
+                    b.HasOne("Core.Entities.LaborCompany", "Company")
+                        .WithMany("Workers")
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+                });
+
             modelBuilder.Entity("Core.Entities.MovementLog", b =>
                 {
                     b.HasOne("Core.Entities.Employee", "Employee")
@@ -2495,6 +2828,16 @@ namespace DataAccess.Migrations
             modelBuilder.Entity("Core.Entities.Gate", b =>
                 {
                     b.Navigation("Readers");
+                });
+
+            modelBuilder.Entity("Core.Entities.LaborCompany", b =>
+                {
+                    b.Navigation("Workers");
+                });
+
+            modelBuilder.Entity("Core.Entities.LaborImportBatch", b =>
+                {
+                    b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("Core.Entities.Permit", b =>

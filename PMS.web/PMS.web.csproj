@@ -32,10 +32,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Areas\Identity\Pages\Account\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Content Include="Deploy\start-pms.cmd" CopyToPublishDirectory="PreserveNewest" TargetPath="start-pms.cmd" />
     <Content Include="Deploy\DEPLOY.txt" CopyToPublishDirectory="PreserveNewest" TargetPath="DEPLOY.txt" />
     <Content Include="Deploy\open-firewall-5260.ps1" CopyToPublishDirectory="PreserveNewest" TargetPath="open-firewall-5260.ps1" />

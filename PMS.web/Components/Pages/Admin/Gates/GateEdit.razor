@@ -3,6 +3,7 @@
 @inject IGates GateService
 @inject AuthenticationStateProvider AuthProvider
 @inject NavigationManager Navigation
+@inject IUiToast Toast
 
 <PageTitle>@(IsNew ? "إضافة بوابة" : "تعديل بوابة") - PMS</PageTitle>
 
@@ -11,7 +12,6 @@
         <i class="bi bi-door-open-fill text-warning"></i>
         @(IsNew ? "إضافة بوابة جديدة" : "تعديل بيانات البوابة")
     </h3>
-    <p class="text-muted small mb-2">سجّل رقم البوابة ووصفها، ثم احفظ البيانات.</p>
 
     @if (loading)
     {
@@ -119,6 +119,7 @@
                 await GateService.UpdateAsync(gate);
             }
 
+            await Toast.DoneAsync("تم حفظ البيانات.");
             Navigation.NavigateTo(ReturnUrl.Read(Navigation) ?? "/admin/gates");
         }
         catch (Exception ex)

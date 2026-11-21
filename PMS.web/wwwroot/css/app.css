@@ -24,6 +24,14 @@ a {
     text-decoration: none;
 }
 
+.form-control::placeholder,
+textarea::placeholder,
+input::placeholder {
+    font-size: 0.75rem;
+    color: #b7bec6;
+    opacity: 1;
+}
+
 .btn-warning, .btn-primary.pms-brand {
     background-color: var(--pms-orange);
     border-color: var(--pms-orange);
@@ -1823,4 +1831,55 @@ a.pms-status-line:hover {
     color: #fdba74 !important;
     border-color: #fdba74 !important;
     opacity: 1;
+}
+
+.pms-labor-shell {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+}
+
+.pms-labor-side {
+    width: 220px;
+    flex: none;
+    background: #fff;
+    border: 1px solid #e1e5ea;
+    border-radius: 12px;
+    padding: 0.85rem;
+}
+
+.pms-labor-side-title {
+    margin-bottom: 0.65rem;
+    color: #11101d;
+    font-size: 0.95rem;
+    font-weight: 800;
+}
+
+.pms-labor-side .btn {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.4rem;
+    margin-bottom: 0.45rem;
+    font-weight: 700;
+}
+
+.pms-labor-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.pms-labor-main .pms-create-actions {
+    border-radius: 12px;
+}
+
+@media (max-width: 800px) {
+    .pms-labor-shell {
+        flex-direction: column;
+    }
+
+    .pms-labor-side {
+        width: 100%;
+    }
 }

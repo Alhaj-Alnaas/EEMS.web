@@ -28,6 +28,9 @@ namespace Core.Interfaces.Services.Organization
         /// <summary>Update IsActive only and push disable/enable to enrolled readers.</summary>
         Task<int> UpdateActiveStatusAsync(Guid employeeId, bool isActive);
 
+        /// <summary>Replace or clear the stored badge photo path without rewriting other employee fields.</summary>
+        Task UpdatePhotoPathAsync(Guid employeeId, string? photoPath);
+
         Task DeleteAsync(Guid id);
     }
 }

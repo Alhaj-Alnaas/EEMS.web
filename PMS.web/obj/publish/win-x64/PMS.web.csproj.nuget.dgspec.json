@@ -180,6 +180,14 @@
               "target": "Package",
               "version": "[8.0.0, )"
             },
+            "Microsoft.Extensions.Configuration.EnvironmentVariables": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
+            "Microsoft.Extensions.Configuration.Json": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
             "iTextSharp.LGPLv2.Core": {
               "target": "Package",
               "version": "[3.7.7, )"
@@ -297,6 +305,10 @@
               "target": "Package",
               "version": "[8.0.17, )"
             },
+            "Microsoft.Extensions.Hosting.WindowsServices": {
+              "target": "Package",
+              "version": "[8.0.1, )"
+            },
             "Microsoft.VisualStudio.Web.CodeGeneration.Design": {
               "target": "Package",
               "version": "[8.0.7, )"
@@ -304,6 +316,10 @@
             "QRCoder": {
               "target": "Package",
               "version": "[1.7.0, )"
+            },
+            "iTextSharp.LGPLv2.Core": {
+              "target": "Package",
+              "version": "[3.7.7, )"
             }
           },
           "imports": [
@@ -324,6 +340,10 @@
             },
             {
               "name": "Microsoft.AspNetCore.App.Runtime.win-x64",
+              "version": "[8.0.28, 8.0.28]"
+            },
+            {
+              "name": "Microsoft.NETCore.App.Crossgen2.win-x64",
               "version": "[8.0.28, 8.0.28]"
             },
             {
@@ -418,6 +438,10 @@
           "targetAlias": "net8.0",
           "dependencies": {
             "Microsoft.Extensions.Hosting.Abstractions": {
+              "target": "Package",
+              "version": "[8.0.1, )"
+            },
+            "Microsoft.Extensions.Http": {
               "target": "Package",
               "version": "[8.0.1, )"
             },

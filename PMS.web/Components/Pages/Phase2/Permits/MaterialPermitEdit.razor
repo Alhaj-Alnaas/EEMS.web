@@ -33,6 +33,10 @@ else if (editBlocked)
 }
 else
 {
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-warning">@errorMessage</div>
+    }
     <EditForm Model="model" class="pms-create-form" OnSubmit="PreventSubmit">
         <div class="pms-create-body">
         <div class="row g-4">
@@ -230,6 +234,7 @@ else
 
     private bool loading = true;
     private bool saving;
+    private string? errorMessage;
     private bool notFound;
     private bool editBlocked;
     private PermitViewModel model = new();
@@ -318,16 +323,15 @@ else
             .ToList();
         if (namedItems.Count == 0)
         {
-            await Toast.WarningAsync("أضف مادة أو معدة واحدة على الأقل.");
+            errorMessage = "أضف مادة أو معدة واحدة على الأقل.";
             return;
         }
         if (string.IsNullOrWhiteSpace(selectedRespCode))
         {
-            await Toast.WarningAsync("يرجى اختيار الجهة الطالبة.");
+            errorMessage = "يرجى اختيار الجهة الطالبة.";
             return;
         }
-        if (submit && !await Toast.ConfirmAsync("هل تريد إرسال هذا التصريح للاعتماد؟", "نعم", "لا", "confirm"))
-            return;
+        errorMessage = null;
         saving = true;
         try
         {
@@ -382,13 +386,14 @@ else
             createdBy = currentUser.UserName,
             createdOn = DateTime.Now
         });
-        if (submit)
+            if (submit)
             await MaterialPermits.SubmitDraftAsync(permit.Id, currentUser);
+            await Toast.DoneAsync(submit ? "تم إرسال الطلب." : "تم حفظ البيانات.");
         Navigation.NavigateTo(ReturnUrl.Read(Navigation) ?? "/permits");
         }
         catch (Exception ex)
         {
-            await Toast.ErrorAsync(ex.Message);
+            errorMessage = ex.Message;
         }
         finally
         {
@@ -405,12 +410,12 @@ else
         try
         {
             await MaterialPermits.CancelAsync(Id, currentUser);
-            await Toast.SuccessAsync("تم إلغاء التصريح.");
+            await Toast.DoneAsync("تم إلغاء التصريح.");
             Navigation.NavigateTo(ReturnUrl.Read(Navigation) ?? "/permits");
         }
         catch (Exception ex)
         {
-            await Toast.ErrorAsync(ex.Message);
+            errorMessage = ex.Message;
         }
         finally
         {

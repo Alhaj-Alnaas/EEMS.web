@@ -1,5 +1,6 @@
 @page "/reports/audit-log"
 @rendermode InteractiveServer
+@implements IDisposable
 @using Core.Common
 @using Core.Models
 @inject IAuditLogService Audit
@@ -20,10 +21,7 @@
             }
         </div>
     </div>
-    <p class="pms-audit-note">
-        يتابع الإلغاء والاعتماد والرفض والترجيع وتسجيل الحركة على البوابات، وحذف الموظفين والقارئات ومستويات الدخول، وتعديل الإعدادات وإضافة موظف على أجهزة البصمة.
-        عنوان الشبكة هو عنوان القارئة عند ارتباط العملية بها. عنوان MAC غير متاح من المتصفح وغير مخزن على القارئة.
-    </p>
+    <p class="pms-audit-note">يتابع الاعتماد والرفض والتنفيذ والتعديلات الإدارية. عنوان الشبكة هو عنوان القارئة عند ارتباط العملية بها.</p>
 
     @if (!string.IsNullOrEmpty(loadError))
     {
@@ -39,7 +37,7 @@
             <div class="row g-2 align-items-end">
                 <div class="col-md-2">
                     <label class="form-label mb-1">التبويب</label>
-                    <select class="form-select form-select-sm" @bind="area">
+                    <select class="form-select form-select-sm" @bind="area" @bind:after="SearchNow">
                         <option value="">الكل</option>
                         <option value="@AuditArea.Permits">تصاريح</option>
                         <option value="@AuditArea.Administration">إدارة</option>
@@ -47,7 +45,7 @@
                 </div>
                 <div class="col-md-2">
                     <label class="form-label mb-1">نوع العملية</label>
-                    <select class="form-select form-select-sm" @bind="action">
+                    <select class="form-select form-select-sm" @bind="action" @bind:after="SearchNow">
                         <option value="">الكل</option>
                         @foreach (var choice in AuditAction.Choices)
                         {
@@ -55,20 +53,17 @@
                         }
                     </select>
                 </div>
-                <div class="col-md-2">
+                <div class="col-md-4">
                     <label class="form-label mb-1">رقم الملف</label>
-                    <input class="form-control form-control-sm" @bind="fileNumber" @bind:event="oninput" placeholder="رقم الملف" />
+                    <input class="form-control form-control-sm" @bind="fileNumber" @bind:event="oninput" @bind:after="QueueSearch" @onkeydown="OnFileKey" placeholder="رقم الملف" />
                 </div>
                 <div class="col-md-2">
                     <label class="form-label mb-1">من تاريخ</label>
-                    <input class="form-control form-control-sm" type="date" @bind="fromDate" />
+                    <input class="form-control form-control-sm" type="date" @bind="fromDate" @bind:after="SearchNow" />
                 </div>
                 <div class="col-md-2">
                     <label class="form-label mb-1">إلى تاريخ</label>
-                    <input class="form-control form-control-sm" type="date" @bind="toDate" />
-                </div>
-                <div class="col-md-2">
-                    <button type="button" class="btn btn-sm pms-permit-view-btn w-100" @onclick="SearchAsync" disabled="@loading">عرض</button>
+                    <input class="form-control form-control-sm" type="date" @bind="toDate" @bind:after="SearchNow" />
                 </div>
             </div>
         </div>
@@ -128,6 +123,8 @@
 </section>
 
 @code {
+    private readonly SearchDelay typing = new();
+    private int searchGen;
     private bool loading = true;
     private bool exporting;
     private string? loadError;
@@ -141,13 +138,29 @@
 
     protected override async Task OnInitializedAsync() => await SearchAsync();
 
+    private Task QueueSearch() => typing.AfterAsync(SearchAsync);
+
+    private async Task OnFileKey(KeyboardEventArgs key)
+    {
+        if (key.Key != "Enter")
+            return;
+        typing.Cancel();
+        await SearchAsync();
+    }
+
+    private async Task SearchNow()
+    {
+        typing.Cancel();
+        await SearchAsync();
+    }
+
     private async Task SearchAsync()
     {
-        loading = true;
+        var gen = ++searchGen;
         loadError = null;
         try
         {
-            rows = await Audit.SearchAsync(new AuditQuery
+            var found = await Audit.SearchAsync(new AuditQuery
             {
                 Area = string.IsNullOrWhiteSpace(area) ? null : area,
                 Action = string.IsNullOrWhiteSpace(action) ? null : action,
@@ -155,15 +168,21 @@
                 From = fromDate,
                 To = toDate
             });
+            if (gen != searchGen)
+                return;
+            rows = found;
         }
         catch (Exception ex)
         {
+            if (gen != searchGen)
+                return;
             rows = new();
             loadError = "تعذر تحميل سجل التدقيق: " + ex.Message;
         }
         finally
         {
-            loading = false;
+            if (gen == searchGen)
+                loading = false;
         }
     }
 
@@ -200,4 +219,6 @@
             exporting = false;
         }
     }
+
+    public void Dispose() => typing.Dispose();
 }

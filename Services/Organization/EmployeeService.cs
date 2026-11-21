@@ -161,6 +161,17 @@ namespace Services.Organization
             return (insertedQueued, false);
         }
 
+        public async Task UpdatePhotoPathAsync(Guid employeeId, string? photoPath)
+        {
+            var tracked = await _unitOfWork.Employees.GetQueryable()
+                .FirstOrDefaultAsync(e => e.Id == employeeId && !e.isDeleted)
+                ?? throw new InvalidOperationException("الموظف غير موجود.");
+
+            tracked.PhotoPath = string.IsNullOrWhiteSpace(photoPath) ? null : photoPath.Trim();
+            tracked.updatedOn = DateTime.Now;
+            await _unitOfWork.SaveAsync();
+        }
+
         public async Task<int> UpdateActiveStatusAsync(Guid employeeId, bool isActive)
         {
             var tracked = await _unitOfWork.Employees.GetQueryable()

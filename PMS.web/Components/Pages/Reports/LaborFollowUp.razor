@@ -1,0 +1,189 @@
+@page "/reports/labor"
+@attribute [Authorize(Policy = TaskPolicies.ReportsLabor)]
+@rendermode InteractiveServer
+@implements IDisposable
+@inject ILaborRosterService Roster
+@inject IJSRuntime JS
+
+<PageTitle>متابعة العمالة - PMS</PageTitle>
+
+<section class="pms-permit-list">
+    <div class="pms-permit-list-head">
+        <h3><i class="bi bi-people"></i> متابعة العمالة</h3>
+        <div class="d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-sm pms-permit-view-btn" @onclick="ExportAsync" disabled="@(rows.Count == 0)">
+                <i class="bi bi-file-earmark-excel"></i> ترحيل إلى إكسل
+            </button>
+            <BackLink Fallback="/dashboard" Css="btn pms-btn-refresh">
+                <i class="bi bi-arrow-right"></i> رجوع
+            </BackLink>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label">الشركة</label>
+                    <select class="form-select" @bind="companyId" @bind:after="SearchNow">
+                        <option value="">كل الشركات</option>
+                        @foreach (var company in companies)
+                        {
+                            <option value="@company.Id">@company.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">الحالة</label>
+                    <select class="form-select" @bind="status" @bind:after="SearchNow">
+                        <option value="">الكل</option>
+                        <option value="@LaborWorkerState.Active">مستمر</option>
+                        <option value="@LaborWorkerState.Suspended">موقوف مؤقتا</option>
+                        <option value="@LaborWorkerState.Ended">إنهاء خدمة</option>
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">بحث</label>
+                    <input class="form-control" placeholder="الاسم، رقم التصريح، الجواز" @bind="term" @bind:event="oninput" @bind:after="QueueSearch" @onkeydown="OnTermKey" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(error))
+    {
+        <div class="alert alert-danger">@error</div>
+    }
+
+    @if (loading)
+    {
+        <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+    }
+    else if (rows.Count == 0)
+    {
+        <div class="pms-placeholder"><i class="bi bi-people"></i><h5>لا توجد نتائج</h5></div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 pms-permit-grid">
+                    <thead>
+                        <tr>
+                            <th>الشركة</th>
+                            <th>رقم التصريح</th>
+                            <th>الاسم</th>
+                            <th>الجنسية</th>
+                            <th>الجواز</th>
+                            <th>الحالة</th>
+                            <th>العنوان</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in rows)
+                        {
+                            <tr>
+                                <td>@row.CompanyName</td>
+                                <td><bdi dir="ltr">@row.PermitNo</bdi></td>
+                                <td>@row.FullName</td>
+                                <td>@(row.Nationality ?? "—")</td>
+                                <td>@(row.PassportNo ?? "—")</td>
+                                <td><span class="badge @LaborWorkerState.Badge(row.Status)">@LaborWorkerState.Label(row.Status)</span></td>
+                                <td>@(row.Address ?? "—")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <p class="text-muted small mt-2">عدد النتائج: @rows.Count</p>
+    }
+</section>
+
+@code {
+    private readonly SearchDelay typing = new();
+    private int searchGen;
+    private bool loading = true;
+    private string? error;
+    private string companyId = "";
+    private string status = "";
+    private string term = "";
+    private List<LaborCompanyRow> companies = new();
+    private List<LaborFollowRow> rows = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            companies = await Roster.ListCompaniesAsync();
+            await SearchAsync();
+        }
+        catch (Exception ex)
+        {
+            error = "تعذر تحميل المتابعة: " + ex.Message;
+            loading = false;
+        }
+    }
+
+    private Task QueueSearch() => typing.AfterAsync(SearchAsync);
+
+    private async Task OnTermKey(KeyboardEventArgs key)
+    {
+        if (key.Key != "Enter")
+            return;
+        typing.Cancel();
+        await SearchAsync();
+    }
+
+    private async Task SearchNow()
+    {
+        typing.Cancel();
+        await SearchAsync();
+    }
+
+    private async Task SearchAsync()
+    {
+        var gen = ++searchGen;
+        error = null;
+        try
+        {
+            Guid? id = Guid.TryParse(companyId, out var parsed) ? parsed : null;
+            var found = await Roster.SearchAsync(id, term, status);
+            if (gen != searchGen)
+                return;
+            rows = found;
+        }
+        catch (Exception ex)
+        {
+            if (gen != searchGen)
+                return;
+            error = ex.Message;
+        }
+        finally
+        {
+            if (gen == searchGen)
+                loading = false;
+        }
+    }
+
+    public void Dispose() => typing.Dispose();
+
+    private async Task ExportAsync()
+    {
+        var headers = new[] { "الشركة", "رقم الشركة", "رقم التصريح", "اسم العامل", "الجنسية", "رقم الجواز", "الحالة", "العنوان", "ملاحظات" };
+        var data = rows.Select(row => new string?[]
+        {
+            row.CompanyName,
+            row.CompanyNumber,
+            row.PermitNo,
+            row.FullName,
+            row.Nationality,
+            row.PassportNo,
+            LaborWorkerState.Label(row.Status),
+            row.Address,
+            row.Notes
+        });
+        var bytes = ExcelSheet.Build("متابعة العمالة", headers, data);
+        await FileDownload.SaveAsync(JS, "متابعة-العمالة.xls", bytes);
+    }
+}

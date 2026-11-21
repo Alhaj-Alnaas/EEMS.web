@@ -1,0 +1,189 @@
+@page "/admin/labor-companies"
+@attribute [Authorize(Policy = TaskPolicies.AdminLaborCompanies)]
+@rendermode InteractiveServer
+@inject ILaborRosterService Roster
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider Auth
+@inject PMS.web.Notifications.IUiToast Toast
+
+<PageTitle>شركات العمالة - PMS</PageTitle>
+
+<section class="pms-permit-list">
+<div class="pms-permit-list-head">
+    <h3><i class="bi bi-building"></i> شركات العمالة</h3>
+    <div class="d-flex align-items-center gap-2">
+        <a class="btn btn-sm btn-warning" href="@ReturnUrl.Go(Navigation, $"/admin/labor-companies/edit/{Guid.Empty}")"><i class="bi bi-plus-circle"></i> إضافة شركة</a>
+        <BackLink Fallback="/dashboard" Css="btn pms-btn-refresh">
+            <i class="bi bi-arrow-right"></i> رجوع
+        </BackLink>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-3">
+        <div class="pms-search-toolbar">
+            <div class="pms-search-actions ms-auto">
+                <div class="input-group input-group-sm pms-quick-search">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input class="form-control" placeholder="بحث: رقم الشركة / الاسم / التخصص..." @bind="quickSearch" @bind:event="oninput" />
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+
+@if (loading)
+{
+    <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+}
+else if (Filtered.Count == 0)
+{
+    <div class="pms-placeholder">
+        <i class="bi bi-building"></i>
+        <h5>@(companies.Count == 0 ? "لا توجد شركات مسجلة بعد" : "لا توجد نتائج مطابقة للبحث")</h5>
+    </div>
+}
+else
+{
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0 pms-permit-grid">
+                <thead>
+                    <tr>
+                        <th>رقم الشركة</th>
+                        <th>الاسم</th>
+                        <th>رمز التصريح</th>
+                        <th>التخصص</th>
+                        <th>الحالة</th>
+                        <th>العقد</th>
+                        <th>العمالة</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var company in Filtered)
+                    {
+                        <tr>
+                            <td class="fw-bold"><bdi dir="ltr">@company.Number</bdi></td>
+                            <td>@company.Name</td>
+                            <td><bdi dir="ltr">@company.PermitCode</bdi></td>
+                            <td>@Show(company.Specialty)</td>
+                            <td>
+                                @if (company.Status == LaborCompanyState.Active)
+                                {
+                                    <span class="badge status-approved">مستمرة</span>
+                                }
+                                else
+                                {
+                                    <span class="badge status-rejected">متوقفة</span>
+                                }
+                            </td>
+                            <td>
+                                @Show(DateText(company.ContractStart)) — @Show(DateText(company.ContractEnd))
+                                @if (ContractNote(company.ContractEnd) is { } note)
+                                {
+                                    <div class="small text-warning">@note</div>
+                                }
+                            </td>
+                            <td>@company.WorkerCount</td>
+                            <td class="text-nowrap">
+                                <a class="btn pms-table-action-btn" href="@ReturnUrl.Go(Navigation, $"/admin/labor-companies/edit/{company.Id}")"><i class="bi bi-pencil"></i> تعديل</a>
+                                <button type="button" class="btn pms-table-action-btn" @onclick="() => DeleteAsync(company)"><i class="bi bi-trash"></i> حذف</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+</section>
+
+@code {
+    private string? error;
+    private bool loading = true;
+    private string quickSearch = "";
+    private List<LaborCompanyRow> companies = new();
+
+    private List<LaborCompanyRow> Filtered
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(quickSearch))
+                return companies;
+            var q = quickSearch.Trim();
+            return companies.Where(c =>
+                Contains(c.Number, q) || Contains(c.Name, q) || Contains(c.Specialty, q) || Contains(c.PermitCode, q)).ToList();
+        }
+    }
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        error = null;
+        try
+        {
+            companies = await Roster.ListCompaniesAsync();
+        }
+        catch (Exception ex)
+        {
+            error = "تعذر تحميل الشركات: " + ex.Message;
+        }
+        loading = false;
+    }
+
+    private async Task DeleteAsync(LaborCompanyRow company)
+    {
+        if (!await Toast.ConfirmAsync($"هل تريد حذف الشركة «{company.Name}»؟", "حذف", "لا", "danger"))
+            return;
+
+        error = null;
+        try
+        {
+            await Roster.DeleteCompanyAsync(company.Id, await ActorAsync());
+            await Toast.DoneAsync("تم الحذف.");
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+    }
+
+    private async Task<LaborActor> ActorAsync()
+    {
+        var state = await Auth.GetAuthenticationStateAsync();
+        return new LaborActor
+        {
+            UserName = state.User.Identity?.Name,
+            FullName = state.User.FindFirst(SystemTaskCodes.FullNameClaimType)?.Value
+        };
+    }
+
+    private static bool Contains(string? value, string q) =>
+        !string.IsNullOrEmpty(value) && value.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0;
+
+    private static string Show(string? value) => string.IsNullOrWhiteSpace(value) ? "—" : value;
+
+    private static string? DateText(DateTime? value) => value?.ToString("yyyy/MM/dd");
+
+    private static string? ContractNote(DateTime? end)
+    {
+        if (end == null)
+            return null;
+        var days = (end.Value.Date - DateTime.Today).Days;
+        if (days < 0)
+            return "العقد منتهٍ";
+        if (days <= 30)
+            return "العقد يقارب الانتهاء";
+        return null;
+    }
+}

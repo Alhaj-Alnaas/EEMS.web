@@ -19,7 +19,7 @@ namespace Core.Interfaces.Repositories
         void Delete(T entity);
         void PermanentDelete(T entity);
 
-        IQueryable<T> GetQueryable(); // ??? ?????? ????????? ????? ??? ????? DB
+        IQueryable<T> GetQueryable(); 
         Task<List<T>> ExecuteStoredProcedureAsync<P>(string storedProcedure, params object[] parameters) where P : class;
     } 
 }

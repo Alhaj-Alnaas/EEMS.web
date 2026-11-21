@@ -135,6 +135,11 @@
         </div>
     </div>
 
+    @if (!string.IsNullOrEmpty(pageNotice))
+    {
+        <div class="alert alert-warning mb-3">@pageNotice</div>
+    }
+
     @if (syncing)
     {
         <div class="card border-secondary mb-3">
@@ -221,19 +226,19 @@
             <p>
                 @if (employees.Count == 0)
                 {
-                    <span>سجّل الموظف على القارئة وأضف البصمة أو رقم الكرت، ثم اضغط «مزامنة من القارئات».</span>
+                    <span>سجّل الموظف على القارئة ثم زامن.</span>
                 }
                 else if (listTab == "ready")
                 {
-                    <span>لا يوجد موظفون جاهزون للتسجيل. سجّل على القارئة ثم زامن.</span>
+                    <span>لا يوجد موظفون جاهزون للتسجيل.</span>
                 }
                 else if (employees.Count > 0 && VisibleCount == 0)
                 {
-                    <span>لا يُعرض الموظف هنا إلا بعد تسجيله على القارئة وإضافة البصمة أو رقم الكرت.</span>
+                    <span>يظهر الموظف بعد تسجيله على القارئة.</span>
                 }
                 else
                 {
-                    <span>عدّل معايير البحث أو امسح الفلاتر أو غيّر تبويب الحالة.</span>
+                    <span>غيّر البحث أو التبويب.</span>
                 }
             </p>
         </div>
@@ -395,6 +400,7 @@
     private bool loading = true;
     private bool syncing;
     private bool showSyncResult;
+    private string? pageNotice;
     private Guid? printingId;
     private int expectedSyncSeconds = 60;
     private int elapsedSyncSeconds;
@@ -569,6 +575,7 @@
     {
         syncing = true;
         showSyncResult = false;
+        pageNotice = null;
         syncedEmployees = new();
         elapsedSyncSeconds = 0;
 
@@ -646,25 +653,16 @@
 
             syncedEmployees = syncedEmployees.Where(e => HasCredential(e.Id)).ToList();
             showSyncResult = true;
-
-            if (newlyReady.Count > 0 || syncedEmployees.Count > 0)
-            {
-                await Toast.SuccessAsync(
-                    $"اكتملت المزامنة. جاهزون للتسجيل: {CountReady}" +
-                    (newlyReady.Count > 0 ? $" (جدد جاهزون: {newlyReady.Count})." : "."));
-                if (newlyReady.Count > 0)
-                    listTab = "ready";
-            }
-            else
-            {
-                await Toast.InfoAsync(
-                    $"اكتملت المزامنة. لا يوجد موظفون جدد ببصمة أو رقم كرت. جاهزون للتسجيل: {CountReady}.");
-            }
+            if (newlyReady.Count > 0)
+                listTab = "ready";
+            pageNotice = syncedEmployees.Count == 0
+                ? "اكتملت المزامنة دون موظفين جدد."
+                : null;
         }
         catch (Exception ex)
         {
             showSyncResult = false;
-            await Toast.ErrorAsync($"فشل بدء المزامنة: {ex.Message}");
+            pageNotice = "فشل بدء المزامنة: " + ex.Message;
         }
         finally
         {
@@ -705,11 +703,12 @@
     {
         if (!CanPrintCard(employee))
         {
-            await Toast.ErrorAsync("لا يمكن طباعة الكرت — أكمل تسجيل بيانات الموظف أولاً.");
+            pageNotice = "لا يمكن طباعة الكرت. أكمل تسجيل بيانات الموظف أولاً.";
             return;
         }
 
         printingId = employee.Id;
+        pageNotice = null;
         try
         {
             await CardService.RecordPrintAsync(employee.Id, null);
@@ -731,11 +730,11 @@
             await JS.InvokeVoidAsync("employeeCamera.printHtml", html);
 
             if (string.IsNullOrWhiteSpace(photoSrc))
-                await Toast.WarningAsync($"تم فتح طباعة كرت {employee.FileNumber} بدون صورة.");
+                pageNotice = "طُبع الكرت بدون صورة.";
         }
         catch (Exception ex)
         {
-            await Toast.ErrorAsync("فشل طباعة الكرت: " + ex.Message);
+            pageNotice = "فشل طباعة الكرت: " + ex.Message;
         }
         finally
         {
@@ -802,13 +801,14 @@
         try
         {
             await EmployeeService.DeleteAsync(employee.Id);
+            await Toast.DoneAsync("تم الحذف.");
             employees.Remove(employee);
             syncedEmployees.RemoveAll(e => e.Id == employee.Id);
             enrollmentMap.Remove(employee.Id);
         }
         catch (Exception ex)
         {
-            await Toast.ErrorAsync(ex.Message);
+            pageNotice = ex.Message;
         }
     }
 }

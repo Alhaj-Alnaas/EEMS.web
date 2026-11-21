@@ -1,5 +1,6 @@
 @page "/admin/users"
 @rendermode InteractiveServer
+@implements IDisposable
 @attribute [Authorize(Policy = TaskPolicies.AdminUsers)]
 @using Core.Interfaces.Services.Security
 @using Core.Models.Security
@@ -16,7 +17,7 @@
 <div class="user-mgmt" dir="rtl">
     <div class="header-info mb-3">
         <h1>إدارة حسابات المستخدمين</h1>
-        <p>استخدم رقم الملف الوظيفي للوصول إلى بيانات الموظف وتعديل مستوى دخوله</p>
+        <p>ابحث برقم الملف. إنتر يعرض الحساب.</p>
     </div>
 
     <div class="d-flex justify-content-end mb-3">
@@ -44,12 +45,12 @@
                 </div>
                 <div class="col-lg-6">
                     <label class="form-label fw-bold small mb-1">رقم الملف الوظيفي</label>
-                    <input class="form-control" @bind="searchFileNo" @bind:event="oninput"
-                           placeholder="أدخل رقم الملف الوظيفي..." @onkeydown="OnSearchKey" />
+                    <input class="form-control" @bind="searchFileNo" @bind:event="oninput" @bind:after="QueueUsers"
+                           placeholder="رقم الملف" @onkeydown="OnSearchKey" />
                 </div>
                 <div class="col-lg-3">
                     <button class="btn user-silver-btn w-100 fw-bold" @onclick="LoadUserAsync" disabled="@busy">
-                        <i class="bi bi-search"></i> عرض البيانات
+                        <i class="bi bi-search"></i> عرض
                     </button>
                 </div>
             </div>
@@ -160,6 +161,7 @@
 </div>
 
 @code {
+    private readonly SearchDelay typing = new();
     private string searchFileNo = "";
     private bool busy;
     private bool searched;
@@ -191,9 +193,27 @@
         }
     }
 
+    private Task QueueUsers() => typing.AfterAsync(FilterRecentAsync);
+
+    private async Task FilterRecentAsync()
+    {
+        try
+        {
+            recent = await Users.SearchAsync(string.IsNullOrWhiteSpace(searchFileNo) ? null : searchFileNo.Trim(), 50);
+        }
+        catch (Exception ex)
+        {
+            messageOk = false;
+            message = ex.Message;
+        }
+    }
+
     private async Task OnSearchKey(KeyboardEventArgs e)
     {
-        if (e.Key == "Enter") await LoadUserAsync();
+        if (e.Key != "Enter")
+            return;
+        typing.Cancel();
+        await LoadUserAsync();
     }
 
     private async Task OpenAsync(string fileNo)
@@ -239,6 +259,7 @@
             message = msg;
             if (ok)
             {
+                await Toast.DoneAsync("تم تعديل مستوى الدخول.");
                 await LoadUserAsync();
                 recent = await Users.SearchAsync(null, 50);
             }
@@ -256,6 +277,8 @@
             messageOk = ok;
             message = msg;
             tempPassword = pwd;
+            if (ok)
+                await Toast.DoneAsync("تم تصفير كلمة المرور.");
         }
         finally { busy = false; }
     }
@@ -275,6 +298,7 @@
             message = msg;
             if (ok)
             {
+                await Toast.DoneAsync("تم حذف المستخدم.");
                 detail = null;
                 searched = false;
                 recent = await Users.SearchAsync(null, 50);
@@ -282,4 +306,6 @@
         }
         finally { busy = false; }
     }
+
+    public void Dispose() => typing.Dispose();
 }

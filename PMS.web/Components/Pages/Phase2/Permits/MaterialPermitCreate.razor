@@ -6,7 +6,7 @@
 @inject UserManager<User> UserManager
 @inject AuthenticationStateProvider AuthProvider
 @inject NavigationManager Navigation
-@inject PMS.web.Notifications.IUiToast Toast
+@inject IUiToast Toast
 @using Microsoft.AspNetCore.Identity
 @using Services.Permits
 @using Core.Entities.DTOs
@@ -16,7 +16,6 @@
 
 <div class="pms-create-page">
 <h3 class="mb-1"><i class="bi bi-box-arrow-in-down-right text-warning"></i> إضافة تصريح مواد جديد</h3>
-<p class="text-muted small mb-2">  بعد اكتمال الاعتماد يصبح التصريح نشطاً</p>
 
 @if (loading)
 {
@@ -350,18 +349,15 @@ else
         var missing = MaterialPermitService.MissingMaterial(request, submit);
         if (missing != null)
         {
-            await Toast.WarningAsync(missing);
+            errorMessage = missing;
             return;
         }
-        if (submit && !await Toast.ConfirmAsync(shiftApproval
-            ? "هذا التصريح سوف يُعتمد من المناوب فقط. هل تريد الإحالة؟"
-            : "هل تريد إحالة هذا التصريح للاعتماد؟", "نعم", "لا", "confirm"))
-            return;
         errorMessage = null;
         saving = true;
         try
         {
             var id = await MaterialPermits.SaveAsync(request, currentUser!, submit);
+            await Toast.DoneAsync(submit ? "تم إرسال الطلب." : "تم حفظ المسودة.");
             Navigation.NavigateTo(ReturnUrl.Read(Navigation) ?? "/permits");
         }
         catch (Exception ex)

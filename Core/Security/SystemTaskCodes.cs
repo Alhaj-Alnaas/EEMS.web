@@ -14,6 +14,7 @@ namespace Core.Security
 
         public const string PermitsList = "PERMITS_LIST";
         public const string PermitsEmployeeCreate = "PERMITS_EMPLOYEE_CREATE";
+        public const string PermitsCardRequests = "PERMITS_CARD_REQUESTS";
         public const string PermitsLabor = "PERMITS_LABOR";
         public const string PermitsMaterialsCreate = "PERMITS_MATERIALS_CREATE";
         public const string PermitsVisitorsCreate = "PERMITS_VISITORS_CREATE";
@@ -23,6 +24,7 @@ namespace Core.Security
         public const string Workflows = "WORKFLOWS";
 
         public const string AdminGates = "ADMIN_GATES";
+        public const string AdminLaborCompanies = "ADMIN_LABOR_COMPANIES";
         public const string AdminUsers = "ADMIN_USERS";
         public const string AdminAccessLevels = "ADMIN_ACCESS_LEVELS";
 
@@ -30,6 +32,7 @@ namespace Core.Security
         public const string ReportsActive = "REPORTS_ACTIVE";
         public const string ReportsOpen = "REPORTS_OPEN";
         public const string ReportsAttendance = "REPORTS_ATTENDANCE";
+        public const string ReportsLabor = "REPORTS_LABOR";
         public const string ReportsAudit = "REPORTS_AUDIT";
 
         public const string ClaimType = "pms_task";

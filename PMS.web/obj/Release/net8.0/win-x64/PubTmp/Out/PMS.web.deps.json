@@ -14,9 +14,11 @@
           "Microsoft.AspNetCore.Identity.UI": "8.0.17",
           "Microsoft.EntityFrameworkCore.SqlServer": "8.0.17",
           "Microsoft.EntityFrameworkCore.Tools": "8.0.17",
+          "Microsoft.Extensions.Hosting.WindowsServices": "8.0.1",
           "Microsoft.VisualStudio.Web.CodeGeneration.Design": "8.0.7",
           "QRCoder": "1.7.0",
           "Services": "1.0.0",
+          "iTextSharp.LGPLv2.Core": "3.7.7",
           "runtimepack.Microsoft.NETCore.App.Runtime.win-x64": "8.0.28",
           "runtimepack.Microsoft.AspNetCore.App.Runtime.win-x64": "8.0.28"
         },
@@ -2526,6 +2528,17 @@
           }
         }
       },
+      "Microsoft.Extensions.Hosting.WindowsServices/8.0.1": {
+        "dependencies": {
+          "System.ServiceProcess.ServiceController": "8.0.1"
+        },
+        "runtime": {
+          "lib/net8.0/Microsoft.Extensions.Hosting.WindowsServices.dll": {
+            "assemblyVersion": "8.0.0.1",
+            "fileVersion": "8.0.1024.46610"
+          }
+        }
+      },
       "Microsoft.Identity.Client/4.61.3": {
         "dependencies": {
           "Microsoft.IdentityModel.Abstractions": "6.35.0"
@@ -3067,6 +3080,14 @@
           "lib/net7.0/System.Security.Permissions.dll": {
             "assemblyVersion": "7.0.0.0",
             "fileVersion": "7.0.22.51805"
+          }
+        }
+      },
+      "System.ServiceProcess.ServiceController/8.0.1": {
+        "runtime": {
+          "runtimes/win/lib/net8.0/System.ServiceProcess.ServiceController.dll": {
+            "assemblyVersion": "8.0.0.1",
+            "fileVersion": "8.0.1024.46610"
           }
         }
       },
@@ -3733,6 +3754,13 @@
       "path": "microsoft.extensions.dependencymodel/8.0.2",
       "hashPath": "microsoft.extensions.dependencymodel.8.0.2.nupkg.sha512"
     },
+    "Microsoft.Extensions.Hosting.WindowsServices/8.0.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-5p0tjMDpr8tgzjBdu9Rzk8lUU/PaR1D3Us52XZypl85QTxfAjthR1+YywB3GsGc+FOZWdpuEDsV8kZisEC2Hng==",
+      "path": "microsoft.extensions.hosting.windowsservices/8.0.1",
+      "hashPath": "microsoft.extensions.hosting.windowsservices.8.0.1.nupkg.sha512"
+    },
     "Microsoft.Identity.Client/4.61.3": {
       "type": "package",
       "serviceable": true,
@@ -4096,6 +4124,13 @@
       "sha512": "sha512-Vmp0iRmCEno9BWiskOW5pxJ3d9n+jUqKxvX4GhLwFhnQaySZmBN2FuC0N5gjFHgyFMUjC5sfIJ8KZfoJwkcMmA==",
       "path": "system.security.permissions/7.0.0",
       "hashPath": "system.security.permissions.7.0.0.nupkg.sha512"
+    },
+    "System.ServiceProcess.ServiceController/8.0.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-02I0BXo1kmMBgw03E8Hu4K6nTqur4wpQdcDZrndczPzY2fEoGvlinE35AWbyzLZ2h2IksEZ6an4tVt3hi9j1oA==",
+      "path": "system.serviceprocess.servicecontroller/8.0.1",
+      "hashPath": "system.serviceprocess.servicecontroller.8.0.1.nupkg.sha512"
     },
     "System.Windows.Extensions/7.0.0": {
       "type": "package",

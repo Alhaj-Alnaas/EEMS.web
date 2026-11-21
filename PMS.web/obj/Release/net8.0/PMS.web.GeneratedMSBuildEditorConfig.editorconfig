@@ -63,6 +63,14 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xBZG1pblxHYXRlc1xHYXRlSW5kZXgucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
+[D:/EEMS Project/PMS/PMS.web/Components/Pages/Admin/LaborCompanies/LaborCompanyEdit.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xBZG1pblxMYWJvckNvbXBhbmllc1xMYWJvckNvbXBhbnlFZGl0LnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/EEMS Project/PMS/PMS.web/Components/Pages/Admin/LaborCompanies/LaborCompanyIndex.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xBZG1pblxMYWJvckNvbXBhbmllc1xMYWJvckNvbXBhbnlJbmRleC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
 [D:/EEMS Project/PMS/PMS.web/Components/Pages/Admin/Users/UserCreate.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xBZG1pblxVc2Vyc1xVc2VyQ3JlYXRlLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
@@ -79,12 +87,12 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xIb21lXE5vdGlmaWNhdGlvbnMucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/EEMS Project/PMS/PMS.web/Components/Pages/Identity/Login.razor]
-build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xJZGVudGl0eVxMb2dpbi5yYXpvcg==
+[D:/EEMS Project/PMS/PMS.web/Components/Pages/Identity/ChangePassword.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xJZGVudGl0eVxDaGFuZ2VQYXNzd29yZC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[D:/EEMS Project/PMS/PMS.web/Components/Pages/Identity/Logout.razor]
-build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xJZGVudGl0eVxMb2dvdXQucmF6b3I=
+[D:/EEMS Project/PMS/PMS.web/Components/Pages/Identity/Login.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xJZGVudGl0eVxMb2dpbi5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
 [D:/EEMS Project/PMS/PMS.web/Components/Pages/Phase1/Devices/BiometricImport.razor]
@@ -127,8 +135,16 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQaGFzZTFcUGVybWlzc2lvbnNcUGVybWlzc2lvbkluZGV4LnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
+[D:/EEMS Project/PMS/PMS.web/Components/Pages/Phase2/Permits/CardRequestIndex.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQaGFzZTJcUGVybWl0c1xDYXJkUmVxdWVzdEluZGV4LnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
 [D:/EEMS Project/PMS/PMS.web/Components/Pages/Phase2/Permits/EmployeePermitCreate.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQaGFzZTJcUGVybWl0c1xFbXBsb3llZVBlcm1pdENyZWF0ZS5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/EEMS Project/PMS/PMS.web/Components/Pages/Phase2/Permits/LaborBatchReview.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQaGFzZTJcUGVybWl0c1xMYWJvckJhdGNoUmV2aWV3LnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
 [D:/EEMS Project/PMS/PMS.web/Components/Pages/Phase2/Permits/LaborPermits.razor]
@@ -155,6 +171,10 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQaGFzZTJcUGVybWl0c1xQZXJtaXRFeGVjdXRlLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
+[D:/EEMS Project/PMS/PMS.web/Components/Pages/Phase2/Permits/PermitExecuteForm.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQaGFzZTJcUGVybWl0c1xQZXJtaXRFeGVjdXRlRm9ybS5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
 [D:/EEMS Project/PMS/PMS.web/Components/Pages/Phase2/Permits/PermitIndex.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQaGFzZTJcUGVybWl0c1xQZXJtaXRJbmRleC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
@@ -163,8 +183,16 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQaGFzZTJcUGVybWl0c1xWZWhpY2xlUGVybWl0Q3JlYXRlLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
+[D:/EEMS Project/PMS/PMS.web/Components/Pages/Phase2/Permits/VehiclePermitEdit.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQaGFzZTJcUGVybWl0c1xWZWhpY2xlUGVybWl0RWRpdC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
 [D:/EEMS Project/PMS/PMS.web/Components/Pages/Phase2/Permits/VisitorPermitCreate.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQaGFzZTJcUGVybWl0c1xWaXNpdG9yUGVybWl0Q3JlYXRlLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/EEMS Project/PMS/PMS.web/Components/Pages/Phase2/Permits/VisitorPermitEdit.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQaGFzZTJcUGVybWl0c1xWaXNpdG9yUGVybWl0RWRpdC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
 [D:/EEMS Project/PMS/PMS.web/Components/Pages/Phase2/Workflow/WorkflowDefinitions.razor]
@@ -183,12 +211,24 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xSZXBvcnRzXEF1ZGl0TG9nLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
+[D:/EEMS Project/PMS/PMS.web/Components/Pages/Reports/LaborFollowUp.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xSZXBvcnRzXExhYm9yRm9sbG93VXAucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/EEMS Project/PMS/PMS.web/Components/Pages/Reports/OpenPermits.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xSZXBvcnRzXE9wZW5QZXJtaXRzLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
 [D:/EEMS Project/PMS/PMS.web/Components/Pages/Reports/ReportsHome.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xSZXBvcnRzXFJlcG9ydHNIb21lLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
 [D:/EEMS Project/PMS/PMS.web/Components/Routes.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xSb3V0ZXMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/EEMS Project/PMS/PMS.web/Components/Shared/BackLink.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xTaGFyZWRcQmFja0xpbmsucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
 [D:/EEMS Project/PMS/PMS.web/Components/Shared/PlaceholderPage.razor]
@@ -211,102 +251,10 @@ build_metadata.AdditionalFiles.CssScope = b-424mp41bby
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xMYXlvdXRcTmF2TWVudS5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = b-pmxxw6mivc
 
-[D:/EEMS Project/PMS/PMS.web/Areas/Identity/Pages/_ViewStart.cshtml]
-build_metadata.AdditionalFiles.TargetPath = QXJlYXNcSWRlbnRpdHlcUGFnZXNcX1ZpZXdTdGFydC5jc2h0bWw=
-build_metadata.AdditionalFiles.CssScope = 
-
-[D:/EEMS Project/PMS/PMS.web/Views/Admin/Settings.cshtml]
-build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWRtaW5cU2V0dGluZ3MuY3NodG1s
-build_metadata.AdditionalFiles.CssScope = 
-
-[D:/EEMS Project/PMS/PMS.web/Views/Gate/Create.cshtml]
-build_metadata.AdditionalFiles.TargetPath = Vmlld3NcR2F0ZVxDcmVhdGUuY3NodG1s
-build_metadata.AdditionalFiles.CssScope = 
-
-[D:/EEMS Project/PMS/PMS.web/Views/Gate/Details.cshtml]
-build_metadata.AdditionalFiles.TargetPath = Vmlld3NcR2F0ZVxEZXRhaWxzLmNzaHRtbA==
-build_metadata.AdditionalFiles.CssScope = 
-
-[D:/EEMS Project/PMS/PMS.web/Views/Gate/Edit.cshtml]
-build_metadata.AdditionalFiles.TargetPath = Vmlld3NcR2F0ZVxFZGl0LmNzaHRtbA==
-build_metadata.AdditionalFiles.CssScope = 
-
-[D:/EEMS Project/PMS/PMS.web/Views/Gate/Index.cshtml]
-build_metadata.AdditionalFiles.TargetPath = Vmlld3NcR2F0ZVxJbmRleC5jc2h0bWw=
-build_metadata.AdditionalFiles.CssScope = 
-
-[D:/EEMS Project/PMS/PMS.web/Views/Home/Index.cshtml]
-build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9tZVxJbmRleC5jc2h0bWw=
-build_metadata.AdditionalFiles.CssScope = 
-
-[D:/EEMS Project/PMS/PMS.web/Views/Home/Privacy.cshtml]
-build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9tZVxQcml2YWN5LmNzaHRtbA==
-build_metadata.AdditionalFiles.CssScope = 
-
-[D:/EEMS Project/PMS/PMS.web/Views/Login/Login.cshtml]
-build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTG9naW5cTG9naW4uY3NodG1s
-build_metadata.AdditionalFiles.CssScope = 
-
-[D:/EEMS Project/PMS/PMS.web/Views/MatirailPermit/CreateMatirialPermint.cshtml]
-build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTWF0aXJhaWxQZXJtaXRcQ3JlYXRlTWF0aXJpYWxQZXJtaW50LmNzaHRtbA==
-build_metadata.AdditionalFiles.CssScope = 
-
-[D:/EEMS Project/PMS/PMS.web/Views/MatirailPermit/EditMatirialPermint.cshtml]
-build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTWF0aXJhaWxQZXJtaXRcRWRpdE1hdGlyaWFsUGVybWludC5jc2h0bWw=
-build_metadata.AdditionalFiles.CssScope = 
-
-[D:/EEMS Project/PMS/PMS.web/Views/MatirailPermit/ViewMatirialPermint.cshtml]
-build_metadata.AdditionalFiles.TargetPath = Vmlld3NcTWF0aXJhaWxQZXJtaXRcVmlld01hdGlyaWFsUGVybWludC5jc2h0bWw=
-build_metadata.AdditionalFiles.CssScope = 
-
-[D:/EEMS Project/PMS/PMS.web/Views/Permit/PermitIndex.cshtml]
-build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUGVybWl0XFBlcm1pdEluZGV4LmNzaHRtbA==
-build_metadata.AdditionalFiles.CssScope = 
-
-[D:/EEMS Project/PMS/PMS.web/Views/Search/Advanced.cshtml]
-build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2VhcmNoXEFkdmFuY2VkLmNzaHRtbA==
-build_metadata.AdditionalFiles.CssScope = 
-
-[D:/EEMS Project/PMS/PMS.web/Views/Shared/DashboardCharts.cshtml]
-build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXERhc2hib2FyZENoYXJ0cy5jc2h0bWw=
-build_metadata.AdditionalFiles.CssScope = 
-
 [D:/EEMS Project/PMS/PMS.web/Views/Shared/Error.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXEVycm9yLmNzaHRtbA==
-build_metadata.AdditionalFiles.CssScope = 
-
-[D:/EEMS Project/PMS/PMS.web/Views/Shared/_LoginPartial.cshtml]
-build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXF9Mb2dpblBhcnRpYWwuY3NodG1s
-build_metadata.AdditionalFiles.CssScope = 
-
-[D:/EEMS Project/PMS/PMS.web/Views/Shared/_ValidationScriptsPartial.cshtml]
-build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXF9WYWxpZGF0aW9uU2NyaXB0c1BhcnRpYWwuY3NodG1s
-build_metadata.AdditionalFiles.CssScope = 
-
-[D:/EEMS Project/PMS/PMS.web/Views/UserManagement/ChangePassword.cshtml]
-build_metadata.AdditionalFiles.TargetPath = Vmlld3NcVXNlck1hbmFnZW1lbnRcQ2hhbmdlUGFzc3dvcmQuY3NodG1s
-build_metadata.AdditionalFiles.CssScope = 
-
-[D:/EEMS Project/PMS/PMS.web/Views/UserManagement/CreateUser.cshtml]
-build_metadata.AdditionalFiles.TargetPath = Vmlld3NcVXNlck1hbmFnZW1lbnRcQ3JlYXRlVXNlci5jc2h0bWw=
-build_metadata.AdditionalFiles.CssScope = 
-
-[D:/EEMS Project/PMS/PMS.web/Views/UserManagement/Index.cshtml]
-build_metadata.AdditionalFiles.TargetPath = Vmlld3NcVXNlck1hbmFnZW1lbnRcSW5kZXguY3NodG1s
-build_metadata.AdditionalFiles.CssScope = 
-
-[D:/EEMS Project/PMS/PMS.web/Views/UserManagement/ViewUser.cshtml]
-build_metadata.AdditionalFiles.TargetPath = Vmlld3NcVXNlck1hbmFnZW1lbnRcVmlld1VzZXIuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
 [D:/EEMS Project/PMS/PMS.web/Views/_ViewImports.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcX1ZpZXdJbXBvcnRzLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
-
-[D:/EEMS Project/PMS/PMS.web/Views/_ViewStart.cshtml]
-build_metadata.AdditionalFiles.TargetPath = Vmlld3NcX1ZpZXdTdGFydC5jc2h0bWw=
-build_metadata.AdditionalFiles.CssScope = 
-
-[D:/EEMS Project/PMS/PMS.web/Views/Shared/_Layout.cshtml]
-build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXF9MYXlvdXQuY3NodG1s
-build_metadata.AdditionalFiles.CssScope = b-hayn3rg5mi

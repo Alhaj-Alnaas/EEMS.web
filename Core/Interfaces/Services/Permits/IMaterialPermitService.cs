@@ -18,6 +18,8 @@ namespace Core.Interfaces.Services.Permits
 
         Task<Guid> SaveVisitorAsync(VisitorPermitRequest request, User user, bool submit);
 
+        Task<Guid> SaveEmployeeCardAsync(EmployeeCardPermitRequest request, User user);
+
         Task UpdateVisitorAsync(Guid permitId, VisitorPermitRequest request, User user);
 
         /// <summary>Materials permits waiting for a decision from this user.</summary>

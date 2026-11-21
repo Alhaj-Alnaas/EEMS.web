@@ -1,10 +1,650 @@
 @page "/permits/employee/create"
 @rendermode InteractiveServer
-@using PMS.web.Components.Shared
+@implements IAsyncDisposable
+@inject IPermit PermitService
+@inject IMaterialPermitService MaterialPermits
+@inject IEmployeeService Employees
+@inject IEmployeePhotoService PhotoService
+@inject IJSRuntime JS
+@inject UserManager<User> UserManager
+@inject AuthenticationStateProvider AuthProvider
+@inject NavigationManager Navigation
+@inject PMS.web.Notifications.IUiToast Toast
+@using Microsoft.AspNetCore.Identity
+@using Core.Common
+@using Core.Extensions
+@using static Core.Enums.BaseEnums
 
-<PageTitle>إصدار تصريح موظف - PMS</PageTitle>
+<PageTitle>طلب إصدار بطاقة تصريح - PMS</PageTitle>
 
-<PlaceholderPage Title="إصدار تصريح موظف"
-                 Icon="fas fa-user-check"
-                 Description="منح الموظف صلاحية عبور بوابة/بوابات ضمن فترة زمنية (المرحلة الأولى — صلاحيات الدخول البيومترية)."
-                 Message="الشاشة قيد التجهيز. سترتبط بكيان EmployeePermissions ومزامنة الأجهزة." />
+<div class="pms-create-page card-req">
+    <h3 class="mb-3"><i class="bi bi-person-vcard text-warning"></i> طلب إصدار بطاقة تصريح</h3>
+
+    @if (loading)
+    {
+        <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+    }
+    else
+    {
+        <div class="pms-create-body">
+            <div class="row g-2">
+                <div class="col-lg-6">
+                    <div class="card pms-basic-card card-req-card">
+                        <div class="card-header pms-header">البيانات الأساسية</div>
+                        <div class="card-body">
+                            <div class="card-req-lookup">
+                                <label class="form-label" for="cardFileNumber">الرقم الوظيفي <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <input id="cardFileNumber" class="form-control" inputmode="numeric" @bind="fileNumber" @bind:event="oninput" @onkeydown="OnFileKey" placeholder="الرقم الوظيفي" />
+                                    <button type="button" class="btn btn-warning" @onclick="LookupAsync" disabled="@(looking || photoBusy)">
+                                        @(looking ? "جاري العرض..." : "عرض")
+                                    </button>
+                                </div>
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(lookupMessage))
+                            {
+                                <div class="alert alert-warning card-req-alert">@lookupMessage</div>
+                            }
+                            @if (employee != null)
+                            {
+                                <div class="card-req-person">
+                                    <dl class="card-req-facts">
+                                        <dt>الاسم</dt><dd>@Show(employee.FullName)</dd>
+                                        <dt>الوظيفة</dt><dd>@Show(employee.JobTitle)</dd>
+                                        <dt>التقسيم</dt><dd>@Show(employee.DepartmentName)</dd>
+                                        <dt>الحالة</dt><dd>@Show(employee.JobStatus)</dd>
+                                        <dt>الجنسية</dt><dd>@Show(employee.Nationality)</dd>
+                                        <dt>فصيلة الدم</dt><dd>@Show(employee.BloodType)</dd>
+                                        <dt>العنوان</dt><dd>@Show(employee.Address)</dd>
+                                        <dt>رقم الكرت الحالي</dt><dd class="card-req-cardno">@Show(employee.CardNumber)</dd>
+                                    </dl>
+                                    <div class="card-req-photo-panel @(cameraOn ? "is-live" : "")">
+                                        <div class="card-req-photo">
+                                            <video id="card-req-cam" class="@(cameraOn ? "is-live" : "")" autoplay muted playsinline></video>
+                                            @if (!string.IsNullOrEmpty(photoPreviewUrl))
+                                            {
+                                                <img src="@photoPreviewUrl" alt="صورة الموظف" />
+                                            }
+                                            else if (!cameraOn)
+                                            {
+                                                <span><i class="bi bi-person"></i>لا توجد صورة</span>
+                                            }
+                                        </div>
+                                        <div class="card-req-photo-actions">
+                                            <button type="button" id="card-req-cam-btn" class="btn btn-sm btn-outline-secondary card-req-when-idle" disabled="@photoBusy">
+                                                <i class="bi bi-camera-video"></i> كاميرا
+                                            </button>
+                                            <button type="button" id="card-req-cap-btn" class="btn btn-sm btn-secondary card-req-when-live" disabled="@photoBusy">
+                                                <i class="bi bi-camera-fill"></i> التقاط
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary card-req-when-live" @onclick="StopCameraAsync" disabled="@photoBusy">إيقاف</button>
+                                            @if (!string.IsNullOrEmpty(photoPreviewUrl))
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-danger card-req-when-idle" @onclick="ClearPhotoAsync" disabled="@photoBusy">حذف</button>
+                                            }
+                                        </div>
+                                        <div class="card-req-photo-hint card-req-when-live">اضبط الوجه ثم التقاط. تُحفظ الصورة باسم photo.jpg.</div>
+                                        @if (!string.IsNullOrEmpty(savedPhotoFileName))
+                                        {
+                                            <div class="card-req-photo-name card-req-when-idle">@savedPhotoFileName</div>
+                                        }
+                                        <InputFile class="form-control form-control-sm" OnChange="OnPhotoFileAsync" accept="image/*" />
+                                    </div>
+                                </div>
+                            }
+                            else if (string.IsNullOrWhiteSpace(lookupMessage))
+                            {
+                                <div class="card-req-empty">
+                                    <i class="bi bi-person-vcard"></i>
+                                    <span>أدخل الرقم ثم اضغط إنتر.</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card pms-basic-card card-req-card">
+                        <div class="card-header pms-header">بيانات الطلب</div>
+                        <div class="card-body card-req-form">
+                            <div>
+                                <label class="form-label" for="cardPermitNo">رقم الطلب</label>
+                                <input id="cardPermitNo" class="form-control text-center pms-permit-no" value="@permitNumber" readonly />
+                            </div>
+                            <div>
+                                <label class="form-label" for="cardPermitDate">تاريخ الطلب <span class="text-danger">*</span></label>
+                                <input id="cardPermitDate" type="date" class="form-control" @bind="permitDate" @bind:format="yyyy-MM-dd" />
+                            </div>
+                            <div>
+                                <label class="form-label" for="cardKind">حالة التصريح المطلوب <span class="text-danger">*</span></label>
+                                <select id="cardKind" class="form-select" @bind="kind">
+                                    @foreach (var item in Enum.GetValues<EmployeeCardRequestKind>())
+                                    {
+                                        <option value="@item">@item.GetDescription()</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="card-req-notes">
+                                <label class="form-label" for="cardNotes">ملاحظات</label>
+                                <textarea id="cardNotes" class="form-control" rows="4" @bind="notes" placeholder="إن وجدت"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="alert alert-danger mt-3 mb-0">@errorMessage</div>
+        }
+
+        <div class="pms-create-actions">
+            <button type="button" class="btn btn-warning px-4" @onclick="SendAsync" disabled="@(saving || photoBusy || employee == null || !string.IsNullOrWhiteSpace(lookupMessage))">
+                <i class="bi bi-send"></i> @(saving ? "جاري الإرسال..." : "إرسال للاعتماد")
+            </button>
+            <BackLink Fallback="/permits/card-requests" Css="btn btn-outline-secondary px-4">إلغاء</BackLink>
+        </div>
+    }
+</div>
+
+<style>
+    .card-req .card-req-card {
+        border: 1px solid #e2e6ea;
+        border-radius: 0.7rem;
+        box-shadow: 0 1px 2px rgba(17, 16, 29, 0.04);
+    }
+    .card-req .card-header.pms-header {
+        padding: 0.45rem 0.85rem;
+        font-size: 0.95rem;
+    }
+    .card-req .card-body {
+        padding: 0.75rem 0.9rem 0.85rem;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+    }
+    .card-req .form-label {
+        margin-bottom: 0.2rem;
+        font-size: 0.86rem;
+        font-weight: 700;
+        color: #212529;
+    }
+    .card-req .form-control,
+    .card-req .form-select {
+        padding: 0.38rem 0.6rem;
+        font-size: 0.92rem;
+    }
+    .card-req .card-req-lookup { margin-bottom: 0.7rem; }
+    .card-req .card-req-alert {
+        padding: 0.45rem 0.7rem;
+        margin-bottom: 0.65rem;
+        font-size: 0.86rem;
+    }
+    .card-req-person {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.85rem;
+        min-height: 0;
+    }
+    .card-req-facts {
+        flex: 1;
+        min-width: 0;
+        display: grid;
+        grid-template-columns: max-content minmax(0, 1fr);
+        column-gap: 0.45rem;
+        margin: 0;
+    }
+    .card-req-facts dt,
+    .card-req-facts dd {
+        margin: 0;
+        padding: 0.28rem 0;
+        border-bottom: 1px solid #eef1f4;
+        line-height: 1.4;
+        font-size: 0.92rem;
+    }
+    .card-req-facts dt {
+        font-weight: 700;
+        color: #212529;
+        white-space: nowrap;
+    }
+    .card-req-facts dt::after {
+        content: " :";
+        font-weight: 700;
+    }
+    .card-req-facts dd {
+        color: #1a1a1a;
+        overflow-wrap: anywhere;
+    }
+    .card-req-cardno {
+        font-weight: 700;
+        letter-spacing: 0.02em;
+    }
+    .card-req-photo-panel {
+        flex: 0 0 148px;
+        width: 148px;
+    }
+    .card-req-photo {
+        width: 100%;
+        height: 168px;
+        border: 1px solid #343a40;
+        border-radius: 0.45rem;
+        overflow: hidden;
+        background: #212529;
+    }
+    .card-req-photo img,
+    .card-req-photo video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+    .card-req-photo video { display: none; }
+    .card-req-photo video.is-live { display: block; }
+    .card-req-photo span {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.2rem;
+        color: rgba(255, 255, 255, 0.55);
+        font-size: 0.72rem;
+        text-align: center;
+        padding: 0.4rem;
+    }
+    .card-req-photo span i { font-size: 1.4rem; }
+    .card-req-photo-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.3rem;
+        margin-top: 0.4rem;
+    }
+    .card-req-photo-actions .btn {
+        font-size: 0.75rem;
+        padding: 0.15rem 0.45rem;
+    }
+    .card-req-photo-panel .card-req-when-live { display: none; }
+    .card-req-photo-panel.is-live .card-req-when-idle { display: none; }
+    .card-req-photo-panel.is-live .card-req-when-live { display: inline-block; }
+    .card-req-photo-panel.is-live .card-req-photo-hint { display: block; }
+    .card-req-photo-hint,
+    .card-req-photo-name {
+        margin-top: 0.25rem;
+        font-size: 0.72rem;
+        line-height: 1.35;
+        color: #6c757d;
+        text-align: center;
+    }
+    .card-req-photo-name {
+        font-weight: 700;
+        color: #212529;
+        direction: ltr;
+    }
+    .card-req-photo-panel .form-control {
+        margin-top: 0.4rem;
+        font-size: 0.75rem;
+        padding: 0.2rem 0.35rem;
+    }
+    .card-req-empty {
+        flex: 1;
+        min-height: 11rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        text-align: center;
+        color: #6c757d;
+        background: #f7f8fa;
+        border: 1px dashed #ced4da;
+        border-radius: 0.55rem;
+        padding: 1.25rem 1rem;
+        font-size: 0.9rem;
+    }
+    .card-req-empty i { font-size: 1.6rem; color: #adb5bd; }
+    .card-req-form {
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+    }
+    .card-req-notes {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+    }
+    .card-req-notes textarea {
+        flex: 1;
+        min-height: 6.5rem;
+        resize: vertical;
+    }
+</style>
+
+@code {
+    private bool loading = true;
+    private bool looking;
+    private bool saving;
+    private bool cameraOn;
+    private bool photoBusy;
+    private DotNetObjectReference<EmployeePermitCreate>? cameraRef;
+    private string? photoPreviewUrl;
+    private string? photoBeforeCamera;
+    private string? savedPhotoFileName;
+    private byte[]? photoBytes;
+    private string photoContentType = "image/jpeg";
+    private string fileNumber = "";
+    private string permitNumber = "";
+    private DateTime permitDate = DateTime.Today;
+    private EmployeeCardRequestKind kind = EmployeeCardRequestKind.New;
+    private string notes = "";
+    private string? lookupMessage;
+    private string? errorMessage;
+    private Employee? employee;
+    private User? currentUser;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var auth = await AuthProvider.GetAuthenticationStateAsync();
+            var userName = auth.User.Identity?.Name;
+            currentUser = userName == null ? null : await UserManager.FindByNameAsync(userName);
+            permitNumber = await PermitService.GeneratePermitSerialNumberAsync(nameof(PermitClassification.EmployeeAccess));
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "تعذر تجهيز الطلب: " + ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (employee == null)
+            return;
+        try
+        {
+            cameraRef ??= DotNetObjectReference.Create(this);
+            if (cameraOn)
+                await JS.InvokeVoidAsync("employeeCamera.attach", "card-req-cam");
+            await JS.InvokeVoidAsync("employeeCamera.bindStart", "card-req-cam-btn", "card-req-cam", cameraRef);
+            await JS.InvokeVoidAsync("employeeCamera.bindCapture", "card-req-cap-btn", "card-req-cam", cameraRef);
+        }
+        catch (JSDisconnectedException) { }
+        catch (JSException) { }
+    }
+
+    [JSInvokable]
+    public async Task OnCameraReady()
+    {
+        if (employee == null)
+        {
+            _ = JS.InvokeVoidAsync("employeeCamera.stop");
+            return;
+        }
+        photoBeforeCamera = photoPreviewUrl;
+        photoPreviewUrl = null;
+        cameraOn = true;
+        photoBusy = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public async Task OnCameraFailed(string message)
+    {
+        cameraOn = false;
+        photoBusy = false;
+        if (string.IsNullOrEmpty(photoPreviewUrl) && !string.IsNullOrEmpty(photoBeforeCamera))
+            photoPreviewUrl = photoBeforeCamera;
+        photoBeforeCamera = null;
+        await InvokeAsync(StateHasChanged);
+        errorMessage = "تعذر تشغيل الكاميرا: " + message;
+    }
+
+    private async Task OnFileKey(KeyboardEventArgs key)
+    {
+        if (key.Key == "Enter")
+            await LookupAsync();
+    }
+
+    private async Task LookupAsync()
+    {
+        if (photoBusy)
+            return;
+        await StopCameraAsync();
+
+        lookupMessage = null;
+        errorMessage = null;
+        employee = null;
+        photoPreviewUrl = null;
+        photoBytes = null;
+        photoBeforeCamera = null;
+        savedPhotoFileName = null;
+        var pin = fileNumber.Trim();
+        if (string.IsNullOrWhiteSpace(pin))
+        {
+            lookupMessage = "أدخل الرقم الوظيفي.";
+            return;
+        }
+
+        looking = true;
+        try
+        {
+            employee = await Employees.GetByFileNumberAsync(pin);
+            lookupMessage = EmployeeCardPermit.PrintBlockMessage(employee);
+            if (lookupMessage != null)
+                employee = employee is { isDeleted: false } ? employee : null;
+            photoPreviewUrl = string.IsNullOrWhiteSpace(employee?.PhotoPath) ? null : employee.PhotoPath;
+            savedPhotoFileName = PhotoFileName(employee?.PhotoPath);
+        }
+        catch (Exception ex)
+        {
+            lookupMessage = "تعذر عرض بيانات الموظف: " + ex.Message;
+        }
+        finally
+        {
+            looking = false;
+        }
+    }
+
+    private async Task SendAsync()
+    {
+        if (saving || employee == null)
+            return;
+        var blocked = EmployeeCardPermit.PrintBlockMessage(employee);
+        if (blocked != null)
+        {
+            lookupMessage = blocked;
+            return;
+        }
+
+        saving = true;
+        errorMessage = null;
+        try
+        {
+            if (currentUser == null)
+                throw new InvalidOperationException("المستخدم غير معروف.");
+            await MaterialPermits.SaveEmployeeCardAsync(new EmployeeCardPermitRequest
+            {
+                PermitNumber = permitNumber,
+                PermitDate = permitDate,
+                FileNumber = employee.FileNumber,
+                Kind = kind,
+                Notes = notes
+            }, currentUser);
+            await Toast.DoneAsync("تم إرسال الطلب.");
+            Navigation.NavigateTo(ReturnUrl.Read(Navigation) ?? "/permits/card-requests");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private static string Show(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "—" : value.Trim();
+
+    private static string? PhotoFileName(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return null;
+        var name = Path.GetFileName(path.Split('?', 2)[0]);
+        return string.IsNullOrWhiteSpace(name) ? "photo.jpg" : name;
+    }
+
+    [JSInvokable]
+    public async Task OnPhotoCaptured(string dataUrl)
+    {
+        if (employee == null || photoBusy)
+            return;
+        photoBusy = true;
+        try
+        {
+            ApplyDataUrl(dataUrl);
+            await StorePhotoAsync();
+            photoBeforeCamera = null;
+            await StopCameraAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "تعذر التقاط الصورة: " + ex.Message;
+        }
+        finally
+        {
+            photoBusy = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnPhotoCaptureFailed(string message)
+    {
+        photoBusy = false;
+        await InvokeAsync(StateHasChanged);
+        errorMessage = "تعذر التقاط الصورة: " + message;
+    }
+
+    private async Task StopCameraAsync()
+    {
+        cameraOn = false;
+        try { await JS.InvokeVoidAsync("employeeCamera.stop"); } catch { }
+        if (string.IsNullOrEmpty(photoPreviewUrl) && !string.IsNullOrEmpty(photoBeforeCamera))
+            photoPreviewUrl = photoBeforeCamera;
+        photoBeforeCamera = null;
+    }
+
+    private async Task ClearPhotoAsync()
+    {
+        if (employee == null || photoBusy)
+            return;
+        if (!await Toast.ConfirmAsync("هل تريد حذف صورة الموظف؟", "حذف", "لا", "danger"))
+            return;
+
+        photoBusy = true;
+        try
+        {
+            if (cameraOn)
+                await StopCameraAsync();
+            var previous = employee.PhotoPath;
+            await Employees.UpdatePhotoPathAsync(employee.Id, null);
+            PhotoService.TryDeletePhoto(previous);
+            employee.PhotoPath = null;
+            photoPreviewUrl = null;
+            photoBytes = null;
+            photoBeforeCamera = null;
+            savedPhotoFileName = null;
+            lookupMessage = EmployeeCardPermit.PrintBlockMessage(employee);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "تعذر حذف الصورة: " + ex.Message;
+        }
+        finally
+        {
+            photoBusy = false;
+        }
+    }
+
+    private async Task OnPhotoFileAsync(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null || employee == null || photoBusy)
+            return;
+        if (file.Size > 5 * 1024 * 1024)
+        {
+            errorMessage = "حجم الصورة يجب ألا يتجاوز 5 ميجابايت.";
+            return;
+        }
+
+        photoBusy = true;
+        try
+        {
+            await using var stream = file.OpenReadStream(5 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            photoBytes = ms.ToArray();
+            photoContentType = string.IsNullOrWhiteSpace(file.ContentType) ? "image/jpeg" : file.ContentType;
+            if (cameraOn)
+                await StopCameraAsync();
+            await StorePhotoAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "تعذر حفظ الصورة: " + ex.Message;
+        }
+        finally
+        {
+            photoBusy = false;
+        }
+    }
+
+    private async Task StorePhotoAsync()
+    {
+        if (employee == null || photoBytes is not { Length: > 0 })
+            return;
+
+        var pin = string.IsNullOrWhiteSpace(employee.FileNumber) ? fileNumber : employee.FileNumber;
+        if (string.IsNullOrWhiteSpace(pin))
+            throw new InvalidOperationException("الرقم الوظيفي غير متوفر لحفظ الصورة.");
+
+        var previous = employee.PhotoPath;
+        var path = await PhotoService.SavePhotoAsync(pin.Trim(), photoBytes, photoContentType);
+        await Employees.UpdatePhotoPathAsync(employee.Id, path);
+        if (!string.IsNullOrWhiteSpace(previous)
+            && !string.Equals(previous.Split('?', 2)[0], path, StringComparison.OrdinalIgnoreCase))
+        {
+            PhotoService.TryDeletePhoto(previous);
+        }
+
+        employee.PhotoPath = path;
+        photoPreviewUrl = path + "?t=" + DateTime.Now.Ticks;
+        savedPhotoFileName = PhotoFileName(path);
+        lookupMessage = EmployeeCardPermit.PrintBlockMessage(employee);
+    }
+
+    private void ApplyDataUrl(string dataUrl)
+    {
+        var comma = dataUrl.IndexOf(',');
+        if (comma < 0)
+            throw new InvalidOperationException("تنسيق الصورة غير صالح.");
+        var meta = dataUrl[..comma];
+        var b64 = dataUrl[(comma + 1)..];
+        photoContentType = meta.Contains("image/png") ? "image/png" : "image/jpeg";
+        photoBytes = Convert.FromBase64String(b64);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await JS.InvokeVoidAsync("employeeCamera.stop"); } catch { }
+        cameraRef?.Dispose();
+        cameraRef = null;
+    }
+}

@@ -204,6 +204,12 @@ namespace PMS.web.Authorization
 
         public const string Reports = Prefix + SystemTaskCodes.Reports;
 
+        public const string PermitsLabor = Prefix + SystemTaskCodes.PermitsLabor;
+
+        public const string AdminLaborCompanies = Prefix + SystemTaskCodes.AdminLaborCompanies;
+
+        public const string ReportsLabor = Prefix + SystemTaskCodes.ReportsLabor;
+
 
 
         public static void Register(AuthorizationOptions options)

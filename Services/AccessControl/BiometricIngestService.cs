@@ -259,7 +259,10 @@ namespace Services.AccessControl
                 }
                 catch (FormatException)
                 {
-                    bytes = System.Text.Encoding.UTF8.GetBytes(entry.TemplateBase64);
+                    _logger.LogWarning(
+                        "Skip bio template SN={Serial} PIN={Pin} type={BioType} — TMP is not base64",
+                        deviceSerial, entry.Pin, entry.BioType);
+                    continue;
                 }
 
                 var employee = await _unitOfWork.Employees.GetQueryable()
@@ -278,6 +281,15 @@ namespace Services.AccessControl
                 if (entry.MinorVer is int minorVer) marker += $";MinorVer={minorVer}";
                 if (entry.Format is int format) marker += $";Format={format}";
                 var remarks = $"{marker}; from {reader.DeviceSerial}";
+                if (templateType == BiometricTemplateType.Face
+                    && !FaceTemplatePolicy.IsDoorFace(bytes, remarks))
+                {
+                    _logger.LogWarning(
+                        "Ignored face that cannot open a door SN={Serial} PIN={Pin} bytes={Bytes} marker={Marker}",
+                        deviceSerial, entry.Pin, bytes.Length, marker);
+                    continue;
+                }
+
                 var existing = await _unitOfWork.BiometricTemplates.GetQueryable()
                     .FirstOrDefaultAsync(t =>
                         t.EmployeeId == employee.Id
@@ -290,12 +302,31 @@ namespace Services.AccessControl
                 var changed = true;
                 if (existing != null)
                 {
-                    changed = existing.TemplateData == null
-                        || !existing.TemplateData.AsSpan().SequenceEqual(bytes);
-                    existing.TemplateData = bytes;
-                    existing.updatedOn = DateTime.Now;
-                    existing.remarks = remarks;
-                    _unitOfWork.BiometricTemplates.Update(existing);
+                    var keepSource = templateType == BiometricTemplateType.Face
+                        && FaceTemplatePolicy.IsDoorFace(existing.TemplateData, existing.remarks)
+                        && IsSameDoorCapture(existing.TemplateData, bytes);
+                    if (keepSource)
+                    {
+                        changed = false;
+                        existing.remarks = FaceTemplatePolicy.WithConfirmation(
+                            existing.remarks ?? remarks, reader.DeviceSerial);
+                        existing.updatedOn = DateTime.Now;
+                        _unitOfWork.BiometricTemplates.Update(existing);
+                        _logger.LogWarning(
+                            "Face confirmed SN={Serial} PIN={Pin} bytes={Bytes}",
+                            deviceSerial, entry.Pin, bytes.Length);
+                    }
+                    else
+                    {
+                        changed = existing.TemplateData == null
+                            || !existing.TemplateData.AsSpan().SequenceEqual(bytes);
+                        existing.TemplateData = bytes;
+                        existing.updatedOn = DateTime.Now;
+                        existing.remarks = templateType == BiometricTemplateType.Face
+                            ? FaceTemplatePolicy.WithConfirmation(remarks, reader.DeviceSerial)
+                            : remarks;
+                        _unitOfWork.BiometricTemplates.Update(existing);
+                    }
                 }
                 else
                 {
@@ -308,7 +339,9 @@ namespace Services.AccessControl
                         IsApproved = true,
                         ApprovedBy = $"ZKTeco/{reader.DeviceSerial}",
                         ApprovedOn = DateTime.Now,
-                        remarks = remarks,
+                        remarks = templateType == BiometricTemplateType.Face
+                            ? FaceTemplatePolicy.WithConfirmation(remarks, reader.DeviceSerial)
+                            : remarks,
                         createdOn = DateTime.Now
                     });
                 }
@@ -341,6 +374,17 @@ namespace Services.AccessControl
             }
 
             return saved;
+        }
+
+        private static bool IsSameDoorCapture(byte[]? stored, byte[] incoming)
+        {
+            if (stored == null || stored.Length == 0 || incoming.Length == 0)
+                return false;
+            if (stored.AsSpan().SequenceEqual(incoming))
+                return true;
+            var delta = Math.Abs(stored.Length - incoming.Length);
+            var limit = Math.Max(32, stored.Length / 20);
+            return delta <= limit;
         }
 
         private static string PreviewBody(string body, int max)

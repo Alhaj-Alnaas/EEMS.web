@@ -12,8 +12,10 @@ namespace Core.Common
         public static readonly WorkflowStepType[] OrderedSteps =
         {
             WorkflowStepType.NoApproval,
-            WorkflowStepType.DirectSupervisor,
-            WorkflowStepType.HigherSupervisor,
+            WorkflowStepType.SectionHead,
+            WorkflowStepType.AdministrationManager,
+            WorkflowStepType.GeneralManager,
+            WorkflowStepType.SectorSupervisor,
             WorkflowStepType.ElectronicMonitoring,
             WorkflowStepType.SecurityAffairs,
             WorkflowStepType.GuardSection
@@ -23,6 +25,10 @@ namespace Core.Common
             type is WorkflowStepType.NoApproval
                 or WorkflowStepType.DirectSupervisor
                 or WorkflowStepType.HigherSupervisor
+                or WorkflowStepType.SectionHead
+                or WorkflowStepType.AdministrationManager
+                or WorkflowStepType.GeneralManager
+                or WorkflowStepType.SectorSupervisor
                 or WorkflowStepType.ElectronicMonitoring
                 or WorkflowStepType.SecurityAffairs
                 or WorkflowStepType.GuardSection;
@@ -38,6 +44,10 @@ namespace Core.Common
             WorkflowStepType.NoApproval => "لا يحتاج اعتماد",
             WorkflowStepType.DirectSupervisor => "اعتماد الرئيس المباشر",
             WorkflowStepType.HigherSupervisor => "اعتماد الرئيس الأعلى",
+            WorkflowStepType.SectionHead => "اعتماد رئيس القسم",
+            WorkflowStepType.AdministrationManager => "اعتماد مدير الإدارة",
+            WorkflowStepType.GeneralManager => "اعتماد المدير العام",
+            WorkflowStepType.SectorSupervisor => "اعتماد مشرف القطاع",
             WorkflowStepType.ElectronicMonitoring => "اعتماد رئيس قسم المراقبة الإلكترونية",
             WorkflowStepType.SecurityAffairs => "اعتماد مدير إدارة الشؤون الأمنية",
             WorkflowStepType.GuardSection => "اعتماد رئيس قسم الحراسة",
@@ -49,12 +59,14 @@ namespace Core.Common
 
         public static string Hint(WorkflowStepType type) => type switch
         {
-            WorkflowStepType.NoApproval => "ينتقل التصريح إلى التنفيذ مباشرة، ويظهر في متابعة الجهات ذات العلاقة.",
-            WorkflowStepType.DirectSupervisor => "مسؤول التقسيم الإداري لمن أدخل التصريح. إذا كان المُدخل قيادياً فهو الرئيس المباشر لنفسه، وتُتخطى هذه الخطوة إلى المستوى التالي في المسار. وتُهمل إذا أُدخل التصريح من إدارة الشؤون الأمنية أو أحد أقسامها.",
-            WorkflowStepType.HigherSupervisor => "المستوى الإداري الأعلى. لا يُطلب رئيس أعلى إذا أُدخل التصريح من إدارة ليس لها إدارة عامة، أو من إدارة عامة، أو من قطاع؛ واعتماد رئيس ذلك التقسيم هو اعتماد الرئيس الأعلى. وتُهمل هذه الخطوة إذا أُدخل التصريح من إدارة الشؤون الأمنية أو أحد أقسامها.",
-            WorkflowStepType.ElectronicMonitoring => "مسؤول التقسيم الإداري ومركز مسؤوليته 45012. إذا أُدخل التصريح من إدارة الشؤون الأمنية أو أحد أقسامها فهذه أول خطوة في المسار.",
-            WorkflowStepType.SecurityAffairs => "مدير إدارة الشؤون الأمنية. إذا أُدخل التصريح من هذه الإدارة أو أحد أقسامها يسير الاعتماد: رئيس قسم المراقبة الإلكترونية، ثم مدير إدارة الشؤون الأمنية، ثم رئيس قسم الحراسة.",
-            WorkflowStepType.GuardSection => "مسؤول التقسيم الإداري ومركز مسؤوليته 45011. إذا أُدخل التصريح من إدارة الشؤون الأمنية أو أحد أقسامها فهذه آخر خطوة في المسار.",
+            WorkflowStepType.NoApproval => "لا يمر بخطوات المسار ولا يذهب إلى المناوب. غير القيادي يبقى مرهوناً باعتماد رئيسه المباشر ثم ينتقل إلى التنفيذ، والقيادي ينتقل إلى التنفيذ مباشرة.",
+            WorkflowStepType.SectionHead => "تُطبَّق إذا كانت أعلى من الرئيس المباشر. غير القيادي يمر برئيسه المباشر أولاً ولو لم تُفعَّل هذه الخطوة. القيادي يبدأ من أول خطوة بعد مستواه. القسم بلا إدارة يُعامل كإدارة.",
+            WorkflowStepType.AdministrationManager => "تُطبَّق إذا كانت أعلى من الرئيس المباشر. قسم بلا إدارة يُعامل رئيسه كمدير إدارة، والقيادي في هذا المستوى يبدأ مما بعده.",
+            WorkflowStepType.GeneralManager => "المدير العام. تُتخطى الخطوة عندما لا توجد إدارة عامة فوق الإدارة.",
+            WorkflowStepType.SectorSupervisor => "مشرف القطاع فوق الإدارة أو الإدارة العامة.",
+            WorkflowStepType.ElectronicMonitoring => "رئيس قسم المراقبة. لغير القيادي الداخل من الشؤون الأمنية هي أول خطوة: المراقبة، ثم مدير الإدارة، ثم الحراسة. القيادي يُتخطى مستواه.",
+            WorkflowStepType.SecurityAffairs => "مدير إدارة الشؤون الأمنية. القيادي في هذا المنصب ينتقل الاعتماد إلى رئيس قسم الحراسة.",
+            WorkflowStepType.GuardSection => "رئيس قسم الحراسة، وآخر خطوة في مسار الشؤون الأمنية. إذا كان المُدخل هو رئيس القسم تُتخطى الخطوة.",
             _ => ""
         };
 
@@ -63,7 +75,7 @@ namespace Core.Common
             PermitClassification.Materials => "مواد",
             PermitClassification.Cars => "مركبات",
             PermitClassification.Visitors => "زوار",
-            PermitClassification.EmployeeAccess => "دخول موظفين",
+            PermitClassification.EmployeeAccess => "طلب إصدار بطاقة تصريح",
             _ => classification.ToString()
         };
     }

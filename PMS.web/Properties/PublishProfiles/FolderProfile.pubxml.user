@@ -2,8 +2,8 @@
 <!-- https://go.microsoft.com/fwlink/?LinkID=208121. -->
 <Project>
   <PropertyGroup>
-    <_PublishTargetUrl>D:\PMSTestPublish</_PublishTargetUrl>
-    <History>True|2026-08-11T14:27:41.9327000Z||;True|2026-08-11T16:07:27.6446108+02:00||;</History>
+    <_PublishTargetUrl>D:\EEMS Project\PMS\PMS.web\..\Publish\PMS.Server</_PublishTargetUrl>
+    <History>True|2026-11-18T12:50:24.7825028Z||;True|2026-11-17T15:30:35.7612492+02:00||;True|2026-08-11T16:27:41.9327000+02:00||;True|2026-08-11T16:07:27.6446108+02:00||;</History>
     <LastFailureDetails />
   </PropertyGroup>
 </Project>

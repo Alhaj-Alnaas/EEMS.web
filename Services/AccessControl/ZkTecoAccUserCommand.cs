@@ -36,23 +36,26 @@ namespace Services.AccessControl
         /// TZ stays 0000000100000000 so Time Rule [1] is not used as the switch
         /// (zeros are ignored; changing TZ did not uncheck Rule [1] on this unit).
         /// </summary>
-        public static string AccUserLine(string pin, string? name, string disable, int? uid = null)
+        public static string AccUserLine(string pin, string? name, string disable, int? uid = null, string? card = null)
         {
             pin = SanitizeToken(pin);
             name = SanitizeName(name);
+            card = SanitizeToken(card);
 
             if (string.IsNullOrWhiteSpace(pin))
                 throw new ArgumentException("PIN is required to enroll a user.");
 
             // Do not send CardNo= — an empty CardNo= on UPDATE clears the badge on M4.
+            // A present card is sent so an existing badge is updated and a new user receives it.
             // uid is sent only when creating a missing user. UPDATE by Pin= alone
             // returns -1004 on this firmware when the PIN is not on the device.
             var group = disable == "1" ? "99" : "1";
             var uidPart = uid is > 0 ? $"uid={uid.Value}\t" : "";
+            var cardPart = string.IsNullOrWhiteSpace(card) ? "" : $"\tCardNo={card}";
 
             return "DATA UPDATE user " + uidPart +
                    $"Pin={pin}\tPassword=\tGroup={group}\tStartTime=0\tEndTime=0\t" +
-                   $"Name={name}\tPrivilege=0\tTZ=0000000100000000";
+                   $"Name={name}\tPrivilege=0{cardPart}\tTZ=0000000100000000";
         }
 
         /// <summary>

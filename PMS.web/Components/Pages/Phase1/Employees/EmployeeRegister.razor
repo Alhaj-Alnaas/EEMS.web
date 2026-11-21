@@ -31,7 +31,6 @@
         <i class="bi bi-person-badge text-warning"></i>
         تسجيل بيانات الموظف
     </h3>
-    <p class="text-muted small mb-2">التحقق من شؤون الأفراد، ثم استكمال البيانات وربط البوابات.</p>
 
     @if (screenLoading)
     {
@@ -125,7 +124,7 @@
                                 <InputCheckbox class="form-check-input" @bind-Value="model.IsActive" id="empActive" />
                                 <label class="form-check-label fw-bold" for="empActive">@(model.IsActive ? "موظف نشط" : "موظف غير نشط")</label>
                             </div>
-                            <div class="emp-reg-photo-panel">
+                            <div class="emp-reg-photo-panel @(cameraOn ? "is-live" : "")">
                                 <div class="emp-reg-photo-frame">
                                     <video id="emp-cam-video" class="@(cameraOn ? "is-live" : "")" autoplay muted playsinline></video>
                                     @if (!string.IsNullOrEmpty(photoPreviewUrl))
@@ -141,25 +140,19 @@
                                     }
                                 </div>
                                 <div class="d-flex flex-wrap justify-content-center gap-2">
-                                    @if (!cameraOn)
-                                    {
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="StartCamera" disabled="@cameraBusy">
-                                            <i class="bi bi-camera-video"></i> كاميرا
-                                        </button>
-                                    }
-                                    else
-                                    {
-                                        <button type="button" class="btn btn-sm btn-secondary" @onclick="CapturePhotoAsync" disabled="@cameraBusy">
-                                            <i class="bi bi-camera-fill"></i> @(cameraBusy ? "جاري تشغيل الكاميرا..." : "التقاط")
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="StopCameraAsync">إيقاف</button>
-                                        <div class="form-text w-100 text-center mb-0">المعاينة لضبط الوجه، والتقاط يحفظ صورة ثابتة فقط.</div>
-                                    }
+                                    <button type="button" id="emp-cam-start" class="btn btn-sm btn-outline-secondary emp-reg-when-idle" disabled="@cameraBusy">
+                                        <i class="bi bi-camera-video"></i> كاميرا
+                                    </button>
+                                    <button type="button" id="emp-cam-cap" class="btn btn-sm btn-secondary emp-reg-when-live" disabled="@cameraBusy">
+                                        <i class="bi bi-camera-fill"></i> @(cameraBusy ? "جاري الحفظ..." : "التقاط")
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary emp-reg-when-live" @onclick="StopCameraAsync">إيقاف</button>
                                     @if (!string.IsNullOrEmpty(photoPreviewUrl))
                                     {
-                                        <button type="button" class="btn btn-sm btn-outline-danger" @onclick="ClearPhotoAsync">حذف</button>
+                                        <button type="button" class="btn btn-sm btn-outline-danger emp-reg-when-idle" @onclick="ClearPhotoAsync">حذف</button>
                                     }
                                 </div>
+                                <div class="form-text w-100 text-center mb-0 emp-reg-when-live">اضبط الوجه ثم التقاط.</div>
                                 <InputFile class="form-control form-control-sm mt-2" OnChange="OnPhotoFileAsync" accept="image/*" />
                             </div>
                         </div>
@@ -174,11 +167,11 @@
                 <div class="card-body">
                     <div class="d-flex flex-column gap-2 mb-3">
                         <div class="form-check">
-                            <input class="form-check-input" type="radio" name="linkMode" id="linkEmployee" checked="@(linkMode == "employee")" @onchange='() => linkMode = "employee"' />
+                            <input class="form-check-input" type="radio" name="linkMode" id="linkEmployee" checked="@(linkMode == "employee")" @onchange='() => SetLinkMode("employee")' />
                             <label class="form-check-label" for="linkEmployee">ربط برقم الموظف @fileNumber</label>
                         </div>
                         <div class="form-check">
-                            <input class="form-check-input" type="radio" name="linkMode" id="linkDivision" checked="@(linkMode == "division")" @onchange='() => linkMode = "division"' disabled="@string.IsNullOrWhiteSpace(responsibilityCode)" />
+                            <input class="form-check-input" type="radio" name="linkMode" id="linkDivision" checked="@(linkMode == "division")" @onchange='() => SetLinkMode("division")' disabled="@string.IsNullOrWhiteSpace(responsibilityCode)" />
                             <label class="form-check-label" for="linkDivision">
                                 ربط التقسيم بالكامل
                                 @if (!string.IsNullOrWhiteSpace(displayDepartment))
@@ -186,9 +179,17 @@
                                     <span class="text-muted">— @displayDepartment</span>
                                 }
                             </label>
-                            <div class="form-text">عند إضافة أي موظف من هذا التقسيم تُربط هذه البوابات به تلقائياً.</div>
+                            <div class="form-text">موظفو التقسيم يُربطون بهذه البوابات، وتُضاف بوابة التدريب.</div>
                         </div>
                     </div>
+                    @if (IsLeader && linkMode == "employee")
+                    {
+                        <div class="alert alert-info py-2">موظف قيادي: يُربط بجميع البوابات.</div>
+                    }
+                    else if (IsLeader)
+                    {
+                        <div class="alert alert-info py-2">موظف قيادي: الربط الشخصي على كل البوابات، وربط التقسيم يبقى كما هو.</div>
+                    }
                     @if (gates.Count == 0)
                     {
                         <div class="text-muted">لا توجد بوابات مسجّلة.</div>
@@ -199,12 +200,18 @@
                             @foreach (var g in gates)
                             {
                                 var gid = g.Id;
+                                var locked = IsTrainingGate(g) || LeaderLocksGates;
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" id="gate-@gid"
                                            checked="@selectedGateIds.Contains(gid)"
+                                           disabled="@locked"
                                            @onchange="e => ToggleGate(gid, ToBool(e.Value))" />
                                     <label class="form-check-label" for="gate-@gid">
                                         @g.no — @g.description
+                                        @if (IsTrainingGate(g))
+                                        {
+                                            <span class="badge text-bg-secondary ms-1">تلقائي لكل الموظفين</span>
+                                        }
                                     </label>
                                 </div>
                             }
@@ -270,6 +277,9 @@
         background: #f7f8fa; border: 1px dashed #ced4da; border-radius: .65rem;
         padding: 0.85rem 1rem 0.75rem; margin-top: 0.35rem;
     }
+    .emp-reg-photo-panel .emp-reg-when-live { display: none; }
+    .emp-reg-photo-panel.is-live .emp-reg-when-idle { display: none; }
+    .emp-reg-photo-panel.is-live .emp-reg-when-live { display: inline-block; }
     .emp-reg-photo-frame {
         width: 136px; height: 170px; margin: 0.25rem auto 0.75rem;
         border: 1px solid #343a40; border-radius: .45rem; overflow: hidden;
@@ -323,6 +333,8 @@
     private List<Reader> readers = new();
     private List<Gate> gates = new();
     private HashSet<Guid> selectedGateIds = new();
+    private HashSet<Guid> manualGateIds = new();
+    private int? jobCatId;
 
     private string displayFullName = "";
     private string displayJobTitle = "";
@@ -347,7 +359,6 @@
     private bool syncingGates;
     private bool cameraOn;
     private bool cameraBusy;
-    private bool cameraStartPending;
     private bool verifying;
     private string? photoPreviewUrl;
     private byte[]? photoBytes;
@@ -369,6 +380,8 @@
     private bool jsAttached;
 
     private bool HasGatesSelected => selectedGateIds.Count > 0;
+    private bool IsLeader => jobCatId == 1;
+    private bool LeaderLocksGates => IsLeader && linkMode == "employee";
 
     private string StepClass(int step)
     {
@@ -407,6 +420,7 @@
                 .Where(g => !g.isDeleted)
                 .OrderBy(g => g.description ?? g.no)
                 .ToList();
+            ApplyGatePolicy();
 
             if (Id is Guid empId && empId != Guid.Empty)
             {
@@ -495,12 +509,13 @@
         await LoadSelectedGatesAsync(existing.Id);
         var divisionGates = await DivisionGates.GetGateIdsAsync(responsibilityCode);
         foreach (var gateId in divisionGates)
-            selectedGateIds.Add(gateId);
+            manualGateIds.Add(gateId);
         if (divisionGates.Count > 0)
         {
             linkMode = "division";
-            await GrantGatesAsync(existing.Id, divisionGates);
+            await GrantGatesAsync(existing.Id, AssignmentGateIds());
         }
+        ApplyGatePolicy();
 
         personnelReady = true;
         hrLoaded = true;
@@ -640,6 +655,10 @@
         if (!string.IsNullOrWhiteSpace(hr.BloodType))
             model.BloodType = hr.BloodType;
 
+        if (hr.JobCatId.HasValue)
+            jobCatId = hr.JobCatId;
+        ApplyGatePolicy();
+
         hrLoaded = true;
     }
 
@@ -675,14 +694,16 @@
         try
         {
             var perms = await PermissionService.GetByEmployeeAsync(employeeId);
-            selectedGateIds = perms
+            manualGateIds = perms
                 .Where(p => p.IsActive && !p.isDeleted)
                 .Select(p => p.GateId)
                 .ToHashSet();
+            ApplyGatePolicy();
         }
         catch
         {
-            selectedGateIds = new();
+            manualGateIds = new();
+            ApplyGatePolicy();
         }
     }
 
@@ -706,47 +727,130 @@
             await VerifyAndShowAsync();
         }
 
-        if (!cameraStartPending)
-            return;
-
-        cameraStartPending = false;
         try
         {
-            var started = await JS.InvokeAsync<bool>("employeeCamera.start", "emp-cam-video");
-            if (!cameraOn)
-            {
-                try { await JS.InvokeVoidAsync("employeeCamera.stop"); } catch { }
-                return;
-            }
-            if (!started)
-                throw new InvalidOperationException("لم تُفتح الكاميرا.");
+            dotNetRef ??= DotNetObjectReference.Create(this);
+            if (cameraOn)
+                await JS.InvokeVoidAsync("employeeCamera.attach", "emp-cam-video");
+            await JS.InvokeVoidAsync("employeeCamera.bindStart", "emp-cam-start", "emp-cam-video", dotNetRef);
+            await JS.InvokeVoidAsync("employeeCamera.bindCapture", "emp-cam-cap", "emp-cam-video", dotNetRef);
         }
-        catch (Exception ex)
-        {
-            if (cameraOn && ex is not JSDisconnectedException)
-            {
-                cameraOn = false;
-                if (string.IsNullOrEmpty(photoPreviewUrl))
-                    photoPreviewUrl = photoBeforeCamera;
-                photoBeforeCamera = null;
-                SetMessage(false, "تعذر تشغيل الكاميرا: " + CameraErrorText(ex));
-            }
-        }
-        finally
-        {
-            cameraBusy = false;
-            await InvokeAsync(StateHasChanged);
-        }
+        catch (JSException) { }
+        catch (JSDisconnectedException) { }
     }
 
     private static bool ToBool(object? value)
         => value is bool b ? b : string.Equals(value?.ToString(), "true", StringComparison.OrdinalIgnoreCase);
 
+    private void SetLinkMode(string mode)
+    {
+        linkMode = mode;
+        ApplyGatePolicy();
+    }
+
     private void ToggleGate(Guid gateId, bool on)
     {
-        if (on) selectedGateIds.Add(gateId);
-        else selectedGateIds.Remove(gateId);
+        if (LeaderLocksGates || IsTrainingGateId(gateId))
+            return;
+        if (on) manualGateIds.Add(gateId);
+        else manualGateIds.Remove(gateId);
+        ApplyGatePolicy();
     }
+
+    private void ApplyGatePolicy()
+    {
+        selectedGateIds = LeaderLocksGates
+            ? gates.Where(g => !g.isDeleted).Select(g => g.Id).ToHashSet()
+            : AssignmentGateIds();
+    }
+
+    private HashSet<Guid> PersonalGateIds()
+        => IsLeader
+            ? gates.Where(g => !g.isDeleted).Select(g => g.Id).ToHashSet()
+            : AssignmentGateIds();
+
+    private HashSet<Guid> AssignmentGateIds()
+    {
+        var ids = new HashSet<Guid>(manualGateIds);
+        foreach (var gate in gates.Where(g => !g.isDeleted && IsTrainingGate(g)))
+            ids.Add(gate.Id);
+        return ids;
+    }
+
+    private static bool IsTrainingGate(Gate gate)
+    {
+        var digits = new string((gate.no ?? "").Where(char.IsDigit).ToArray());
+        return digits.Length > 0 && int.TryParse(digits, out var number) && number == 6;
+    }
+
+    private bool IsTrainingGateId(Guid gateId)
+        => gates.Any(g => g.Id == gateId && IsTrainingGate(g));
+
+    private List<Guid> ReaderIdsFor(IEnumerable<Guid> gateIds)
+    {
+        var set = gateIds as HashSet<Guid> ?? gateIds.ToHashSet();
+        return readers
+            .Where(r => set.Contains(r.GateId) && r.IsActive && !r.isDeleted)
+            .Select(r => r.Id)
+            .Distinct()
+            .ToList();
+    }
+
+    private string GateLinkText()
+    {
+        var training = gates.Any(g => !g.isDeleted && IsTrainingGate(g));
+        if (linkMode == "division" && IsLeader)
+            return training
+                ? "ورُبط التقسيم بالبوابات المختارة مع بوابة التدريب، ورُبط الموظف القيادي بجميع البوابات"
+                : "ورُبط التقسيم بالبوابات المختارة، ورُبط الموظف القيادي بجميع البوابات";
+        if (linkMode == "division")
+            return training
+                ? "ورُبط التقسيم بالبوابات المختارة مع بوابة التدريب"
+                : "ورُبط التقسيم بالبوابات المختارة";
+        if (IsLeader)
+            return "ورُبط الموظف القيادي بجميع البوابات";
+        return training
+            ? "ورُبط الموظف بالبوابات المختارة مع بوابة التدريب"
+            : "ورُبط الموظف بالبوابات المختارة";
+    }
+
+    private async Task<int> PersistGateLinksAsync()
+    {
+        ApplyGatePolicy();
+        var personal = PersonalGateIds();
+        if (personal.Count == 0)
+            return -1;
+
+        if (linkMode == "division")
+        {
+            var divisionGates = AssignmentGateIds();
+            await DivisionGates.ReplaceAsync(responsibilityCode, divisionGates.ToList());
+            var people = await EmployeeService.GetAllAsync();
+            var grantedSelf = false;
+            foreach (var person in people.Where(e => BelongsToDivision(e, responsibilityCode)))
+            {
+                await GrantGatesAsync(person.Id, person.Id == savedEmployeeId ? personal : divisionGates);
+                if (person.Id == savedEmployeeId)
+                    grantedSelf = true;
+            }
+            if (!grantedSelf)
+                await GrantGatesAsync(savedEmployeeId, personal);
+        }
+        else
+        {
+            await GrantGatesAsync(savedEmployeeId, personal);
+        }
+
+        model.Id = savedEmployeeId;
+        var readerIds = ReaderIdsFor(personal);
+        if (readerIds.Count == 0)
+            return -1;
+        return await DeviceSync.EnrollEmployeeOnReadersAsync(model, readerIds);
+    }
+
+    private static string FaceLinkNote(int queued) => queued > 0
+        ? " ستُزامَن بياناته مع القارئات المختارة عند اتصالها. تُسجَّل الإضافة أو التعديل في سجل التدقيق بعد أن تقبلها القارئة."
+        : "";
 
     private void UnlockForEdit()
     {
@@ -783,6 +887,7 @@
             displayJobStatus = GetJsonString(root, "jobStatus") ?? "";
             displayPhone = GetJsonString(root, "empPhone") ?? "";
             displayEmail = GetJsonString(root, "empEmail") ?? "";
+            jobCatId = GetJsonInt(root, "jobCatId");
 
             var keepId = savedEmployeeId;
             var keepActive = model.IsActive;
@@ -834,6 +939,7 @@
                     if (existing.DepartmentId.HasValue)
                         selectedDepartmentId = existing.DepartmentId.Value.ToString();
                     photoPreviewUrl = string.IsNullOrWhiteSpace(existing.PhotoPath) ? null : existing.PhotoPath;
+                    await LoadSelectedGatesAsync(existing.Id);
                 }
             }
             catch
@@ -841,6 +947,7 @@
                 // غير حرج
             }
 
+            ApplyGatePolicy();
             await InvokeAsync(StateHasChanged);
         }
         catch (Exception ex)
@@ -864,6 +971,18 @@
         if (!root.TryGetProperty(name, out var p) || p.ValueKind == System.Text.Json.JsonValueKind.Null)
             return null;
         return p.GetString()?.Trim();
+    }
+
+    private static int? GetJsonInt(System.Text.Json.JsonElement root, string name)
+    {
+        if (!root.TryGetProperty(name, out var p) || p.ValueKind == System.Text.Json.JsonValueKind.Null)
+            return null;
+        if (p.ValueKind == System.Text.Json.JsonValueKind.Number && p.TryGetInt32(out var number))
+            return number;
+        if (p.ValueKind == System.Text.Json.JsonValueKind.String
+            && int.TryParse(p.GetString(), out var parsed))
+            return parsed;
+        return null;
     }
 
     private void ClearHrDisplay()
@@ -895,53 +1014,63 @@
 
     private void NormalizeCard() => model.CardNumber = FieldRules.Digits(model.CardNumber);
 
-    private void StartCamera()
+    [JSInvokable]
+    public async Task OnCameraReady()
     {
         photoBeforeCamera = photoPreviewUrl;
         photoPreviewUrl = null;
         cameraOn = true;
-        cameraBusy = true;
-        cameraStartPending = true;
+        cameraBusy = false;
+        await InvokeAsync(StateHasChanged);
     }
 
-    private static string CameraErrorText(Exception ex)
+    [JSInvokable]
+    public async Task OnCameraFailed(string message)
     {
-        if (ex is TaskCanceledException or OperationCanceledException)
-            return "انتهت مهلة تشغيل الكاميرا. اسمح للمتصفح باستخدام الكاميرا ثم أعد المحاولة.";
-
-        var msg = ex.Message ?? "";
-        if (msg.Contains("canceled", StringComparison.OrdinalIgnoreCase))
-            return "انتهت مهلة تشغيل الكاميرا. اسمح للمتصفح باستخدام الكاميرا ثم أعد المحاولة.";
-        if (msg.Contains("NotAllowed", StringComparison.OrdinalIgnoreCase) || msg.Contains("Permission", StringComparison.OrdinalIgnoreCase))
-            return "رُفض استخدام الكاميرا. اسمح للموقع بالكاميرا من شريط المتصفح.";
-        if (msg.Contains("NotFound", StringComparison.OrdinalIgnoreCase))
-            return "لم يُعثر على كاميرا متصلة بالجهاز.";
-        if (msg.Contains("NotReadable", StringComparison.OrdinalIgnoreCase) || msg.Contains("TrackStart", StringComparison.OrdinalIgnoreCase))
-            return "الكاميرا مستخدمة في برنامج آخر. أغلقه ثم أعد المحاولة.";
-        return msg;
+        cameraOn = false;
+        cameraBusy = false;
+        if (string.IsNullOrEmpty(photoPreviewUrl) && !string.IsNullOrEmpty(photoBeforeCamera))
+            photoPreviewUrl = photoBeforeCamera;
+        photoBeforeCamera = null;
+        await InvokeAsync(StateHasChanged);
+        SetMessage(false, "تعذر تشغيل الكاميرا: " + message);
     }
 
-    private async Task CapturePhotoAsync()
+    [JSInvokable]
+    public async Task OnPhotoCaptured(string dataUrl)
     {
+        if (cameraBusy)
+            return;
         cameraBusy = true;
         try
         {
-            var dataUrl = await JS.InvokeAsync<string>("employeeCamera.capture", "emp-cam-video", 0.85);
             ApplyDataUrl(dataUrl);
             await StorePhotoFileAsync();
             photoBeforeCamera = null;
             await StopCameraAsync();
+            await NotifyAsync(true, "تم حفظ الصورة باسم photo.jpg.");
         }
         catch (Exception ex)
         {
             SetMessage(false, "تعذر التقاط الصورة: " + ex.Message);
         }
-        finally { cameraBusy = false; }
+        finally
+        {
+            cameraBusy = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnPhotoCaptureFailed(string message)
+    {
+        cameraBusy = false;
+        await InvokeAsync(StateHasChanged);
+        SetMessage(false, "تعذر التقاط الصورة: " + message);
     }
 
     private async Task StopCameraAsync()
     {
-        cameraStartPending = false;
         cameraBusy = false;
         cameraOn = false;
         try { await JS.InvokeVoidAsync("employeeCamera.stop"); } catch { }
@@ -1052,26 +1181,12 @@
                 clearPhoto: photoRemoved && string.IsNullOrWhiteSpace(model.PhotoPath));
             savedEmployeeId = model.Id;
 
-            if (linkMode == "division")
-            {
-                await DivisionGates.ReplaceAsync(responsibilityCode, selectedGateIds.ToList());
-                var people = await EmployeeService.GetAllAsync();
-                foreach (var person in people.Where(e => BelongsToDivision(e, responsibilityCode)))
-                    await GrantGatesAsync(person.Id, selectedGateIds);
-            }
-            else
-            {
-                await GrantGatesAsync(savedEmployeeId, selectedGateIds);
-            }
-
-            var readerIds = readers
-                .Where(r => selectedGateIds.Contains(r.GateId) && r.IsActive && !r.isDeleted)
-                .Select(r => r.Id)
-                .Distinct()
-                .ToList();
-            var queued = readerIds.Count == 0 ? 0 : await DeviceSync.EnrollEmployeeOnReadersAsync(model, readerIds);
-            var linkText = linkMode == "division" ? "ورُبط التقسيم بالبوابات المختارة" : "ورُبط الموظف بالبوابات المختارة";
-            await NotifyAsync(true, $"تم حفظ البيانات {linkText}. أوامر المزامنة: {queued}.");
+            var queued = await PersistGateLinksAsync();
+            await NotifyAsync(true, $"تم حفظ البيانات {GateLinkText()}.{FaceLinkNote(queued)}");
+        }
+        catch (FaceSyncException ex)
+        {
+            SetMessage(false, ex.Message);
         }
         catch (Exception ex)
         {
@@ -1151,7 +1266,7 @@
 
             if (string.IsNullOrWhiteSpace(model.FileNumber) || string.IsNullOrWhiteSpace(model.FullName))
             {
-                SetMessage(false, "اضغط «عرض» أولاً لجلب الاسم والرقم الوظيفي من HR.");
+                SetMessage(false, "اضغط «عرض» أولاً لإظهار الاسم والرقم الوظيفي.");
                 return;
             }
 
@@ -1302,7 +1417,8 @@
             SetMessage(false, "احفظ بيانات الموظف أولاً قبل تحديد البوابات.");
             return;
         }
-        if (selectedGateIds.Count == 0)
+        ApplyGatePolicy();
+        if (PersonalGateIds().Count == 0)
         {
             SetMessage(false, "اختر بوابة واحدة على الأقل.");
             return;
@@ -1311,35 +1427,12 @@
         syncingGates = true;
         try
         {
-            var existing = await PermissionService.GetByEmployeeAsync(savedEmployeeId);
-            foreach (var gateId in selectedGateIds)
-            {
-                var already = existing.Any(p => p.GateId == gateId && p.IsActive && !p.isDeleted);
-                if (already) continue;
-
-                await PermissionService.GrantAsync(new EmployeePermission
-                {
-                    Id = Guid.NewGuid(),
-                    EmployeeId = savedEmployeeId,
-                    GateId = gateId,
-                    IsActive = true,
-                    ValidFrom = DateTime.Today,
-                    createdOn = DateTime.Now
-                });
-            }
-
-            var readerIds = readers
-                .Where(r => selectedGateIds.Contains(r.GateId) && r.IsActive && !r.isDeleted)
-                .Select(r => r.Id)
-                .Distinct()
-                .ToList();
-
-            var queued = 0;
-            if (readerIds.Count > 0)
-                queued = await DeviceSync.EnrollEmployeeOnReadersAsync(model, readerIds);
-
-            SetMessage(true,
-                $"تم حفظ صلاحيات {selectedGateIds.Count} بوابة. أُرسلت أوامر مزامنة السجل والكرت وقوالب الوجه واليد: {queued}.");
+            var queued = await PersistGateLinksAsync();
+            SetMessage(true, $"تم حفظ الصلاحيات. {GateLinkText()}.{FaceLinkNote(queued)}");
+        }
+        catch (FaceSyncException ex)
+        {
+            SetMessage(false, ex.Message);
         }
         catch (Exception ex)
         {
@@ -1440,7 +1533,7 @@
     private Task NotifyAsync(bool ok, string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return Task.CompletedTask;
-        return ok ? Toast.SuccessAsync(text) : Toast.ErrorAsync(text);
+        return ok ? Toast.DoneAsync(text) : Toast.ErrorAsync(text);
     }
 
     public async ValueTask DisposeAsync()

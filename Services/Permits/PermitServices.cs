@@ -1,0 +1,520 @@
+using Core.Entities;
+using Core.Entities.DTOs;
+using Core.Interfaces.Services;
+using Core.Models;
+using DataAccess;
+using Core.Interfaces.UnitOfWork;
+using Microsoft.EntityFrameworkCore;
+using System.Data;
+using System.Reflection.Metadata;
+using System.Text.RegularExpressions;
+using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
+namespace Services.Permits
+{
+    public class PermitServices : IPermit
+    {
+        protected readonly DataContext _dataContext;
+        private readonly IUnitOfWork _unitOfWork;
+
+        public PermitServices(IUnitOfWork unitOfWork)
+        {
+            _unitOfWork = unitOfWork;
+        }
+
+        // ????? ??? ??????? ??? ????
+        public async Task<string> GeneratePermitSerialNumberAsync(string permitType)
+        {
+            if (string.IsNullOrWhiteSpace(permitType))
+                throw new ArgumentException("permitType is required", nameof(permitType));
+
+            // ????? ????? 2 ???
+            var now = DateTime.Now;
+            string year = now.ToString("yy");
+
+            // ??? ??? ???????
+            string typeCode = permitType.ToLower() switch
+            {
+                "materials" => "1",
+                "visitors" => "2",
+                "cars" => "3",
+                "employeeaccess" => "4",
+                _ => permitType.Substring(0, 1).ToUpperInvariant()
+            };
+
+            // ??? ??? ????? ?? ????? ???????? (????? ???? ????? + ??? ????? ?? ????)
+            var lastPermit = await _unitOfWork.Permits.GetQueryable()
+                .Where(p => p.classification == permitType && p.createdOn.Year == DateTime.Now.Year) // && p.date.Year == DateTime.Now.Year
+                .OrderByDescending(p => p.createdOn) // ???? ?? OrderByDescending(p => p.Id)
+                .FirstOrDefaultAsync();
+
+            int lastNumber = 0;
+
+            if (lastPermit != null && !string.IsNullOrWhiteSpace(lastPermit.no))
+            {
+                // ????? ??????? ??? 4 ????? ?? ????? ????? NO (????: "24-M-0003")
+                var match = Regex.Match(lastPermit.no, @"(\d{1,})$");
+                if (match.Success)
+                {
+                    int.TryParse(match.Value, out lastNumber);
+                }
+            }
+
+            lastNumber++; // ????? ??????
+
+            string newSerial = $"{year}-{typeCode}-{lastNumber:D4}";
+            return newSerial;
+
+
+            //if (string.IsNullOrEmpty(permitType))
+            //    throw new ArgumentException("Permit type cannot be null or empty", nameof(permitType));
+
+            //// ??????? ??? ????? ???? ?????
+            //var lastPermit =  _unitOfWork.Permits.GetQueryable()
+            //    .Where(p => p.type == permitType)
+            //    .OrderByDescending(p => p.Id)
+            //    .FirstOrDefaultAsync();
+
+            //int lastNumber = 0;
+            //if (lastPermit != null)
+            //{
+            //    var parts = lastPermit.Result.no.Split('-'); // YY-T-0001
+            //    if (parts.Length == 3)
+            //        int.TryParse(parts[2], out lastNumber);
+            //}
+
+            //lastNumber++;
+            //string year = DateTime.Now.ToString("yy");
+
+            //// ????? ??? ?????
+            //string typeCode;
+            //switch (permitType.ToLower())
+            //{
+            //    case "materials": typeCode = "M"; break;
+            //    case "visitors": typeCode = "V"; break;
+            //    case "cars": typeCode = "C"; break;
+            //    default: typeCode = permitType.Substring(0, 1).ToUpperInvariant(); break;
+            //}
+
+            //string newSerial = $"{year}-{typeCode}-{lastNumber:D4}";
+            //return newSerial;
+        }
+
+        //// ??? ???????? ??? ResponsibilityCode ?? SP
+        //public async Task<List<DepartmentDto>> GetDepartmentsByResponsibilityAsync(string responsibilityCode)
+        //{
+        //    return await  _dataContext..FromSqlRaw("sp_show_Req_dep {0}"
+        //         , responsibilityCode);
+            
+        //       // return departments;
+            
+        //}
+
+        public async Task InsertPermitAsync(Permit permit)
+        {
+            if (permit == null)
+            {
+                throw new ArgumentNullException(nameof(permit));
+            }
+
+            if (string.IsNullOrWhiteSpace(permit.UnifiedStatus))
+            {
+                permit.UnifiedStatus = Core.Common.StatusMapper.ToUnified(permit.status).ToString();
+            }
+
+            _unitOfWork.Permits.Insert(permit);
+            await _unitOfWork.SaveAsync();
+        }
+
+        public async Task UpdatePermitAsync(Permit permit)
+        {
+            if (permit == null)
+            {
+                throw new ArgumentNullException(nameof(permit));
+            }
+
+            var existingPermit = await _unitOfWork.Permits.GetByIdAsync(permit.Id);
+            if (existingPermit == null) throw new Exception("??????? ??? ?????");
+
+            // ????? ??????? ????????
+            existingPermit.reqDepartment = permit.reqDepartment;
+            existingPermit.no = permit.no;
+            existingPermit.classification = permit.classification;
+            existingPermit.type = permit.type;
+            existingPermit.reqDepApproval = permit.reqDepApproval;
+            existingPermit.secuSectionApproval = permit.secuSectionApproval;
+            existingPermit.PermintsSectionApproval = permit.PermintsSectionApproval;
+            existingPermit.GateId = permit.GateId;
+            existingPermit.status = permit.status;
+            existingPermit.UnifiedStatus = permit.UnifiedStatus;
+            existingPermit.statusDescription = permit.statusDescription;
+            existingPermit.ValidFrom = permit.ValidFrom;
+            existingPermit.ValidTo = permit.ValidTo;
+            existingPermit.WorkflowDefinitionId = permit.WorkflowDefinitionId;
+            existingPermit.remarks = permit.remarks;
+            existingPermit.OrgDescription = permit.OrgDescription;
+            existingPermit.IsTemp = permit.IsTemp;
+            existingPermit.isClosed = permit.isClosed;
+            existingPermit.closeOn = permit.closeOn;
+            existingPermit.moveFrom = permit.moveFrom;
+            existingPermit.moveTo = permit.moveTo;
+            existingPermit.requoidedAs = permit.requoidedAs;
+            existingPermit.phoneNo = permit.phoneNo;
+            existingPermit.date = permit.date;
+            existingPermit.hourOfEntry = permit.hourOfEntry;
+            existingPermit.ExpectedExecutionTime = permit.ExpectedExecutionTime;
+            existingPermit.ShiftApproval = permit.ShiftApproval;
+            existingPermit.updatedOn = DateTime.Now;
+            existingPermit.updatedBy = permit.updatedBy;
+
+            _unitOfWork.Permits.Update(existingPermit);
+            await _unitOfWork.SaveAsync();
+        }
+
+        public async Task DeletePermitAsync(Permit permit)
+        {
+            if (permit == null)
+            {
+                throw new ArgumentNullException(nameof(permit));
+            }
+
+            _unitOfWork.Permits.Delete(permit);
+            await _unitOfWork.SaveAsync();
+        }
+
+        async Task<Permit> IPermit.GetPermitByIdAsync(Guid PermitId)
+        {
+            var permit = await _unitOfWork.Permits
+       .GetQueryable()                
+       .Include(p => p.Cars)
+       .Include(p => p.EquipmentsAndMatirials)
+       .Include(p => p.Procedures)
+       .Include(p => p.EquipmentDetail)
+       .Include(p => p.VehicleDetail)
+       .Include(p => p.VisitorDetail)
+       .Include(p => p.Visitors)
+                .Include(p => p.Approvals)
+                    .ThenInclude(a => a.WorkflowStep)
+                .Include(p => p.Gate)
+                .Include(p => p.RequesterEmployee)
+
+       .FirstOrDefaultAsync(p => p.Id == PermitId);
+
+            return permit;
+        }
+
+        Task<Permit> IPermit.GetPermitByTypeAsync(string permitType)
+        {
+            throw new NotImplementedException();
+        }
+
+        Task<List<Permit>> IPermit.GetUnApprovedPermitAsync(string UserId)
+        {
+            throw new NotImplementedException();
+        }
+
+        Task<List<Permit>> IPermit.GetPendingPermitAsync(string UserId, string RespCode)
+        {
+            throw new NotImplementedException();
+        }
+
+        Task<List<Permit>> IPermit.GetClosedPermitAsync(string UserId)
+        {
+            throw new NotImplementedException();
+        }
+
+        public async Task<List<Permit>> GetAllPermitAsync(User user)
+        {
+            var query = _unitOfWork.Permits.GetQueryable();
+
+            if (user.ResponsibilityCode != "45010")
+            {
+                query = query.Where(p => p.createdBy == user.UserName);
+            }
+
+            return await query
+                .OrderByDescending(p => p.createdOn)
+                .ToListAsync();
+        }
+
+        Task<List<Permit>> IPermit.SearchByAsync(List<Parameter> parameters)
+        {
+            throw new NotImplementedException();
+        }
+
+        public string MappingAsync(string wordToMapp)
+        {
+            return wordToMapp switch
+            {
+                "Export" => "استخراج",
+                "Import" => "إدخال",
+                "ExtractAndInsert" => "استخراج وإدخال",
+
+                "Materials" => "تصريح مواد",
+                "Visitors" => "تصريح زوار",
+                "Cars" => "سيارات",
+
+                "A" => "معتمد",
+                "J" => "مرفوض",
+                "R" => "مرجع",
+                "C" => "منفذ",
+                "D" => "ملغي",
+                "I" => "تحت الاعتماد",
+
+                "Insert" => "أدخله",
+                "submit" => "أحاله للاعتماد",
+                "Update" => "عدله",
+                "approve" => "اعتمده",
+                "reject" => "رفضه",
+                "return" => "أرجعه",
+                "close" => "نفّذه",
+                "expire" => "أغلقه",
+                "entry" => "سجّل دخوله",
+                "exit" => "سجّل خروجه",
+                "Delete" => "ألغاه",
+                "delete" => "ألغاه",
+
+                _ => string.IsNullOrWhiteSpace(wordToMapp) ? "—" : wordToMapp,
+            };
+        }
+
+        public PermitActionsVisibility GetVisibility(User currentUser,Permit permit)
+        {
+            
+            var visibility = new PermitActionsVisibility();
+            string permitStatus= permit.status.ToString(); 
+
+            switch (permitStatus)
+            {
+                case "I": // ??? ????????
+                    // ????? ????? ?? ???????? ???????? ??????
+                    if (currentUser.JobStatus == "AE" &&
+                        (currentUser.JobCatId == 1 && currentUser.ResponsibilityCode.Substring(0, 3) == permit.reqDepartment.Substring(0, 3)) ||
+                        (currentUser.JobCatId == 1 && currentUser.ResponsibilityCode == "45012" && permit.reqDepApproval == true) ||
+                        (currentUser.JobCatId == 1 && currentUser.ResponsibilityCode == "45011" && permit.reqDepApproval == true && permit.secuSectionApproval == true)
+                        )
+                    {
+                        visibility.CanApprove = true;
+                        visibility.CanReturn = true;
+                        visibility.CanReject = true;
+                    }
+
+                    // ???? ?????
+                    if (currentUser.UserName == permit.createdBy && (permit.status == 'I' || permit.status == 'J'))
+                    { visibility.CanDelete = true; }
+                    break;
+
+                case "A": // ?????
+                    if (permit.status == 'A' && currentUser.Discriminator == "Security" && permit.GateId.HasValue)
+                    { visibility.CanClose = true; }
+                    break;
+
+                case "R": // ????
+                    if (currentUser.JobStatus == "AE" &&
+                       (currentUser.JobCatId == 1 && currentUser.ResponsibilityCode.Substring(0, 3) == permit.reqDepartment.Substring(0, 3)) ||
+                       (currentUser.JobCatId == 1 && currentUser.ResponsibilityCode == "45012" && permit.reqDepApproval == true) ||
+                       (currentUser.JobCatId == 1 && currentUser.ResponsibilityCode == "45011" && permit.reqDepApproval == true && permit.secuSectionApproval == true)
+                       )
+                    {
+                        visibility.CanApprove = true;
+                        visibility.CanReturn = true;
+                        visibility.CanReject = true;
+                    }
+                    break;
+
+                case "J": // ?????
+                    if  (currentUser.JobStatus == "AE" &&
+                        (currentUser.JobCatId == 1 && currentUser.ResponsibilityCode.Substring(0, 3) == permit.reqDepartment.Substring(0, 3)) ||
+                        (currentUser.JobCatId == 1 && currentUser.ResponsibilityCode == "45012" && permit.reqDepApproval == true) ||
+                        (currentUser.JobCatId == 1 && currentUser.ResponsibilityCode == "45011" && permit.reqDepApproval == true && permit.secuSectionApproval == true)
+                        )
+                    { 
+                        visibility.CanApprove = true;
+                        visibility.CanReturn = true;
+                        visibility.CanReject = true;
+                    }
+                    break;
+
+                default:
+                    break;
+            }
+
+            return visibility;
+        }
+    }
+
+    //public async Task<Permit> GetPermitByIdAsync(string permitId)
+    //{
+    //    if (string.IsNullOrEmpty(permitId))
+    //    {
+    //        throw new ArgumentException("Permit ID cannot be null or empty", nameof(permitId));
+    //    }
+
+    //    return await _unitOfWork.Permits.GetByIdAsync(
+    //        filter: p => p.no == permitId,
+    //        include: q => q.Include(p => p.Procedures)
+    //                      .Include(p => p.Cars)
+    //                      .Include(p => p.Humans)
+    //                      .Include(p => p.EquipmentsAndMatirials));
+    //}
+
+    //public async Task<Permit> GetPermitByTypeAsync(string permitType)
+    //{
+    //    if (string.IsNullOrEmpty(permitType))
+    //    {
+    //        throw new ArgumentException("Permit type cannot be null or empty", nameof(permitType));
+    //    }
+
+    //    return await _unitOfWork.Permits.GetAllAsync(
+    //        filter: p => p.type == permitType,
+    //        include: q => q.Include(p => p.Procedures)
+    //                      .Include(p => p.Cars)
+    //                      .Include(p => p.Humans)
+    //                      .Include(p => p.EquipmentsAndMatirials));
+    //}
+
+    //public async Task<List<Permit>> GetUnApprovedPermitAsync(string userId)
+    //{
+    //    if (string.IsNullOrEmpty(userId))
+    //    {
+    //        throw new ArgumentException("User ID cannot be null or empty", nameof(userId));
+    //    }
+
+    //    return await _unitOfWork.Permits.GetAllAsync(
+    //        filter: p => !p.reqDepApproval && !p.secuDepApproval && p.reqDepartment == userId,
+    //        include: q => q.Include(p => p.Procedures)
+    //                      .Include(p => p.Cars)
+    //                      .Include(p => p.Humans)
+    //                      .Include(p => p.EquipmentsAndMatirials));
+    //}
+
+    //public async Task<List<Permit>> GetPendingPermitAsync(string userId, string respCode)
+    //{
+    //    if (string.IsNullOrEmpty(userId))
+    //    {
+    //        throw new ArgumentException("User ID cannot be null or empty", nameof(userId));
+    //    }
+
+    //    if (string.IsNullOrEmpty(respCode))
+    //    {
+    //        throw new ArgumentException("Response code cannot be null or empty", nameof(respCode));
+    //    }
+
+    //    return await _unitOfWork.Permits.GetAllAsync(
+    //        filter: p => (p.reqDepApproval || p.secuDepApproval) &&
+    //                   (p.reqDepartment == userId || p.reqDepartment == respCode),
+    //        include: q => q.Include(p => p.Procedures)
+    //                      .Include(p => p.Cars)
+    //                      .Include(p => p.Humans)
+    //                      .Include(p => p.EquipmentsAndMatirials));
+    //}
+
+    //public async Task<List<Permit>> GetClosedPermitAsync(string userId)
+    //{
+    //if (string.IsNullOrEmpty(userId))
+    //{
+    //    throw new ArgumentException("User ID cannot be null or empty", nameof(userId));
+    //}
+
+    //return await _unitOfWork.Permits.GetAllAsync(
+    //    filter: p => p.isClosed && p.reqDepartment == userId,
+    //    include: q => q.Include(p => p.Procedures)
+    //                  .Include(p => p.Cars)
+    //                  .Include(p => p.Humans)
+    //                  .Include(p => p.EquipmentsAndMatirials));
+    //}
+
+    //public async Task<List<Permit>> GetAllPermitAsync(string userId)
+    //{
+    //    if (string.IsNullOrEmpty(userId))
+    //    {
+    //        throw new ArgumentException("User ID cannot be null or empty", nameof(userId));
+    //    }
+
+    //    return await _unitOfWork.Permits.GetAllAsync(
+    //        filter: p => p.reqDepartment == userId,
+    //        include: q => q.Include(p => p.Procedures)
+    //                      .Include(p => p.Cars)
+    //                      .Include(p => p.Humans)
+    //                      .Include(p => p.EquipmentsAndMatirials));
+    //}
+
+    //public async Task<List<Permit>> SearchByAsync(List<Parameter> parameters)
+    //{
+    //    if (parameters == null || !parameters.Any())
+    //    {
+    //        return new List<Permit>();
+    //    }
+
+    //    // ???? ??????? ???????? ????? ??? ???????? ???????
+    //    var query = _unitOfWork.Permits.GetQueryable(
+    //        include: q => q.Include(p => p.Procedures)
+    //                      .Include(p => p.Cars)
+    //                      .Include(p => p.Humans)
+    //                      .Include(p => p.EquipmentsAndMatirials));
+
+    //foreach (var param in parameters)
+    //{
+    //    switch (param.Name.ToLower())
+    //    {
+    //        case "department":
+    //            query = query.Where(p => p.reqDepartment.Contains(param.Value));
+    //            break;
+    //        case "classification":
+    //            query = query.Where(p => p.classification.Contains(param.Value));
+    //            break;
+    //        case "type":
+    //            query = query.Where(p => p.type.Contains(param.Value));
+    //            break;
+    //        case "status":
+    //            if (param.Value.Length == 1)
+    //                query = query.Where(p => p.status == param.Value[0]);
+    //            break;
+    //        case "date":
+    //            if (DateTime.TryParse(param.Value, out DateTime date))
+    //                query = query.Where(p => DbFunctions.TruncateTime(p.date) == date.Date);
+    //            break;
+    //        case "movefrom":
+    //            query = query.Where(p => p.moveFrom.Contains(param.Value));
+    //            break;
+    //        case "moveto":
+    //            query = query.Where(p => p.moveTo.Contains(param.Value));
+    //            break;
+    //            // ????? ????? ?????? ?? ?????? ??? ??????
+    //    }
+    //}
+
+    //    return await query.ToListAsync();
+    //}
+
+    //public async Task<string> GeneratePermitSerialNumberAsync(string permitType)
+    //{
+    //    if (string.IsNullOrEmpty(permitType))
+    //    {
+    //        throw new ArgumentException("Permit type cannot be null or empty", nameof(permitType));
+    //    }
+
+    //    // ?????? ??? ??? ??? ?????? ???? ??????? ??????
+    //    var lastPermit = await _unitOfWork.Permits.GetAllAsync(
+    //        filter: p => p.type == permitType,
+    //        orderBy: q => q.OrderByDescending(p => p.no));
+
+    //    int lastNumber = 0;
+    //    if (lastPermit != null)
+    //    {
+    //        // ??????? ????? ?????? ?? ??? ?????
+    //        string numericPart = new string(lastPermit.no.Where(char.IsDigit).ToArray());
+    //        int.TryParse(numericPart, out lastNumber);
+    //    }
+
+    //    // ????? ????? ?????? 1
+    //    lastNumber++;
+
+    //    // ????? ????? ???????? ?????? (???? ????? ??????? ??? ?????????)
+    //    string newSerialNumber = $"{permitType}-{DateTime.Now:yyyyMMdd}-{lastNumber.ToString("D4")}";
+
+    //    return newSerialNumber;
+    //}
+}
+
+
+

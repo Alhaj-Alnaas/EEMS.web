@@ -14,6 +14,8 @@ namespace Core.Common
                 return permit.VehicleDetail.remarks.Trim();
             if (!string.IsNullOrWhiteSpace(permit.VisitorDetail?.Purpose))
                 return permit.VisitorDetail.Purpose.Trim();
+            if (EmployeeCardPermit.Is(permit))
+                return EmployeeCardPermit.KindLabel(permit.type);
             return "";
         }
     }

@@ -1,142 +1,29 @@
-using Core.Entities;
 using Core.Interfaces.Services;
-using Microsoft.AspNetCore.Identity;
+using iTextSharp.text;
+using iTextSharp.text.pdf;
 using Microsoft.AspNetCore.Mvc;
-using iTextSharp.text;
-using iTextSharp.text.pdf;
-using iTextSharp.text;
-using iTextSharp.text.pdf;
 using QRCoder;
-
 
 namespace PMS.web.Controllers
 {
+    /// <summary>PDF print for a material permit. The screen itself is Blazor.</summary>
     public class PermitController : Controller
-
     {
-         private readonly IPermit _permitService;
-         private readonly IDepartmentService _departmentService;
-         private readonly IProcedureMovment _procedureMovmentService;
-         private readonly UserManager<User> _userManager;
+        private readonly IPermit _permitService;
+        private readonly IDepartmentService _departmentService;
         private readonly IWebHostEnvironment _hostingEnvironment;
 
-        public PermitController(IPermit permitService, IDepartmentService departmentService, IProcedureMovment procedureMovmentService, UserManager<User> userManager, IWebHostEnvironment hostingEnvironment)
-    {
-        _permitService = permitService;
-        _departmentService = departmentService;
-        _userManager = userManager;
-        _procedureMovmentService=procedureMovmentService; 
-         _hostingEnvironment = hostingEnvironment;   
-    }
-
-    // GET: Permit/Index
-    public async Task<IActionResult> PermitIndex()
+        public PermitController(
+            IPermit permitService,
+            IDepartmentService departmentService,
+            IWebHostEnvironment hostingEnvironment)
         {
-            var user = await _userManager.FindByNameAsync(HttpContext.Session.GetString("UserName")); 
-            var permits = await _permitService.GetAllPermitAsync(user);
-            return View(permits);
+            _permitService = permitService;
+            _departmentService = departmentService;
+            _hostingEnvironment = hostingEnvironment;
         }
 
-        // GET: Permit/Details/{id}
-        public async Task<IActionResult> Details(Guid id)
-        {
-            var permit = await _permitService.GetPermitByIdAsync(id);
-            if (permit == null) return NotFound();
-
-
-            return View(permit);
-        }
-
-        // GET: Permit/Edit/{id}
-        public async Task<IActionResult> Edit(Guid id)
-        {
-            var permit = await _permitService.GetPermitByIdAsync(id);
-            if (permit == null) return NotFound();
-            return View(permit);
-        }
-
-        [HttpPost]
-        public async Task<JsonResult> HandlePermitAction(Guid permitId, string actionType, string reason)
-        {
-            try
-            {
-               // var userName = HttpContext.Session.GetString("UserName");
-                var user = await _userManager.FindByNameAsync(HttpContext.Session.GetString("UserName"));
-
-                var CurrentPermit = await _permitService.GetPermitByIdAsync(permitId);
-                if (CurrentPermit == null)
-                    return Json(new { success = false, message = "لم يتم العثور على التصريح." });
-
-                // إنشاء الحركة
-                var movement = new ProcedureMovment
-                {
-                    permitId = permitId,
-                    permit = CurrentPermit,
-                    donedBy = user.FullName,
-                    doneAs = user.JobtypeName,
-                    shift = "A", // يمكن جلبها لاحقاً من المستخدم أو النظام
-                    doneOn = DateTime.Now,
-                    procedureType = actionType,
-                    remarks = reason
-                };
-
-                // حفظ الحركة
-                await _procedureMovmentService.InsertProcedureMovment(movement);
-
-                // تحديث حالة التصريح
-                switch (actionType)
-                {
-                    case "approve":
-
-                        if (user.ResponsibilityCode=="45011"){ CurrentPermit.PermintsSectionApproval = true; }
-                        else if (user.ResponsibilityCode == "45012") { CurrentPermit.secuSectionApproval = true; }
-                        else   { CurrentPermit.reqDepApproval = true; }
-
-                        if (CurrentPermit.reqDepApproval == true && CurrentPermit.secuSectionApproval == true)
-                        {
-                            CurrentPermit.status = 'A';
-                        }
-                        
-                        break;
-                    case "reject":
-                        CurrentPermit.status = 'J';
-                        break;
-                    case "return":
-                        CurrentPermit.status = 'R';
-                        break;
-                    case "close":
-                        CurrentPermit.status = 'C';
-                        break;
-                    case "delete":
-                        CurrentPermit.status = 'D';
-                        CurrentPermit.isDeleted = true;
-                        CurrentPermit.deletedBy = user.FullName;
-                        CurrentPermit.deletedOn = DateTime.Now;
-                        break;
-                }
-
-                await _permitService.UpdatePermitAsync(CurrentPermit);
-
-                string successMessage = actionType switch
-                {
-                    "approve" => "تم اعتماد التصريح بنجاح ✅",
-                    "reject" => "تم رفض التصريح بنجاح ❌",
-                    "return" => "تم ترجيع التصريح بنجاح 🔁",
-                    "close" => "تم إغلاق التصريح بنجاح 🔒",
-                    "delete" => "تم حذف التصريح بنجاح 🗑️",
-                    _ => "تم تنفيذ العملية بنجاح"
-                };
-
-                return Json(new { success = true, message = successMessage });
-            }
-            catch (Exception ex)
-            {
-                return Json(new { success = false, message = "حدث خطأ أثناء تنفيذ العملية: " + ex.Message });
-            }
-        }
-
-        [HttpGet]
-
+        [HttpGet("/permits/{permitId:guid}/pdf")]
         public async Task<IActionResult> PrintPermitPdf(Guid permitId)
         {
             var permit = await _permitService.GetPermitByIdAsync(permitId);

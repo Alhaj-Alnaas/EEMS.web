@@ -347,6 +347,77 @@ namespace Services.Permits
             return permit.Id;
         }
 
+        public async Task<Guid> SaveEmployeeCardAsync(EmployeeCardPermitRequest request, User user)
+        {
+            if (user == null)
+                throw new InvalidOperationException("المستخدم غير معروف.");
+            if (request == null)
+                throw new InvalidOperationException("بيانات الطلب غير مكتملة.");
+            if (string.IsNullOrWhiteSpace(request.PermitNumber))
+                throw new InvalidOperationException("رقم الطلب غير جاهز.");
+            if (request.PermitDate.Date > DateTime.Today)
+                throw new InvalidOperationException("لا يمكن أن يكون تاريخ الطلب في المستقبل.");
+            if (!Enum.IsDefined(request.Kind))
+                throw new InvalidOperationException("حدد حالة التصريح المطلوب.");
+
+            var pin = request.FileNumber?.Trim() ?? "";
+            if (string.IsNullOrWhiteSpace(pin))
+                throw new InvalidOperationException("أدخل الرقم الوظيفي.");
+
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            var employee = await db.Employees.AsNoTracking()
+                .FirstOrDefaultAsync(e => e.FileNumber == pin && !e.isDeleted);
+            var blocked = EmployeeCardPermit.PrintBlockMessage(employee);
+            if (blocked != null)
+                throw new InvalidOperationException(blocked);
+
+            var open = await db.Permits.AsNoTracking().AnyAsync(p =>
+                !p.isDeleted
+                && !p.isClosed
+                && p.RequesterEmployeeId == employee!.Id
+                && (p.classification == nameof(PermitClassification.EmployeeAccess)
+                    || p.classification == "دخول موظفين"
+                    || p.classification == EmployeeCardPermit.Title)
+                && p.status != 'C'
+                && p.status != 'D'
+                && p.status != 'J');
+            if (open)
+                throw new InvalidOperationException("يوجد طلب مفتوح لهذا الموظف. أغلقه أو ألغه قبل إرسال طلب جديد.");
+
+            var workflow = await _workflow.EnsureActiveWorkflowAsync(PermitClassification.EmployeeAccess);
+            var needsApproval = await _workflow.HasApplicableStepAsync(workflow, user);
+            var status = needsApproval ? UnifiedPermitStatus.PendingApproval : UnifiedPermitStatus.Active;
+            var permitId = Guid.NewGuid();
+            var permit = new Permit
+            {
+                Id = permitId,
+                createdBy = user.UserName,
+                createdOn = DateTime.Now,
+                no = request.PermitNumber.Trim(),
+                date = request.PermitDate.Date,
+                classification = nameof(PermitClassification.EmployeeAccess),
+                type = request.Kind.ToString(),
+                reqDepartment = user.ResponsibilityCode?.Trim() ?? "",
+                phoneNo = employee!.Phone,
+                OrgDescription = employee.FullName,
+                remarks = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim(),
+                RequesterEmployeeId = employee.Id,
+                ValidFrom = request.PermitDate.Date,
+                UnifiedStatus = status.ToString(),
+                status = StatusMapper.ToLegacy(status),
+                statusDescription = StatusMapper.UnifiedStatusDescription(status),
+                WorkflowDefinitionId = workflow.Id,
+                Procedures = new List<ProcedureMovment>
+                {
+                    Procedure(permitId, ProcedureType.Insert.ToString(), user, "إرسال للاعتماد")
+                }
+            };
+
+            await _permits.InsertPermitAsync(permit);
+            await NotifySubmittedAsync(permit, submit: true, shiftApproval: false, needsApproval);
+            return permit.Id;
+        }
+
         public async Task UpdateVisitorAsync(Guid permitId, VisitorPermitRequest request, User user)
         {
             if (user == null)
@@ -488,7 +559,9 @@ namespace Services.Permits
                     ? "ملاحظة القرار إلزامية عند الرفض."
                     : "ملاحظة القرار إلزامية عند الترجيع.");
 
-            if (decision == ApprovalDecision.Approved && ApprovalRoute.Same(user.ResponsibilityCode, "45011"))
+            if (decision == ApprovalDecision.Approved
+                && !EmployeeCardPermit.Is(permit)
+                && ApprovalRoute.Same(user.ResponsibilityCode, "45011"))
             {
                 await using var db = await _dbFactory.CreateDbContextAsync();
                 var gate = await db.Gates.AsNoTracking()
@@ -577,6 +650,7 @@ namespace Services.Permits
                 .Include(p => p.EquipmentDetail)
                 .Include(p => p.VehicleDetail)
                 .Include(p => p.VisitorDetail)
+                .Include(p => p.RequesterEmployee)
                 .Include(p => p.Gate)
                 .Where(p => (hasCodes && codeList.Contains(p.reqDepartment!))
                     || (hasNames && nameList.Contains(p.createdBy!))
@@ -706,7 +780,7 @@ namespace Services.Permits
             if (permits.Count == 0 || inSecurity)
                 return permits.Select(p => p.Id).ToList();
 
-            var leaders = await LeaderCodesAsync(db);
+            var units = await UnitDirectoryAsync(db);
             var names = permits.Select(p => p.createdBy!).Distinct().ToList();
             var creators = await db.Users.AsNoTracking()
                 .Where(u => u.UserName != null && names.Contains(u.UserName))
@@ -715,9 +789,8 @@ namespace Services.Permits
             var matched = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var creator in creators)
             {
-                var direct = ApprovalRoute.DirectSupervisor(creator.ResponsibilityCode, creator.JobCatId == 1, leaders);
-                var higher = ApprovalRoute.HigherSupervisor(creator.ResponsibilityCode, creator.JobCatId == 1, leaders);
-                if (ApprovalRoute.Same(user.ResponsibilityCode, direct) || ApprovalRoute.Same(user.ResponsibilityCode, higher))
+                if (ApprovalRoute.WatchesOrganization(
+                    user.ResponsibilityCode, creator.ResponsibilityCode, creator.JobCatId == 1, units.Leaders, units.Known))
                     matched.Add(creator.UserName!);
             }
 
@@ -727,7 +800,7 @@ namespace Services.Permits
         private async Task<List<string>> ShiftFollowLeaderIdsAsync(Permit permit)
         {
             await using var db = await _dbFactory.CreateDbContextAsync();
-            var leaders = await LeaderCodesAsync(db);
+            var units = await UnitDirectoryAsync(db);
             var creator = string.IsNullOrWhiteSpace(permit.createdBy)
                 ? null
                 : await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserName == permit.createdBy);
@@ -735,12 +808,19 @@ namespace Services.Permits
             var codes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             if (creator != null)
             {
-                var direct = ApprovalRoute.DirectSupervisor(creator.ResponsibilityCode, creator.JobCatId == 1, leaders);
-                var higher = ApprovalRoute.HigherSupervisor(creator.ResponsibilityCode, creator.JobCatId == 1, leaders);
-                if (!string.IsNullOrWhiteSpace(direct))
-                    codes.Add(ApprovalRoute.Normalize(direct));
-                if (!string.IsNullOrWhiteSpace(higher))
-                    codes.Add(ApprovalRoute.Normalize(higher));
+                foreach (var type in new[]
+                {
+                    WorkflowStepType.SectionHead,
+                    WorkflowStepType.AdministrationManager,
+                    WorkflowStepType.GeneralManager,
+                    WorkflowStepType.SectorSupervisor
+                })
+                {
+                    var target = ApprovalRoute.StepTarget(
+                        type, creator.ResponsibilityCode, creator.JobCatId == 1, units.Leaders, units.Known);
+                    if (!string.IsNullOrWhiteSpace(target))
+                        codes.Add(target);
+                }
             }
 
             var users = await db.Users.AsNoTracking()
@@ -756,17 +836,28 @@ namespace Services.Permits
                 .ToList();
         }
 
-        private static async Task<HashSet<string>> LeaderCodesAsync(DataContext db)
+        private sealed record UnitDirectory(HashSet<string> Leaders, HashSet<string> Known);
+
+        private static async Task<UnitDirectory> UnitDirectoryAsync(DataContext db)
         {
-            var codes = await db.Users.AsNoTracking()
-                .Where(u => u.JobStatus == "AE" && u.JobCatId == 1 && u.ResponsibilityCode != null && u.ResponsibilityCode != "")
-                .Select(u => u.ResponsibilityCode!)
+            var rows = await db.Users.AsNoTracking()
+                .Where(u => u.JobStatus == "AE" && u.ResponsibilityCode != null && u.ResponsibilityCode != "")
+                .Select(u => new { u.ResponsibilityCode, u.JobCatId })
                 .ToListAsync();
 
-            return codes
-                .Select(ApprovalRoute.Normalize)
-                .Where(code => code.Length > 0)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var leaders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var row in rows)
+            {
+                var code = ApprovalRoute.Normalize(row.ResponsibilityCode);
+                if (code.Length == 0)
+                    continue;
+                known.Add(code);
+                if (row.JobCatId == 1)
+                    leaders.Add(code);
+            }
+
+            return new UnitDirectory(leaders, known);
         }
 
         public async Task<HashSet<string>> GetSameCenterUserNamesAsync(User user)

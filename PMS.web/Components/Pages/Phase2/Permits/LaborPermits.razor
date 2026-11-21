@@ -1,10 +1,493 @@
 @page "/permits/labor"
+@attribute [Authorize(Policy = TaskPolicies.PermitsLabor)]
 @rendermode InteractiveServer
-@using PMS.web.Components.Shared
+@inject ILaborRosterService Roster
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider Auth
+@inject IJSRuntime JS
+@inject IUiToast Toast
 
 <PageTitle>تصاريح العمالة - PMS</PageTitle>
 
-<PlaceholderPage Title="تصاريح العمالة"
-                 Icon="fas fa-helmet-safety"
-                 Description="تصاريح دخول عمالة الشركات المنفِّذة لأعمال مؤقتة داخل الشركة، وكذلك العمالة اليومية غير التابعة لأي شركة."
-                 Message="الشاشة قيد التجهيز كنوع تصريح مستقل ضمن المرحلة الثانية (بيانات الشركة المقاولة أو العامل اليومي، فترة العمل، البوابة، والاعتماد)." />
+<section class="pms-permit-list">
+<div class="pms-permit-list-head">
+    <h3><i class="bi bi-person-vcard"></i> تصاريح العمالة</h3>
+    <BackLink Fallback="/permits" Css="btn pms-btn-refresh">
+        <i class="bi bi-arrow-right"></i> رجوع
+    </BackLink>
+</div>
+
+<div class="pms-labor-shell">
+    <aside class="pms-labor-side">
+        <div class="pms-labor-side-title">الوظائف</div>
+        <button type="button" class="btn btn-sm @(section == "entry" ? "pms-permit-view-btn" : "pms-permit-edit-btn")" @onclick='() => section = "entry"'>
+            <i class="bi bi-person-plus"></i> إدخال فردي
+        </button>
+        <button type="button" class="btn btn-sm @(section == "bulk" ? "pms-permit-view-btn" : "pms-permit-edit-btn")" @onclick='() => section = "bulk"'>
+            <i class="bi bi-file-earmark-spreadsheet"></i> معالجة جماعية
+        </button>
+        <button type="button" class="btn btn-sm @(section == "print" ? "pms-permit-view-btn" : "pms-permit-edit-btn")" @onclick='() => section = "print"'>
+            <i class="bi bi-printer"></i> طباعة تصاريح
+        </button>
+    </aside>
+
+    <section class="pms-labor-main">
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <div class="alert alert-danger">@error</div>
+        }
+
+        @if (section == "entry")
+        {
+            <div class="card pms-basic-card mb-3">
+                <div class="card-header pms-header">بيانات العامل</div>
+                <div class="card-body pms-basic-inline">
+                    <div class="row g-4">
+                        <div class="col-md-6 pms-basic-inline">
+                            <div class="mb-3">
+                                <label class="form-label">الشركة <span class="pms-req">*</span></label>
+                                <select class="form-select" @bind="entryCompanyId" @bind:after="LoadEntryWorkersAsync">
+                                    <option value="">اختر الشركة</option>
+                                    @foreach (var company in companies)
+                                    {
+                                        <option value="@company.Id">@company.Name — @company.PermitCode</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">اسم العامل <span class="pms-req">*</span></label>
+                                <input class="form-control" @bind="worker.FullName" />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">رقم الجواز</label>
+                                <input class="form-control" @bind="worker.PassportNo" />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">العنوان</label>
+                                <input class="form-control" @bind="worker.Address" />
+                            </div>
+                        </div>
+                        <div class="col-md-6 pms-basic-inline">
+                            <div class="mb-3">
+                                <label class="form-label">رقم التصريح</label>
+                                <input class="form-control text-center pms-permit-no pms-readonly" value="@(editingPermit ?? "يُنشأ عند الحفظ")" readonly />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">الجنسية</label>
+                                <input class="form-control" @bind="worker.Nationality" />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">الحالة</label>
+                                <select class="form-select" @bind="worker.Status">
+                                    <option value="@LaborWorkerState.Active">مستمر</option>
+                                    <option value="@LaborWorkerState.Suspended">موقوف مؤقتا</option>
+                                    <option value="@LaborWorkerState.Ended">إنهاء خدمة</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">ملاحظات</label>
+                                <textarea class="form-control" rows="2" @bind="worker.Notes"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pms-create-actions mb-3">
+                <button type="button" class="btn btn-warning px-4" disabled="@saving" @onclick="SaveWorkerAsync">
+                    <i class="bi bi-save"></i> @(worker.Id == Guid.Empty ? "حفظ" : "حفظ التعديل")
+                </button>
+                <button type="button" class="btn btn-outline-secondary px-4" @onclick="NewWorker">إلغاء</button>
+            </div>
+            @if (entryWorkers.Count == 0)
+            {
+                <div class="pms-placeholder"><i class="bi bi-people"></i><h5>لا توجد عمالة لهذه الشركة</h5></div>
+            }
+            else
+            {
+                <div class="card">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 pms-permit-grid">
+                            <thead>
+                                <tr>
+                                    <th>رقم التصريح</th>
+                                    <th>الاسم</th>
+                                    <th>الجنسية</th>
+                                    <th>الجواز</th>
+                                    <th>الحالة</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var person in entryWorkers)
+                                {
+                                    <tr>
+                                        <td><bdi dir="ltr">@person.PermitNo</bdi></td>
+                                        <td>@person.FullName</td>
+                                        <td>@(person.Nationality ?? "—")</td>
+                                        <td>@(person.PassportNo ?? "—")</td>
+                                        <td><span class="badge @LaborWorkerState.Badge(person.Status)">@LaborWorkerState.Label(person.Status)</span></td>
+                                        <td><button type="button" class="btn pms-table-action-btn" @onclick="() => EditWorker(person)">تعديل</button></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+        }
+        else if (section == "bulk")
+        {
+            <div class="card pms-basic-card mb-3">
+                <div class="card-header pms-header d-flex justify-content-between align-items-center">
+                    <span>ملف العمالة</span>
+                    <button type="button" class="btn btn-sm btn-light" @onclick="DownloadTemplateAsync">
+                        <i class="bi bi-download"></i> قالب الإكسل
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-5">
+                            <label class="form-label">الشركة</label>
+                            <select class="form-select" @bind="bulkCompanyId" @bind:after="LoadLatestBatchAsync">
+                                <option value="">اختر الشركة</option>
+                                @foreach (var company in companies)
+                                {
+                                    <option value="@company.Id">@company.Name — @company.PermitCode</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-7">
+                            <label class="form-label">ملف الإكسل</label>
+                            <InputFile @key="fileKey" class="form-control" OnChange="OnFileAsync" accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+                        </div>
+                    </div>
+                    @if (parsed != null)
+                    {
+                        <div class="alert alert-success mt-3 mb-0">تم قراءة @parsed.Count عاملاً من الملف. اختر إضافة أو مطابقة.</div>
+                    }
+                    @if (BulkCompany?.Status == LaborCompanyState.Stopped)
+                    {
+                        <div class="form-text mt-2 mb-0">الشركة متوقفة، والإضافة غير متاحة.</div>
+                    }
+                </div>
+            </div>
+            <div class="pms-create-actions mb-3">
+                <button type="button" class="btn btn-warning px-4" disabled="@(saving || parsed == null || BulkCompany?.Status != LaborCompanyState.Active)" @onclick='() => StageAsync(LaborBatchMode.Add)'>
+                    إضافة
+                </button>
+                <button type="button" class="btn btn-outline-secondary px-4" disabled="@(saving || parsed == null || BulkCompany == null)" @onclick='() => StageAsync(LaborBatchMode.Match)'>
+                    مطابقة
+                </button>
+                @if (latestBatchId != null)
+                {
+                    <a class="btn btn-outline-secondary px-4" href="@($"/permits/labor/batch/{latestBatchId}")">آخر التعديلات</a>
+                }
+                <button type="button" class="btn btn-outline-secondary px-4" @onclick="ClearFile">إلغاء</button>
+            </div>
+        }
+        else
+        {
+            <div class="card pms-basic-card mb-3">
+                <div class="card-header pms-header d-flex justify-content-between align-items-center">
+                    <span>تصاريح الشركة</span>
+                    <button type="button" class="btn btn-sm btn-light" disabled="@(printing || selected.Count == 0 || PrintCompany?.Status != LaborCompanyState.Active)" @onclick="PrintSelectedAsync">
+                        <i class="bi bi-printer"></i> طباعة الكل
+                    </button>
+                </div>
+                <div class="card-body">
+                    <label class="form-label">الشركة</label>
+                    <select class="form-select" @bind="printCompanyId" @bind:after="LoadPrintWorkersAsync">
+                        <option value="">اختر الشركة</option>
+                        @foreach (var company in companies)
+                        {
+                            <option value="@company.Id">@company.Name — @company.PermitCode</option>
+                        }
+                    </select>
+                    @if (PrintCompany?.Status == LaborCompanyState.Stopped)
+                    {
+                        <div class="alert alert-warning mt-3 mb-0">الشركة متوقفة، والطباعة غير متاحة.</div>
+                    }
+                </div>
+            </div>
+            @if (printWorkers.Count > 0)
+            {
+                <div class="card">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 pms-permit-grid">
+                            <thead>
+                                <tr>
+                                    <th style="width:3rem;"></th>
+                                    <th>رقم التصريح</th>
+                                    <th>الاسم</th>
+                                    <th>الجواز</th>
+                                    <th>الحالة</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var person in printWorkers)
+                                {
+                                    var canPrint = person.Status == LaborWorkerState.Active && PrintCompany?.Status == LaborCompanyState.Active;
+                                    <tr>
+                                        <td>
+                                            @if (canPrint)
+                                            {
+                                                <input type="checkbox" checked="@selected.Contains(person.Id)" @onchange="args => TogglePrint(person.Id, args.Value is bool on && on)" />
+                                            }
+                                        </td>
+                                        <td><bdi dir="ltr">@person.PermitNo</bdi></td>
+                                        <td>@person.FullName</td>
+                                        <td>@(person.PassportNo ?? "—")</td>
+                                        <td><span class="badge @LaborWorkerState.Badge(person.Status)">@LaborWorkerState.Label(person.Status)</span></td>
+                                        <td>
+                                            <button type="button" class="btn pms-table-action-btn" disabled="@(!canPrint || printing)" @onclick="() => PrintOneAsync(person)">طباعة</button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+        }
+    </section>
+</div>
+</section>
+
+@code {
+    private string section = "entry";
+    private string? error;
+    private bool saving;
+    private bool printing;
+    private List<LaborCompanyRow> companies = new();
+    private string entryCompanyId = "";
+    private string bulkCompanyId = "";
+    private string printCompanyId = "";
+    private LaborWorkerInput worker = new() { Status = LaborWorkerState.Active };
+    private string? editingPermit;
+    private List<LaborWorkerRow> entryWorkers = new();
+    private List<LaborWorkerRow> printWorkers = new();
+    private List<LaborSheetRow>? parsed;
+    private string? fileName;
+    private int fileKey;
+    private Guid? latestBatchId;
+    private readonly HashSet<Guid> selected = new();
+
+    private LaborCompanyRow? BulkCompany => companies.FirstOrDefault(c => c.Id.ToString() == bulkCompanyId);
+    private LaborCompanyRow? PrintCompany => companies.FirstOrDefault(c => c.Id.ToString() == printCompanyId);
+    private LaborCompanyRow? EntryCompany => companies.FirstOrDefault(c => c.Id.ToString() == entryCompanyId);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            companies = await Roster.ListCompaniesAsync();
+        }
+        catch (Exception ex)
+        {
+            error = "تعذر تحميل الشركات: " + ex.Message;
+        }
+    }
+
+    private async Task LoadEntryWorkersAsync()
+    {
+        entryWorkers = Guid.TryParse(entryCompanyId, out var id) ? await Roster.ListWorkersAsync(id) : new();
+        NewWorker();
+    }
+
+    private async Task LoadPrintWorkersAsync()
+    {
+        selected.Clear();
+        printWorkers = Guid.TryParse(printCompanyId, out var id) ? await Roster.ListWorkersAsync(id) : new();
+    }
+
+    private async Task LoadLatestBatchAsync()
+    {
+        latestBatchId = Guid.TryParse(bulkCompanyId, out var id) ? await Roster.LatestBatchIdAsync(id) : null;
+    }
+
+    private void NewWorker()
+    {
+        editingPermit = null;
+        worker = new LaborWorkerInput
+        {
+            CompanyId = Guid.TryParse(entryCompanyId, out var id) ? id : Guid.Empty,
+            Status = LaborWorkerState.Active
+        };
+    }
+
+    private void EditWorker(LaborWorkerRow person)
+    {
+        editingPermit = person.PermitNo;
+        worker = new LaborWorkerInput
+        {
+            Id = person.Id,
+            CompanyId = person.CompanyId,
+            FullName = person.FullName,
+            Nationality = person.Nationality,
+            PassportNo = person.PassportNo,
+            Status = person.Status,
+            Address = person.Address,
+            Notes = person.Notes
+        };
+    }
+
+    private async Task SaveWorkerAsync()
+    {
+        error = null;
+        if (!Guid.TryParse(entryCompanyId, out var companyId))
+        {
+            error = "اختر الشركة.";
+            return;
+        }
+
+        if (worker.Id == Guid.Empty && EntryCompany?.Status != LaborCompanyState.Active)
+        {
+            error = "الشركة متوقفة، ولا يُضاف لها عامل.";
+            return;
+        }
+
+        worker.CompanyId = companyId;
+        saving = true;
+        try
+        {
+            await Roster.SaveWorkerAsync(worker, await ActorAsync());
+            await Toast.DoneAsync("تم حفظ البيانات.");
+            entryWorkers = await Roster.ListWorkersAsync(companyId);
+            NewWorker();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private void ClearFile()
+    {
+        parsed = null;
+        fileName = null;
+        error = null;
+        fileKey++;
+    }
+
+    private async Task OnFileAsync(InputFileChangeEventArgs args)
+    {
+        error = null;
+        parsed = null;
+        var file = args.File;
+        fileName = file.Name;
+        try
+        {
+            await using var stream = file.OpenReadStream(5 * 1024 * 1024);
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer);
+            parsed = LaborSheetFile.Read(buffer.ToArray());
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+    }
+
+    private async Task DownloadTemplateAsync()
+    {
+        var bytes = ExcelSheet.Build("عمالة", LaborSheet.Headers, Array.Empty<string?[]>());
+        await FileDownload.SaveAsync(JS, "قالب-عمالة.xls", bytes);
+    }
+
+    private async Task StageAsync(string mode)
+    {
+        error = null;
+        if (!Guid.TryParse(bulkCompanyId, out var companyId) || parsed == null)
+        {
+            error = "اختر الشركة وأرفق ملفاً مطابقاً للقالب.";
+            return;
+        }
+
+        saving = true;
+        try
+        {
+            var id = await Roster.StageAsync(companyId, mode, fileName, parsed, await ActorAsync());
+            Navigation.NavigateTo($"/permits/labor/batch/{id}");
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private async Task PrintOneAsync(LaborWorkerRow person) => await PrintAsync(new[] { person });
+
+    private async Task PrintSelectedAsync()
+    {
+        var people = printWorkers.Where(person => selected.Contains(person.Id)).ToList();
+        await PrintAsync(people);
+    }
+
+    private async Task PrintAsync(IReadOnlyList<LaborWorkerRow> people)
+    {
+        error = null;
+        var company = PrintCompany;
+        if (company == null || company.Status != LaborCompanyState.Active)
+        {
+            error = "الشركة متوقفة، والطباعة غير متاحة.";
+            return;
+        }
+
+        var ready = people.Where(person => person.Status == LaborWorkerState.Active).ToList();
+        if (ready.Count == 0)
+        {
+            error = "اختر عاملاً مستمراً لطباعة تصريحه.";
+            return;
+        }
+
+        printing = true;
+        try
+        {
+            var cards = ready.Select(person => new LaborPermitCard
+            {
+                PermitNo = person.PermitNo,
+                FullName = person.FullName,
+                CompanyName = company.Name
+            }).ToList();
+            await JS.InvokeVoidAsync("employeeCamera.printHtml", LaborPermitCardHtml.Build(cards));
+            await Roster.MarkPrintedAsync(ready.Select(person => person.Id).ToList(), await ActorAsync());
+            printWorkers = await Roster.ListWorkersAsync(company.Id);
+        }
+        catch (Exception ex)
+        {
+            error = "تعذر الطباعة: " + ex.Message;
+        }
+        finally
+        {
+            printing = false;
+        }
+    }
+
+    private void TogglePrint(Guid id, bool on)
+    {
+        if (on)
+            selected.Add(id);
+        else
+            selected.Remove(id);
+    }
+
+    private async Task<LaborActor> ActorAsync()
+    {
+        var state = await Auth.GetAuthenticationStateAsync();
+        return new LaborActor
+        {
+            UserName = state.User.Identity?.Name,
+            FullName = state.User.FindFirst(SystemTaskCodes.FullNameClaimType)?.Value
+        };
+    }
+
+    }

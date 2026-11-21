@@ -103,7 +103,7 @@ namespace Core.Enums
             [Description("سيارات")]
             Cars,
 
-            [Description("دخول موظفين")]
+            [Description("طلب إصدار بطاقة تصريح")]
             EmployeeAccess
         }
 
@@ -133,6 +133,22 @@ namespace Core.Enums
 
             [Description("ملغي")]
             Cancelled
+        }
+
+        /// <summary>Why an employee permit card is being issued.</summary>
+        public enum EmployeeCardRequestKind
+        {
+            [Description("تصريح جديد")]
+            New,
+
+            [Description("بدل فاقد")]
+            Lost,
+
+            [Description("بدل تالف")]
+            Damaged,
+
+            [Description("تحديث بيانات")]
+            DataUpdate
         }
 
         /// <summary>Which phase of PMS a feature/permit belongs to.</summary>
@@ -256,6 +272,18 @@ namespace Core.Enums
 
             [Description("اعتماد الرئيس الأعلى")]
             HigherSupervisor,
+
+            [Description("اعتماد رئيس القسم")]
+            SectionHead,
+
+            [Description("اعتماد مدير الإدارة")]
+            AdministrationManager,
+
+            [Description("اعتماد المدير العام")]
+            GeneralManager,
+
+            [Description("اعتماد مشرف القطاع")]
+            SectorSupervisor,
 
             [Description("اعتماد رئيس قسم المراقبة الإلكترونية")]
             ElectronicMonitoring,

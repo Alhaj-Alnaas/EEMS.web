@@ -568,8 +568,6 @@ D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\win-x64\PMS.web.GeneratedMSBuildE
 D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\win-x64\PMS.web.AssemblyInfoInputs.cache
 D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\win-x64\PMS.web.AssemblyInfo.cs
 D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\win-x64\PMS.web.csproj.CoreCompileInputs.cache
-D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\win-x64\PMS.web.MvcApplicationPartsAssemblyInfo.cs
-D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\win-x64\PMS.web.MvcApplicationPartsAssemblyInfo.cache
 D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\win-x64\PMS.web.RazorAssemblyInfo.cache
 D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\win-x64\PMS.web.RazorAssemblyInfo.cs
 D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\win-x64\PMS.web.sourcelink.json
@@ -578,7 +576,6 @@ D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\win-x64\rjsmrazor.dswa.cache.json
 D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\win-x64\rjsmcshtml.dswa.cache.json
 D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\win-x64\scopedcss\Components\Layout\MainLayout.razor.rz.scp.css
 D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\win-x64\scopedcss\Components\Layout\NavMenu.razor.rz.scp.css
-D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\win-x64\scopedcss\Views\Shared\_Layout.cshtml.rz.scp.css
 D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\win-x64\scopedcss\bundle\PMS.web.styles.css
 D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\win-x64\scopedcss\projectbundle\PMS.web.bundle.scp.css
 D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\win-x64\staticwebassets.build.json
@@ -596,3 +593,4 @@ D:\EEMS Project\PMS\PMS.web\bin\Release\net8.0\win-x64\web.config
 D:\EEMS Project\PMS\PMS.web\bin\Release\net8.0\win-x64\appsettings.Production.json
 D:\EEMS Project\PMS\PMS.web\bin\Release\net8.0\win-x64\Microsoft.Extensions.Hosting.WindowsServices.dll
 D:\EEMS Project\PMS\PMS.web\bin\Release\net8.0\win-x64\System.ServiceProcess.ServiceController.dll
+D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\win-x64\staticwebassets.upToDateCheck.txt

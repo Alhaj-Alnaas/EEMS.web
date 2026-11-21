@@ -1,6 +1,8 @@
 @page "/permits/execute/{PermitId:guid}"
 @rendermode InteractiveServer
 @inject IPermitExecutionService Execution
+@inject IEmployeePhotoService PhotoService
+@inject IJSRuntime JS
 @inject UserManager<User> UserManager
 @inject AuthenticationStateProvider AuthProvider
 @inject NavigationManager Navigation
@@ -8,14 +10,19 @@
 @using Microsoft.AspNetCore.Identity
 @using Core.Extensions
 @using Core.Security
+@using Core.Common
 @using static Core.Enums.BaseEnums
 
-<PageTitle>تنفيذ تصريح - PMS</PageTitle>
+<PageTitle>@(permit != null && IsEmployeeCard(permit) ? "طباعة بطاقة التصريح" : "تنفيذ تصريح") - PMS</PageTitle>
 
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-    <h3 class="mb-0"><i class="bi bi-check2-square text-warning"></i> تنفيذ تصريح</h3>
-    <BackLink Fallback="/permits/execute">العودة للقائمة</BackLink>
+    <h3 class="mb-0"><i class="bi bi-check2-square text-warning"></i> @(permit != null && IsEmployeeCard(permit) ? "طباعة بطاقة التصريح" : "تنفيذ تصريح")</h3>
+    <BackLink Fallback="@(permit != null && IsEmployeeCard(permit) ? "/permits/card-requests" : "/permits/execute")">العودة للقائمة</BackLink>
 </div>
+@if (!string.IsNullOrEmpty(actionError))
+{
+    <div class="alert alert-warning">@actionError</div>
+}
 
 @if (loading)
 {
@@ -51,7 +58,21 @@ else
 
             <div class="card mt-3">
                 <div class="card-header pms-header">@SubjectTitle(permit)</div>
-                @if (IsVisitors(permit))
+                @if (IsEmployeeCard(permit))
+                {
+                    var holder = permit.RequesterEmployee;
+                    <div class="card-body">
+                        <dl class="row mb-0">
+                            <dt class="col-5">الموظف</dt><dd class="col-7">@Show(holder?.FullName)</dd>
+                            <dt class="col-5">الرقم الوظيفي</dt><dd class="col-7">@Show(holder?.FileNumber)</dd>
+                            <dt class="col-5">الوظيفة</dt><dd class="col-7">@Show(holder?.JobTitle)</dd>
+                            <dt class="col-5">التقسيم</dt><dd class="col-7">@Show(holder?.DepartmentName)</dd>
+                            <dt class="col-5">نوع الطلب</dt><dd class="col-7">@EmployeeCardPermit.KindLabel(permit.type)</dd>
+                            <dt class="col-5">ملاحظات</dt><dd class="col-7">@Show(permit.remarks)</dd>
+                        </dl>
+                    </div>
+                }
+                else if (IsVisitors(permit))
                 {
                     <div class="table-responsive">
                         <table class="table mb-0">
@@ -158,10 +179,43 @@ else
         </div>
         <div class="col-lg-7">
             <div class="card mb-3">
-                <div class="card-header pms-header">@step.ActionLabel</div>
+                <div class="card-header pms-header">@(IsEmployeeCard(permit) ? "طباعة البطاقة" : step.ActionLabel)</div>
                 <div class="card-body">
-                    <p class="text-muted">@step.Hint</p>
-                    @if (step.Completed || permit.isClosed)
+                    @if (IsEmployeeCard(permit))
+                    {
+                        var holder = permit.RequesterEmployee;
+                        var blocked = EmployeeCardPermit.PrintBlockMessage(holder);
+                        <p class="text-muted">أدخل رقم الكرت الجديد ثم اطبع.</p>
+                        <dl class="row mb-3">
+                            <dt class="col-4">الموظف</dt><dd class="col-8">@Show(holder?.FullName)</dd>
+                            <dt class="col-4">الرقم الوظيفي</dt><dd class="col-8">@Show(holder?.FileNumber)</dd>
+                            <dt class="col-4">نوع الطلب</dt><dd class="col-8">@EmployeeCardPermit.KindLabel(permit.type)</dd>
+                            <dt class="col-4">الكرت الحالي</dt><dd class="col-8">@Show(holder?.CardNumber)</dd>
+                        </dl>
+                        @if (step.Completed || permit.isClosed)
+                        {
+                            <div class="alert alert-success">اكتمل التنفيذ. رقم الكرت المسجّل: @Show(holder?.CardNumber)</div>
+                            @if (holder != null && blocked == null)
+                            {
+                                <button class="btn btn-outline-secondary" disabled="@busy" @onclick="() => PrintEmployeeCardAsync(holder)">إعادة الطباعة</button>
+                            }
+                        }
+                        else if (blocked != null)
+                        {
+                            <div class="alert alert-warning mb-0">@blocked</div>
+                        }
+                        else
+                        {
+                            <div class="mb-3">
+                                <label class="form-label">رقم الكرت الجديد <span class="text-danger">*</span></label>
+                                <input class="form-control" inputmode="numeric" @bind="issuedCardNumber" @bind:event="oninput" />
+                            </div>
+                            <button class="btn btn-warning" disabled="@busy" @onclick="ExecuteCardAsync">
+                                طباعة وتنفيذ
+                            </button>
+                        }
+                    }
+                    else if (step.Completed || permit.isClosed)
                     {
                         <div class="alert alert-success mb-0">اكتمل تنفيذ هذا التصريح.</div>
                     }
@@ -171,17 +225,40 @@ else
                             <label class="form-label">@(step.Direction == MovementDirection.In ? "ساعة الدخول" : "ساعة الخروج")</label>
                             <input type="datetime-local" class="form-control" @bind="whenLocal" />
                         </div>
+                        @if (IsVisitors(permit))
+                        {
+                            <div class="mb-3">
+                                <label class="form-label">كرت الزائر</label>
+                                @if (visitorCards.Count == 0)
+                                {
+                                    <div class="alert alert-warning mb-0">لا توجد كروت على قارئات هذه البوابة يكون رقم الموظف فيها مساوياً لرقم الكرت. زامن القارئات أولاً.</div>
+                                }
+                                else
+                                {
+                                    <select class="form-select" @bind="selectedCard">
+                                        <option value="">اختر الكرت</option>
+                                        @foreach (var card in visitorCards)
+                                        {
+                                            <option value="@card.CardNumber">@CardLabel(card)</option>
+                                        }
+                                    </select>
+                                    <div class="form-text">كروت قارئات هذه البوابة.</div>
+                                }
+                            </div>
+                        }
                         <div class="mb-3">
                             <label class="form-label">ملاحظات</label>
                             <textarea class="form-control" rows="3" @bind="notes"></textarea>
                         </div>
-                        <button class="btn btn-warning" disabled="@busy" @onclick="ExecuteAsync">
+                        <button class="btn btn-warning" disabled="@(busy || NeedsVisitorCard)" @onclick="ExecuteAsync">
                             @step.ActionLabel
                         </button>
                     }
                 </div>
             </div>
 
+            @if (!IsEmployeeCard(permit))
+            {
             <div class="card">
                 <div class="card-header pms-header">حركات التنفيذ</div>
                 @if (history.Count == 0)
@@ -197,6 +274,10 @@ else
                                     <th>الوقت</th>
                                     <th>الحركة</th>
                                     <th>البوابة</th>
+                                    @if (IsVisitors(permit))
+                                    {
+                                        <th>الكرت</th>
+                                    }
                                     <th>ملاحظات</th>
                                 </tr>
                             </thead>
@@ -207,6 +288,10 @@ else
                                         <td>@item.When.ToString("yyyy/MM/dd HH:mm")</td>
                                         <td>@item.Action</td>
                                         <td>@(string.IsNullOrWhiteSpace(item.Gate) ? "—" : item.Gate)</td>
+                                        @if (IsVisitors(permit))
+                                        {
+                                            <td>@(string.IsNullOrWhiteSpace(item.Card) ? "—" : item.Card)</td>
+                                        }
                                         <td>@(string.IsNullOrWhiteSpace(item.Notes) ? "—" : item.Notes)</td>
                                     </tr>
                                 }
@@ -215,6 +300,7 @@ else
                     </div>
                 }
             </div>
+            }
         </div>
     </div>
 }
@@ -225,9 +311,15 @@ else
 
     private bool loading = true;
     private bool busy;
+    private string? actionError;
     private DateTime whenLocal = DateTime.Now;
     private string notes = "";
+    private string selectedCard = "";
+    private string issuedCardNumber = "";
+    private List<VisitorCardOption> visitorCards = new();
     private Guid gateId;
+    private bool NeedsVisitorCard =>
+        permit != null && IsVisitors(permit) && string.IsNullOrWhiteSpace(selectedCard);
     private Permit? permit;
     private PermitExecutionStep? step;
     private List<PermitExecutionEventRow> history = new();
@@ -256,10 +348,15 @@ else
             step = result.Step;
             history = result.History;
             approvals = await BuildApprovalsAsync(permit);
+            if (IsVisitors(permit) && gateId != Guid.Empty)
+                visitorCards = await Execution.GetVisitorCardsAsync(gateId, permit.Id);
+            else
+                visitorCards = new();
+            PickDefaultCard();
         }
         catch (Exception ex)
         {
-            await Toast.ErrorAsync(ex.Message);
+            actionError = ex.Message;
         }
         finally
         {
@@ -271,15 +368,25 @@ else
     {
         if (busy || permit == null)
             return;
+        if (IsEmployeeCard(permit))
+        {
+            await ExecuteCardAsync();
+            return;
+        }
         if (gateId == Guid.Empty)
         {
-            await Toast.WarningAsync("حدد البوابة من شاشة تنفيذ التصريح.");
+            actionError = "حدد البوابة من شاشة تنفيذ التصريح.";
+            return;
+        }
+        if (IsVisitors(permit) && string.IsNullOrWhiteSpace(selectedCard))
+        {
+            actionError = visitorCards.Count == 0
+                ? "لا توجد كروت زوار على قارئات هذه البوابة."
+                : "اختر كرت الزائر قبل تسجيل الحركة.";
             return;
         }
 
-        if (!await Toast.ConfirmAsync("هل تريد تسجيل هذه الحركة على التصريح؟", "نعم", "لا", "confirm"))
-            return;
-
+        actionError = null;
         busy = true;
         try
         {
@@ -289,21 +396,86 @@ else
             if (user == null)
                 throw new InvalidOperationException("تعذر تحديد المستخدم الحالي.");
 
-            await Execution.ExecuteAsync(permit.Id, gateId, whenLocal, notes, user);
+            await Execution.ExecuteAsync(permit.Id, gateId, whenLocal, notes, user, selectedCard);
+            await Toast.DoneAsync("تم تسجيل الحركة.");
             notes = "";
+            selectedCard = "";
             whenLocal = DateTime.Now;
-            await Toast.SuccessAsync("تم تسجيل التنفيذ.");
             await LoadAsync();
         }
         catch (Exception ex)
         {
-            await Toast.ErrorAsync(ex.Message);
+            actionError = ex.Message;
         }
         finally
         {
             busy = false;
         }
     }
+
+    private async Task ExecuteCardAsync()
+    {
+        if (busy || permit == null)
+            return;
+        var card = new string((issuedCardNumber ?? "").Where(char.IsDigit).ToArray());
+        if (card.Length == 0)
+        {
+            actionError = "أدخل رقم الكرت الجديد.";
+            return;
+        }
+        if (!await Toast.ConfirmAsync("سيتم استبدال رقم الكرت السابق وطباعة البطاقة وإغلاق الطلب. هل تريد المتابعة؟", "نعم", "لا", "confirm"))
+            return;
+
+        actionError = null;
+        busy = true;
+        try
+        {
+            var auth = await AuthProvider.GetAuthenticationStateAsync();
+            var userName = auth.User.Identity?.Name;
+            var user = userName == null ? null : await UserManager.FindByNameAsync(userName);
+            if (user == null)
+                throw new InvalidOperationException("تعذر تحديد المستخدم الحالي.");
+
+            await Execution.ExecuteCardAsync(permit.Id, card, user);
+            await LoadAsync();
+            try
+            {
+                if (permit?.RequesterEmployee != null)
+                    await PrintEmployeeCardAsync(permit.RequesterEmployee);
+            }
+            catch (Exception printEx)
+            {
+                actionError = "تعذرت طباعة البطاقة: " + printEx.Message;
+                return;
+            }
+            await Toast.DoneAsync("تم تنفيذ الطلب.");
+        }
+        catch (Exception ex)
+        {
+            actionError = ex.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task PrintEmployeeCardAsync(Employee employee)
+    {
+        var photoSrc = PhotoService.TryGetPhotoDataUrl(employee.PhotoPath);
+        var html = EmployeeCardPrintHtml.Build(
+            employee.FileNumber,
+            employee.FullName,
+            employee.Nationality,
+            employee.Address,
+            employee.JobTitle,
+            employee.DepartmentName,
+            photoSrc,
+            bloodType: employee.BloodType);
+        await JS.InvokeVoidAsync("employeeCamera.printHtml", html);
+    }
+
+    private static bool IsEmployeeCard(Permit permit) => EmployeeCardPermit.Is(permit);
 
     private static string KindLabel(Permit permit)
     {
@@ -347,6 +519,8 @@ else
 
     private static string SubjectTitle(Permit permit)
     {
+        if (IsEmployeeCard(permit))
+            return "صاحب البطاقة";
         if (IsVisitors(permit))
             return "الزوار المصرح لهم";
         if (IsCars(permit))
@@ -408,6 +582,34 @@ else
     private static bool IsCars(Permit permit) =>
         string.Equals(permit.classification, nameof(PermitClassification.Cars), StringComparison.OrdinalIgnoreCase)
         || permit.classification is "سيارات" or "مركبات" or "تصريح سيارات";
+
+    private void PickDefaultCard()
+    {
+        if (!string.IsNullOrWhiteSpace(selectedCard)
+            && visitorCards.Any(c => string.Equals(c.CardNumber, selectedCard, StringComparison.OrdinalIgnoreCase)))
+            return;
+
+        var used = history.LastOrDefault(h => !string.IsNullOrWhiteSpace(h.Card))?.Card;
+        var previous = visitorCards.FirstOrDefault(c =>
+            string.Equals(c.CardNumber, used, StringComparison.OrdinalIgnoreCase));
+        if (previous != null)
+        {
+            selectedCard = previous.CardNumber;
+            return;
+        }
+
+        selectedCard = visitorCards.Count == 1 ? visitorCards[0].CardNumber : "";
+    }
+
+    private static string CardLabel(VisitorCardOption card)
+    {
+        var name = card.Name?.Trim() ?? "";
+        if (name.Length == 0
+            || string.Equals(name, card.Pin, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, card.CardNumber, StringComparison.OrdinalIgnoreCase))
+            return card.CardNumber;
+        return card.CardNumber + " — " + name;
+    }
 
     private static string Show(string? value) =>
         string.IsNullOrWhiteSpace(value) ? "—" : value.Trim();

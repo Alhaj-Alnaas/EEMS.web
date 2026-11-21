@@ -10,6 +10,7 @@ namespace Services.AccessControl
     {
         private readonly IUnitOfWork _unitOfWork;
         private static int _protocolSeq;
+        private static int _protocolSeeded;
 
         public DeviceCommandService(IUnitOfWork unitOfWork)
         {
@@ -53,18 +54,48 @@ namespace Services.AccessControl
 
         public async Task<DeviceCommand?> GetByProtocolIdAsync(Guid readerId, int protocolCommandId)
         {
+            if (protocolCommandId <= 0)
+                return null;
+
+            // Only the command in flight. Historical rows reused the same
+            // protocol numbers after every restart and were stealing ACKs.
             return await _unitOfWork.DeviceCommands.GetQueryable()
-                .FirstOrDefaultAsync(c =>
+                .Where(c =>
                     c.ReaderId == readerId
                     && c.ProtocolCommandId == protocolCommandId
-                    && !c.isDeleted);
+                    && !c.isDeleted
+                    && c.Status == DeviceCommandStatus.Sent)
+                .OrderByDescending(c => c.SentOn)
+                .FirstOrDefaultAsync();
+        }
+
+        public async Task EnsureProtocolSeedAsync()
+        {
+            if (Volatile.Read(ref _protocolSeeded) == 1)
+                return;
+
+            var max = await _unitOfWork.DeviceCommands.GetQueryable()
+                .Where(c => !c.isDeleted)
+                .MaxAsync(c => (int?)c.ProtocolCommandId) ?? 0;
+
+            int seen;
+            do
+            {
+                seen = Volatile.Read(ref _protocolSeq);
+                if (seen >= max)
+                    break;
+            }
+            while (Interlocked.CompareExchange(ref _protocolSeq, max, seen) != seen);
+
+            Volatile.Write(ref _protocolSeeded, 1);
         }
 
         public async Task<DeviceCommand> EnqueueAsync(
             Guid readerId,
             DeviceCommandType type,
             string? payload = null,
-            DateTime? scheduledOn = null)
+            DateTime? scheduledOn = null,
+            string? remarks = null)
         {
             var command = new DeviceCommand
             {
@@ -74,6 +105,7 @@ namespace Services.AccessControl
                 Payload = payload,
                 Status = DeviceCommandStatus.Pending,
                 ScheduledOn = scheduledOn,
+                remarks = remarks,
                 createdOn = DateTime.Now
             };
             _unitOfWork.DeviceCommands.Insert(command);

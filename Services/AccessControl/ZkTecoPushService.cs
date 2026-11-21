@@ -405,8 +405,8 @@ namespace Services.AccessControl
             }
 
             pending = pending
-                .OrderBy(c => CommandPriority(c.CommandType))
-                .ThenBy(c => c.createdOn)
+                .OrderBy(c => DeliveryRank(c))
+                .ThenByDescending(c => c.createdOn)
                 .ToList();
 
             _logger.LogInformation(
@@ -416,6 +416,8 @@ namespace Services.AccessControl
                 string.Join(", ", allReadersForSerial.Select(r => r.Id)),
                 pending.Count,
                 string.Join(", ", pending.Select(c => c.CommandType)));
+
+            await _commands.EnsureProtocolSeedAsync();
 
             var lines = new List<string>();
             foreach (var cmd in pending)
@@ -541,6 +543,7 @@ namespace Services.AccessControl
                 {
                     await _commands.UpdateStatusAsync(cmd.Id, DeviceCommandStatus.Acknowledged);
                     await _readers.MarkSyncAsync(reader.Id);
+                    await _deviceSync.AuditGateLinkResultAsync(cmd, reader, ct);
                 }
                 else if (int.TryParse(returnCode, out var recordCount)
                          && recordCount > 0
@@ -613,6 +616,22 @@ namespace Services.AccessControl
                 return "CHECK";
             var text = payload.Trim();
             return text.StartsWith("DATA ", StringComparison.OrdinalIgnoreCase) ? text : "DATA " + text;
+        }
+
+        private static int DeliveryRank(Core.Entities.DeviceCommand cmd)
+        {
+            if (string.Equals(cmd.CommandType, nameof(DeviceCommandType.UpdateUserInfo), StringComparison.OrdinalIgnoreCase))
+            {
+                if ((cmd.Payload ?? "").Contains("userauthorize", StringComparison.OrdinalIgnoreCase))
+                    return 1;
+                return 0;
+            }
+            if (string.Equals(cmd.CommandType, nameof(DeviceCommandType.AddTemplate), StringComparison.OrdinalIgnoreCase)
+                || string.Equals(cmd.CommandType, nameof(DeviceCommandType.AddPermission), StringComparison.OrdinalIgnoreCase)
+                || string.Equals(cmd.CommandType, nameof(DeviceCommandType.RemoveTemplate), StringComparison.OrdinalIgnoreCase)
+                || string.Equals(cmd.CommandType, nameof(DeviceCommandType.RemovePermission), StringComparison.OrdinalIgnoreCase))
+                return 2;
+            return CommandPriority(cmd.CommandType);
         }
 
         private static int CommandPriority(string commandType)
@@ -722,9 +741,11 @@ namespace Services.AccessControl
             var p = payload.Trim();
             if (p.StartsWith("DATA ", StringComparison.OrdinalIgnoreCase))
                 return p;
-            if (p.StartsWith("Type=", StringComparison.OrdinalIgnoreCase))
+            // Acc push matches Pin= (capital). A bare pin or Pin=/Type= filter is passed through.
+            // filter=pin= (lowercase) returns -1004 on this firmware and never brings the template body.
+            if (p.Contains('='))
                 return $"DATA QUERY tablename=biodata,fielddesc=*,filter={p}";
-            return $"DATA QUERY tablename=biodata,fielddesc=*,filter=pin={p}";
+            return $"DATA QUERY tablename=biodata,fielddesc=*,filter=Pin={p}";
         }
 
         private static string FormatQueryUserInfo(string? payload)

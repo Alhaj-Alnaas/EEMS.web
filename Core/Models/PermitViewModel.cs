@@ -5,9 +5,7 @@ using static Core.Enums.BaseEnums;
 namespace Core.Models
 {
     /// <summary>
-    /// Clean-layer copy of the original PMS.web.ViewModels.PermitViewModel,
-    /// used by the new Blazor Server UI. Kept property-compatible with the
-    /// legacy version so porting logic from MatirailPermitController is direct.
+    /// Form model for material permits on the Blazor screens.
     /// </summary>
     public class PermitViewModel
     {

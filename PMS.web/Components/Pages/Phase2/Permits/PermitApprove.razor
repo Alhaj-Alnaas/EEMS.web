@@ -7,9 +7,10 @@
 @inject UserManager<User> UserManager
 @inject AuthenticationStateProvider AuthProvider
 @inject NavigationManager Navigation
-@inject PMS.web.Notifications.IUiToast Toast
+@inject IUiToast Toast
 @using Microsoft.AspNetCore.Identity
 @using Core.Common
+
 
 <PageTitle>اعتماد تصريح - PMS</PageTitle>
 
@@ -17,6 +18,10 @@
     <h3 class="mb-0"><i class="bi bi-stamp text-warning"></i> اعتماد التصاريح</h3>
 </div>
 <p class="text-muted">التصاريح التي تنتظر اعتمادك في خطوتك الحالية من مسار الاعتماد.</p>
+@if (!string.IsNullOrEmpty(notice))
+{
+    <div class="alert alert-warning">@notice</div>
+}
 
 @if (loading)
 {
@@ -59,7 +64,7 @@ else
                                 <a class="btn btn-sm btn-info" href="@ReturnUrl.Go(Navigation, $"/permits/materials/view/{row.Permit.Id}")">
                                     <i class="bi bi-eye"></i> عرض التفاصيل
                                 </a>
-                                @if (row.StepType == WorkflowStepType.GuardSection)
+                                @if (row.StepType == WorkflowStepType.GuardSection && !EmployeeCardPermit.Is(row.Permit))
                                 {
                                     <select class="form-select form-select-sm d-inline-block w-auto align-middle"
                                             value="@GateValue(row.Permit.Id)"
@@ -85,6 +90,7 @@ else
 
 @code {
     private bool loading = true;
+    private string? notice;
     private bool busy;
     private User? currentUser;
     private List<InboxRow> rows = new();
@@ -123,7 +129,7 @@ else
         }
         catch (Exception ex)
         {
-            await Toast.ErrorAsync("تعذر تحميل البوابات: " + ex.Message);
+            notice = "تعذر تحميل البوابات: " + ex.Message;
             loading = false;
             return;
         }
@@ -149,29 +155,28 @@ else
         if (currentUser == null || busy)
             return;
 
-        if (row.StepType == WorkflowStepType.GuardSection && !Guid.TryParse(GateValue(row.Permit.Id), out _))
+        var cardRequest = EmployeeCardPermit.Is(row.Permit);
+        notice = null;
+        if (!cardRequest && row.StepType == WorkflowStepType.GuardSection && !Guid.TryParse(GateValue(row.Permit.Id), out _))
         {
-            await Toast.WarningAsync("حدد بوابة التنفيذ قبل الاعتماد.");
+            notice = "حدد بوابة التنفيذ قبل الاعتماد.";
             return;
         }
 
-        if (!await Toast.ConfirmAsync("هل تريد اعتماد هذا التصريح؟", "اعتماد", "لا", "confirm"))
-            return;
-
         Guid? gateId = null;
-        if (row.StepType == WorkflowStepType.GuardSection && Guid.TryParse(GateValue(row.Permit.Id), out var parsed))
+        if (!cardRequest && row.StepType == WorkflowStepType.GuardSection && Guid.TryParse(GateValue(row.Permit.Id), out var parsed))
             gateId = parsed;
 
         busy = true;
         try
         {
             await MaterialPermits.DecideAsync(row.Permit.Id, currentUser, ApprovalDecision.Approved, null, gateId);
-            await Toast.SuccessAsync("تم اعتماد التصريح.");
+            await Toast.DoneAsync("تم الاعتماد.");
             await LoadAsync();
         }
         catch (Exception ex)
         {
-            await Toast.ErrorAsync(ex.Message);
+            notice = ex.Message;
         }
         finally
         {

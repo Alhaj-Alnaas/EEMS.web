@@ -1,0 +1,213 @@
+@page "/permits/labor/batch/{Id:guid}"
+@attribute [Authorize(Policy = TaskPolicies.PermitsLabor)]
+@rendermode InteractiveServer
+@inject ILaborRosterService Roster
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider Auth
+@inject PMS.web.Notifications.IUiToast Toast
+
+<PageTitle>آخر تعديلات العمالة - PMS</PageTitle>
+
+<div class="pms-permit-list">
+    <div class="pms-permit-list-head">
+        <h3><i class="bi bi-clock-history"></i> آخر التعديلات</h3>
+        <BackLink Fallback="/permits/labor" Css="btn pms-btn-refresh">
+            <i class="bi bi-arrow-right"></i> رجوع
+        </BackLink>
+    </div>
+
+    @if (loading)
+    {
+        <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+    }
+    else if (batch == null)
+    {
+        <div class="alert alert-danger">المعاينة غير موجودة.</div>
+    }
+    else
+    {
+        <p class="mb-2">
+            <strong>@batch.CompanyName</strong>
+            — @LaborBatchMode.Label(batch.Mode)
+            — @LaborBatchState.Label(batch.State)
+            @if (!string.IsNullOrWhiteSpace(batch.FileName))
+            {
+                <span> — @batch.FileName</span>
+            }
+        </p>
+        <div class="d-flex gap-2 flex-wrap mb-3">
+            <span class="badge @LaborLineAction.Badge(LaborLineAction.Add)">إضافة @Count(LaborLineAction.Add)</span>
+            <span class="badge @LaborLineAction.Badge(LaborLineAction.UpdateStatus)">تعديل الحالة @Count(LaborLineAction.UpdateStatus)</span>
+            <span class="badge @LaborLineAction.Badge(LaborLineAction.CloseService)">إغلاق خدمة @Count(LaborLineAction.CloseService)</span>
+            <span class="badge @LaborLineAction.Badge(LaborLineAction.Renumber)">إعادة ترقيم @Count(LaborLineAction.Renumber)</span>
+            <span class="badge @LaborLineAction.Badge(LaborLineAction.Skip)">موجود مسبقاً @Count(LaborLineAction.Skip)</span>
+        </div>
+
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <div class="alert alert-danger">@error</div>
+        }
+
+        @if (batch.State == LaborBatchState.Draft)
+        {
+            <div class="pms-create-actions mb-3">
+                <button type="button" class="btn btn-warning px-4" disabled="@busy" @onclick="ApplyAsync">اعتماد</button>
+                <button type="button" class="btn btn-outline-secondary px-4" disabled="@busy" @onclick="CancelAsync">إلغاء</button>
+            </div>
+        }
+        else if (batch.State == LaborBatchState.Applied)
+        {
+            <div class="pms-create-actions mb-3">
+                <button type="button" class="btn btn-warning px-4" disabled="@busy" @onclick="RenumberAsync">إعادة ترقيم</button>
+            </div>
+        }
+
+        @if (batch.Lines.Count == 0)
+        {
+            <div class="pms-placeholder"><i class="bi bi-check2-circle"></i><h5>لا توجد فروقات عن السجل الحالي</h5></div>
+        }
+        else
+        {
+            <div class="card">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 pms-permit-grid">
+                        <thead>
+                            <tr>
+                                <th>الإجراء</th>
+                                <th>الاسم</th>
+                                <th>الجواز</th>
+                                <th>رقم التصريح الحالي</th>
+                                <th>رقم التصريح الجديد</th>
+                                <th>الحالة الحالية</th>
+                                <th>الحالة الجديدة</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var line in batch.Lines)
+                            {
+                                <tr>
+                                    <td><span class="badge @LaborLineAction.Badge(line.Action)">@LaborLineAction.Label(line.Action)</span></td>
+                                    <td>@line.FullName</td>
+                                    <td>@(line.PassportNo ?? "—")</td>
+                                    <td><bdi dir="ltr">@(line.CurrentPermitNo ?? "—")</bdi></td>
+                                    <td><bdi dir="ltr">@(line.ProposedPermitNo ?? "—")</bdi></td>
+                                    <td>@StatusCell(line.CurrentStatus)</td>
+                                    <td>@StatusCell(line.ProposedStatus)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+
+        @if (batch.State == LaborBatchState.Applied && workers.Count > 0)
+        {
+            <div class="card mt-3">
+                <div class="card-header pms-header">أرقام تصاريح الشركة</div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 pms-permit-grid">
+                        <thead>
+                            <tr>
+                                <th>رقم التصريح</th>
+                                <th>الاسم</th>
+                                <th>الجواز</th>
+                                <th>الحالة</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var person in workers)
+                            {
+                                <tr>
+                                    <td><bdi dir="ltr">@person.PermitNo</bdi></td>
+                                    <td>@person.FullName</td>
+                                    <td>@(person.PassportNo ?? "—")</td>
+                                    <td>@StatusCell(person.Status)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private bool loading = true;
+    private bool busy;
+    private string? error;
+    private LaborBatchDetail? batch;
+    private List<LaborWorkerRow> workers = new();
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        batch = await Roster.GetBatchAsync(Id);
+        workers = batch == null ? new() : await Roster.ListWorkersAsync(batch.CompanyId);
+        loading = false;
+    }
+
+    private int Count(string action) => batch?.Lines.Count(line => line.Action == action) ?? 0;
+
+    private async Task RenumberAsync()
+    {
+        if (!await Toast.ConfirmAsync("يُرقّم العمال المستمرون فقط من 001 للسنة الحالية. إنهاء الخدمة لا يتغير.", "إعادة ترقيم", "لا", "confirm"))
+            return;
+        await RunAsync(async () => await Roster.RenumberAsync(Id, await ActorAsync()), "تمت إعادة الترقيم.");
+    }
+
+    private async Task ApplyAsync() =>
+        await RunAsync(async () => await Roster.ApplyAsync(Id, await ActorAsync()), "تم اعتماد العمالة.");
+
+    private Task CancelAsync() => RunAsync(async () => await Roster.CancelAsync(Id, await ActorAsync()), "تم إلغاء الدفعة.");
+
+    private async Task RunAsync(Func<Task> action, string done)
+    {
+        error = null;
+        busy = true;
+        try
+        {
+            await action();
+            batch = await Roster.GetBatchAsync(Id);
+            workers = batch == null ? new() : await Roster.ListWorkersAsync(batch.CompanyId);
+            await Toast.DoneAsync(done);
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task<LaborActor> ActorAsync()
+    {
+        var state = await Auth.GetAuthenticationStateAsync();
+        return new LaborActor
+        {
+            UserName = state.User.Identity?.Name,
+            FullName = state.User.FindFirst(SystemTaskCodes.FullNameClaimType)?.Value
+        };
+    }
+
+    private static RenderFragment StatusCell(string? status) => builder =>
+    {
+        if (string.IsNullOrWhiteSpace(status))
+        {
+            builder.AddContent(0, "—");
+            return;
+        }
+
+        builder.OpenElement(1, "span");
+        builder.AddAttribute(2, "class", "badge " + LaborWorkerState.Badge(status));
+        builder.AddContent(3, LaborWorkerState.Label(status));
+        builder.CloseElement();
+    };
+}

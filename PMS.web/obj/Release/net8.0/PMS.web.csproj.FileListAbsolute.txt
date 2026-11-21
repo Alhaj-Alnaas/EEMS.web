@@ -290,8 +290,6 @@ D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\PMS.web.GeneratedMSBuildEditorCon
 D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\PMS.web.AssemblyInfoInputs.cache
 D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\PMS.web.AssemblyInfo.cs
 D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\PMS.web.csproj.CoreCompileInputs.cache
-D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\PMS.web.MvcApplicationPartsAssemblyInfo.cs
-D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\PMS.web.MvcApplicationPartsAssemblyInfo.cache
 D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\PMS.web.RazorAssemblyInfo.cache
 D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\PMS.web.RazorAssemblyInfo.cs
 D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\PMS.web.sourcelink.json
@@ -300,7 +298,6 @@ D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\rjsmrazor.dswa.cache.json
 D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\rjsmcshtml.dswa.cache.json
 D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\scopedcss\Components\Layout\MainLayout.razor.rz.scp.css
 D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\scopedcss\Components\Layout\NavMenu.razor.rz.scp.css
-D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\scopedcss\Views\Shared\_Layout.cshtml.rz.scp.css
 D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\scopedcss\bundle\PMS.web.styles.css
 D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\scopedcss\projectbundle\PMS.web.bundle.scp.css
 D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\staticwebassets.build.json
@@ -333,3 +330,4 @@ D:\EEMS Project\PMS\PMS.web\bin\Release\net8.0\System.Diagnostics.EventLog.dll
 D:\EEMS Project\PMS\PMS.web\bin\Release\net8.0\System.ServiceProcess.ServiceController.dll
 D:\EEMS Project\PMS\PMS.web\bin\Release\net8.0\runtimes\win\lib\net8.0\System.Diagnostics.EventLog.dll
 D:\EEMS Project\PMS\PMS.web\bin\Release\net8.0\runtimes\win\lib\net8.0\System.ServiceProcess.ServiceController.dll
+D:\EEMS Project\PMS\PMS.web\obj\Release\net8.0\staticwebassets.upToDateCheck.txt

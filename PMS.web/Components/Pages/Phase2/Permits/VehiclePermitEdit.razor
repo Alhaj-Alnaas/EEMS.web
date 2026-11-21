@@ -299,13 +299,9 @@ else
         var missing = MaterialPermitService.MissingVehicle(request, submit);
         if (missing != null)
         {
-            await Toast.WarningAsync(missing);
+            errorMessage = missing;
             return;
         }
-        if (submit && !await Toast.ConfirmAsync(request.ShiftApproval
-            ? "هذا التصريح سوف يُعتمد من المناوب فقط. هل تريد الإرسال؟"
-            : "هل تريد إرسال هذا التصريح للاعتماد؟", "نعم", "لا", "confirm"))
-            return;
         errorMessage = null;
         saving = true;
         try
@@ -315,6 +311,7 @@ else
             await MaterialPermits.UpdateVehicleAsync(Id, request, currentUser);
             if (submit)
                 await MaterialPermits.SubmitDraftAsync(Id, currentUser);
+            await Toast.DoneAsync(submit ? "تم إرسال الطلب." : "تم حفظ البيانات.");
             Navigation.NavigateTo(ReturnUrl.Read(Navigation) ?? "/permits");
         }
         catch (Exception ex)
@@ -336,12 +333,12 @@ else
         try
         {
             await MaterialPermits.CancelAsync(Id, currentUser);
-            await Toast.SuccessAsync("تم إلغاء التصريح.");
+            await Toast.DoneAsync("تم إلغاء التصريح.");
             Navigation.NavigateTo(ReturnUrl.Read(Navigation) ?? "/permits");
         }
         catch (Exception ex)
         {
-            await Toast.ErrorAsync(ex.Message);
+            errorMessage = ex.Message;
         }
         finally
         {

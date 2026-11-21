@@ -1,0 +1,233 @@
+@page "/permits/card-requests"
+@rendermode InteractiveServer
+@inject IMaterialPermitService MaterialPermits
+@inject UserManager<User> UserManager
+@inject AuthenticationStateProvider AuthProvider
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@using Microsoft.AspNetCore.Identity
+@using Core.Common
+@using Core.Security
+@using Services.Permits
+
+<PageTitle>طلبات إصدار التصاريح - PMS</PageTitle>
+
+<section class="pms-permit-list">
+<div class="pms-permit-list-head">
+    <h3><i class="bi bi-person-vcard"></i> طلبات إصدار التصاريح</h3>
+    <div class="d-flex align-items-center gap-2">
+        <a class="btn btn-sm btn-warning" href="/permits/employee/create"><i class="bi bi-plus-lg"></i> طلب جديد</a>
+        <button type="button" class="btn btn-sm pms-permit-view-btn" @onclick="ExportExcelAsync" disabled="@(loading || exporting || Filtered.Count == 0)">
+            <i class="bi bi-file-earmark-excel"></i> ترحيل إلى إكسل
+        </button>
+        @if (!loading && string.IsNullOrEmpty(loadError))
+        {
+            <span class="pms-permit-count">@Filtered.Count من @requests.Count</span>
+        }
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(loadError))
+{
+    <div class="alert alert-danger">@loadError</div>
+}
+@if (!string.IsNullOrEmpty(exportError))
+{
+    <div class="alert alert-danger">@exportError</div>
+}
+
+@if (loading)
+{
+    <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+}
+else if (requests.Count == 0)
+{
+    <div class="pms-placeholder">
+        <i class="bi bi-inbox"></i>
+        <h5>لا توجد طلبات إصدار مرتبطة بحسابك</h5>
+    </div>
+}
+else
+{
+    <div class="card shadow-sm mb-3">
+        <div class="card-body py-3">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label mb-1">حالة الطلب</label>
+                    <select class="form-select form-select-sm" @bind="statusFilter">
+                        <option value="">الكل</option>
+                        <option value="تحت الاعتماد">تحت الاعتماد</option>
+                        <option value="مرجع">مرجع</option>
+                        <option value="تحت التنفيذ">تحت التنفيذ</option>
+                        <option value="منفذ">منفذ</option>
+                        <option value="مغلق">مغلق</option>
+                        <option value="مرفوض">مرفوض</option>
+                        <option value="ملغي">ملغي</option>
+                    </select>
+                </div>
+                <div class="col-md-9">
+                    <label class="form-label mb-1">بحث</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input class="form-control" placeholder="بحث برقم الطلب أو اسم الموظف أو رقم الملف أو التقسيم..." @bind="quickSearch" @bind:event="oninput" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (Filtered.Count == 0)
+    {
+        <div class="pms-placeholder">
+            <i class="bi bi-search"></i>
+            <h5>لا توجد نتائج مطابقة للبحث</h5>
+        </div>
+    }
+    else
+    {
+        <div class="card pms-permit-sheet">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 pms-permit-grid">
+                    <thead>
+                        <tr>
+                            <th>رقم الطلب</th>
+                            <th>اسم طالب التصريح</th>
+                            <th>التقسيم الإداري</th>
+                            <th>رقم الملف</th>
+                            <th>نوع الطلب</th>
+                            <th>تاريخ الطلب</th>
+                            <th>حالة الطلب</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var permit in Filtered)
+                        {
+                            var status = StatusMapper.ListStatus(permit);
+                            <tr>
+                                <td class="pms-permit-no"><bdi>@permit.no</bdi></td>
+                                <td>@Show(permit.RequesterEmployee?.FullName)</td>
+                                <td>@Show(permit.RequesterEmployee?.DepartmentName)</td>
+                                <td><bdi>@Show(permit.RequesterEmployee?.FileNumber)</bdi></td>
+                                <td>@EmployeeCardPermit.KindLabel(permit.type)</td>
+                                <td class="text-nowrap">@permit.date.ToString("yyyy/MM/dd")</td>
+                                <td><span class="badge @status.Css">@status.Label</span></td>
+                                <td class="text-nowrap">
+                                    <a class="btn btn-sm pms-permit-view-btn" href="@ReturnUrl.Go(Navigation, $"/permits/materials/view/{permit.Id}")">
+                                        <i class="bi bi-eye"></i> عرض
+                                    </a>
+                                    @if (status.Label == "تحت التنفيذ")
+                                    {
+                                        <a class="btn btn-sm pms-table-action-btn" href="@ReturnUrl.Go(Navigation, $"/permits/execute/{permit.Id}")">
+                                            <i class="bi bi-printer"></i> طباعة
+                                        </a>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+</section>
+
+@code {
+    private bool loading = true;
+    private bool exporting;
+    private string? loadError;
+    private string? exportError;
+    private string quickSearch = "";
+    private string statusFilter = "";
+    private List<Permit> requests = new();
+
+    private List<Permit> Filtered
+    {
+        get
+        {
+            IEnumerable<Permit> query = requests;
+            if (!string.IsNullOrWhiteSpace(statusFilter))
+                query = query.Where(p => StatusMapper.ListStatus(p).Label == statusFilter);
+            if (string.IsNullOrWhiteSpace(quickSearch))
+                return query.ToList();
+
+            var term = quickSearch.Trim();
+            return query.Where(p =>
+                Contains(p.no, term)
+                || Contains(p.RequesterEmployee?.FullName, term)
+                || Contains(p.RequesterEmployee?.DepartmentName, term)
+                || Contains(p.RequesterEmployee?.FileNumber, term)
+                || Contains(EmployeeCardPermit.KindLabel(p.type), term)).ToList();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthProvider.GetAuthenticationStateAsync();
+            var userName = authState.User.Identity?.Name;
+            var currentUser = userName != null ? await UserManager.FindByNameAsync(userName) : null;
+            if (currentUser == null)
+            {
+                loadError = "تعذر تحديد المستخدم الحالي.";
+                return;
+            }
+
+            Guid? gateId = null;
+            var gateClaim = authState.User.FindFirst(SystemTaskCodes.SelectedGateIdClaimType)?.Value;
+            if (Guid.TryParse(gateClaim, out var parsedGate))
+                gateId = parsedGate;
+
+            requests = (await MaterialPermits.GetForResponsibilityCenterAsync(currentUser, gateId))
+                .Where(EmployeeCardPermit.Is)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            loadError = "تعذر تحميل طلبات التصاريح: " + ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private static string Show(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "—" : value.Trim();
+
+    private static bool Contains(string? value, string term) =>
+        !string.IsNullOrEmpty(value) && value.Contains(term, StringComparison.OrdinalIgnoreCase);
+
+    private async Task ExportExcelAsync()
+    {
+        exportError = null;
+        exporting = true;
+        try
+        {
+            var bytes = ExcelSheet.Build(
+                "طلبات التصاريح",
+                new[] { "رقم الطلب", "اسم طالب التصريح", "التقسيم الإداري", "رقم الملف", "نوع الطلب", "تاريخ الطلب", "حالة الطلب" },
+                Filtered.Select(permit => new string?[]
+                {
+                    permit.no,
+                    Show(permit.RequesterEmployee?.FullName),
+                    Show(permit.RequesterEmployee?.DepartmentName),
+                    Show(permit.RequesterEmployee?.FileNumber),
+                    EmployeeCardPermit.KindLabel(permit.type),
+                    permit.date.ToString("yyyy/MM/dd"),
+                    StatusMapper.ListStatus(permit).Label
+                }));
+            await FileDownload.SaveAsync(JS, "طلبات-التصاريح.xls", bytes);
+        }
+        catch (Exception ex)
+        {
+            exportError = "تعذر ترحيل طلبات التصاريح إلى إكسل: " + ex.Message;
+        }
+        finally
+        {
+            exporting = false;
+        }
+    }
+}

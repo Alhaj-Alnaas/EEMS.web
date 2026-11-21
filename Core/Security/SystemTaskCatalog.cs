@@ -31,7 +31,6 @@ namespace Core.Security
             new("permits", "التصاريح", "fas fa-file-signature",
             [
                 new(SystemTaskCodes.PermitsList, "قائمة التصاريح", "التصاريح", "/permits", 100, "fas fa-list", true),
-                new(SystemTaskCodes.PermitsEmployeeCreate, "إصدار تصريح موظف", "التصاريح", "/permits/employee/create", 110, "fas fa-user-check"),
                 new(SystemTaskCodes.PermitsLabor, "تصاريح العمالة", "التصاريح", "/permits/labor", 120, "fas fa-helmet-safety"),
                 new(SystemTaskCodes.PermitsVisitorsCreate, "تصريح زوار", "التصاريح", "/permits/visitors/create", 130, "fas fa-user-tag"),
                 new(SystemTaskCodes.PermitsMaterialsCreate, "تصريح مواد", "التصاريح", "/permits/materials/create", 140, "fas fa-boxes"),
@@ -39,18 +38,25 @@ namespace Core.Security
                 new(SystemTaskCodes.PermitsApprove, "اعتماد تصريح", "التصاريح", "/permits/approve", 160, "fas fa-stamp"),
                 new(SystemTaskCodes.GateOfficer, "تنفيذ تصريح", "التصاريح", "/permits/execute", 170, "fas fa-qrcode"),
             ]),
+            new("issuance", "طلبات الإصدار", "fas fa-id-card",
+            [
+                new(SystemTaskCodes.PermitsEmployeeCreate, "طلب إصدار بطاقة تصريح", "طلبات الإصدار", "/permits/employee/create", 180, "fas fa-id-card"),
+                new(SystemTaskCodes.PermitsCardRequests, "قائمة الطلبات", "طلبات الإصدار", "/permits/card-requests", 190, "fas fa-id-badge"),
+            ]),
             new("reports", "التقارير والمتابعة", "fas fa-chart-line",
             [
                 new(SystemTaskCodes.ReportsOpen, "تصاريح مفتوحة", "التقارير والمتابعة", "/reports/open-permits", 210, "fas fa-hourglass-split"),
                 new(SystemTaskCodes.Movements, "سجل الحركة", "التقارير والمتابعة", "/movements", 220, "fas fa-exchange-alt"),
                 new(SystemTaskCodes.DevicesMonitor, "حالة الأجهزة", "التقارير والمتابعة", "/devices/monitor", 230, "fas fa-heartbeat"),
                 new(SystemTaskCodes.ReportsAttendance, "تقرير الحضور والانصراف", "التقارير والمتابعة", "/reports/attendance", 240, "fas fa-user-clock"),
+                new(SystemTaskCodes.ReportsLabor, "متابعة العمالة", "التقارير والمتابعة", "/reports/labor", 245, "fas fa-user-check"),
                 new(SystemTaskCodes.ReportsAudit, "سجل التدقيق", "التقارير والمتابعة", "/reports/audit-log", 250, "fas fa-clipboard-list"),
             ]),
             new("admin", "الإدارة", "fas fa-cogs",
             [
                 new(SystemTaskCodes.DevicesReaders, "إدارة القارئات", "الإدارة", "/devices/readers", 300, "fas fa-fingerprint"),
                 new(SystemTaskCodes.EmployeesList, "إدارة تسجيل الموظفين", "الإدارة", "/employees", 310, "fas fa-users"),
+                new(SystemTaskCodes.AdminLaborCompanies, "شركات العمالة", "الإدارة", "/admin/labor-companies", 315, "fas fa-building"),
                 new(SystemTaskCodes.AdminGates, "إدارة البوابات", "الإدارة", "/admin/gates", 320, "fas fa-door-open"),
                 new(SystemTaskCodes.GatePermissions, "إدارة صلاحيات الدخول", "الإدارة", "/access/permissions", 330, "fas fa-key"),
                 new(SystemTaskCodes.Workflows, "إعدادات التصريح", "الإدارة", "/admin/workflows", 340, "fas fa-project-diagram"),

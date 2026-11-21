@@ -10,13 +10,13 @@
 @inject IUserAccountService Users
 @inject IAccessLevelService AccessLevels
 @inject IHrEmployeeLookupService HrLookup
+@inject IUiToast Toast
 
 <PageTitle>إضافة مستخدم - PMS</PageTitle>
 
 <div class="user-mgmt" dir="rtl">
     <div class="header-info mb-3">
-        <h1>إدارة حسابات المستخدمين</h1>
-        <p>إضافة مستخدم جديد وربطه بمستوى دخول</p>
+        <h1>إضافة مستخدم</h1>
     </div>
 
     @if (!string.IsNullOrEmpty(error))
@@ -41,7 +41,7 @@
                             <label class="form-label">الرقم الوظيفي <span class="pms-req">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="bi bi-person-vcard"></i></span>
-                                <InputText class="form-control" inputmode="numeric" @bind-Value="model.EmpFileNo" @bind-Value:after="NormalizeFileNo" placeholder="الرقم الوظيفي" disabled="@hrLocked" />
+                                <InputText class="form-control" inputmode="numeric" @bind-Value="model.EmpFileNo" @bind-Value:after="NormalizeFileNo" @onkeydown="OnFileKey" placeholder="الرقم الوظيفي" disabled="@hrLocked" />
                                 <button type="button" class="btn btn-warning" @onclick="FetchHrAsync" disabled="@fetching">
                                     <i class="bi bi-search"></i> عرض
                                 </button>
@@ -107,7 +107,6 @@
                             }
                         </InputSelect>
                         <ValidationMessage For="() => model.AccessLevelId" />
-                        <div class="form-text mt-2">تُمنح للمستخدم تلقائياً كل مهام المستوى المختار.</div>
                     </div>
                 </div>
 
@@ -225,7 +224,7 @@
             var hr = await HrLookup.LookupAsync(model.EmpFileNo.Trim());
             if (!hr.Success)
             {
-                error = hr.Error ?? "تعذر جلب بيانات الموظف من الموارد البشرية.";
+                error = hr.Error ?? "تعذر عرض بيانات الموظف من الموارد البشرية.";
                 return;
             }
 
@@ -244,7 +243,7 @@
         }
         catch (Exception ex)
         {
-            error = "خطأ أثناء جلب بيانات الموظف: " + ex.Message;
+            error = "خطأ أثناء عرض بيانات الموظف: " + ex.Message;
         }
         finally
         {
@@ -280,8 +279,23 @@
         };
     }
 
+    private bool suppressSubmit;
+
+    private async Task OnFileKey(KeyboardEventArgs key)
+    {
+        if (key.Key != "Enter")
+            return;
+        suppressSubmit = true;
+        await FetchHrAsync();
+    }
+
     private async Task HandleSubmitAsync()
     {
+        if (suppressSubmit)
+        {
+            suppressSubmit = false;
+            return;
+        }
         error = null;
         success = null;
         SyncAccessLevel();
@@ -294,7 +308,7 @@
 
         if (string.IsNullOrWhiteSpace(model.EmpName))
         {
-            error = "اجلب بيانات الموظف من الموارد البشرية عبر زر «عرض» قبل الحفظ.";
+            error = "اعرض بيانات الموظف عبر زر «عرض» قبل الحفظ.";
             return;
         }
 
@@ -311,6 +325,7 @@
             if (ok)
             {
                 success = msg;
+                await Toast.DoneAsync("تم إضافة المستخدم.");
                 model = new CreateUserAccountModel();
                 selectedAccessLevelId = "";
                 hrLocked = false;

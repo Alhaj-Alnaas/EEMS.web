@@ -17,8 +17,9 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Core.Options;
-using Services;
 using Services.AccessControl;
+using Services.Organization;
+using Services.Permits;
 using Services.AccessControl.Workers;
 using Services.Security;
 using Core.Interfaces.Services.Security;
@@ -51,7 +52,7 @@ builder.WebHost.ConfigureKestrel(options =>
     });
 });
 
-// ---------------- Session (kept for the legacy MVC controllers/views) ----------------
+// ---------------- Session (selected gate and display name set at Blazor login) ----------------
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
 {
@@ -125,7 +126,6 @@ builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepositor
 
 // Legacy Phase 2 services (unchanged)
 builder.Services.AddTransient<IGates, GateServices>();
-builder.Services.AddTransient<IPermitType, PermitTypeServices>();
 builder.Services.AddScoped<IPermit, PermitServices>();
 builder.Services.AddScoped<IDepartmentService, DepartmentService>();
 builder.Services.AddScoped<IProcedureMovment, ProcedureMovmentService>();
@@ -180,6 +180,9 @@ builder.Services.AddHostedService<Services.Permits.PermitExecutionMaintenanceWor
 // Phase 2: Workflow services
 builder.Services.AddSingleton<PMS.web.Reporting.IReportFileCache, PMS.web.Reporting.ReportFileCache>();
 builder.Services.AddScoped<IAuditLogService, Services.Audit.AuditLogService>();
+builder.Services.Configure<Core.Options.LaborCompanySourceOptions>(
+    builder.Configuration.GetSection(Core.Options.LaborCompanySourceOptions.SectionName));
+builder.Services.AddScoped<Core.Interfaces.Services.Labor.ILaborRosterService, Services.Labor.LaborRosterService>();
 builder.Services.AddScoped<IWorkflowEngine, Services.Workflow.WorkflowEngine>();
 builder.Services.AddScoped<IApprovalPathService, Services.Workflow.ApprovalPathService>();
 builder.Services.AddScoped<IMaterialPermitService, Services.Permits.MaterialPermitService>();
@@ -195,8 +198,7 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddHttpClient();
 
-// Legacy MVC controllers/views are kept reachable under the "/legacy" prefix
-// (see MapControllerRoute below) plus the PDF-generation endpoint on PermitController.
+// Controllers that remain are device push, JSON lookups, report files, and permit PDF.
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
 
@@ -213,7 +215,7 @@ if (app.Environment.IsDevelopment())
 }
 else
 {
-    app.UseExceptionHandler("/Home/Error", createScopeForErrors: true);
+    app.UseExceptionHandler("/error", createScopeForErrors: true);
     // Skip HSTS for HTTP-only ADMS deployments (see Hosting:DisableHttpsRedirection).
     if (!app.Configuration.GetValue("Hosting:DisableHttpsRedirection", true))
         app.UseHsts();
@@ -294,10 +296,6 @@ app.UseAntiforgery();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Legacy MVC (kept for backward compatibility while pages are ported to Blazor)
-app.MapControllerRoute(
-    name: "legacy",
-    pattern: "legacy/{controller=Permit}/{action=PermitIndex}/{id?}");
 app.MapControllers();
 app.MapRazorPages();
 

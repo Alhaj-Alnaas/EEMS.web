@@ -5,7 +5,6 @@
 @inject IDepartmentService DepartmentService
 @inject AuthenticationStateProvider AuthProvider
 @inject NavigationManager Navigation
-@using Core.Common
 @using Core.Security
 
 <PageTitle>تنفيذ تصريح - PMS</PageTitle>
@@ -23,7 +22,9 @@
 {
     <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
 }
-else if (!gateLocked)
+else
+{
+    @if (!gateLocked)
 {
     <div class="pms-placeholder">
         <i class="bi bi-door-closed"></i>
@@ -36,9 +37,7 @@ else
         <div class="card-body py-3">
             <label class="form-label mb-1">البوابة</label>
             <div class="fw-bold">@CurrentGateLabel()</div>
-            <div class="text-muted small mt-2">
-                يظهر التصريح هنا إذا حُددت هذه البوابة عند اعتماد رئيس قسم الحراسة، أو إذا كان مساره لا يمر بالحراسة وهذه البوابة مربوطة بنوعه.
-            </div>
+            <div class="text-muted small mt-2">التصريح يظهر إذا كانت هذه بوابته عند الاعتماد.</div>
         </div>
     </div>
 
@@ -91,6 +90,7 @@ else
                 </table>
             </div>
         </div>
+    }
     }
 }
 

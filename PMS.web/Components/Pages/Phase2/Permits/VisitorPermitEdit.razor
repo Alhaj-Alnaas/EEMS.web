@@ -96,7 +96,7 @@ else
                         <div class="mb-3">
                             <label class="form-label fw-bold">رقم ملف الداعي</label>
                             <div class="input-group">
-                                <InputText class="form-control" @bind-Value="request.HostFileNumber" />
+                                <InputText class="form-control" @bind-Value="request.HostFileNumber" @onkeydown="OnHostKey" placeholder="رقم الملف" />
                                 <button type="button" class="btn btn-outline-secondary" @onclick="LookupHostAsync">عرض</button>
                             </div>
                         </div>
@@ -319,6 +319,13 @@ else
         return time >= TimeSpan.FromHours(15) || time <= TimeSpan.FromHours(8);
     }
 
+    private async Task OnHostKey(KeyboardEventArgs key)
+    {
+        if (key.Key is not ("Enter" or "NumpadEnter"))
+            return;
+        await LookupHostAsync();
+    }
+
     private async Task LookupHostAsync()
     {
         if (request == null) return;
@@ -357,7 +364,7 @@ else
         }
         catch (Exception ex)
         {
-            errorMessage = "تعذر جلب بيانات الموظف: " + ex.Message;
+            errorMessage = "تعذر عرض بيانات الموظف: " + ex.Message;
         }
     }
 
@@ -371,13 +378,9 @@ else
         var missing = MaterialPermitService.MissingVisitor(request, submit);
         if (missing != null)
         {
-            await Toast.WarningAsync(missing);
+            errorMessage = missing;
             return;
         }
-        if (submit && !await Toast.ConfirmAsync(request.ShiftApproval
-            ? "هذا التصريح سوف يُعتمد من المناوب فقط. هل تريد الإرسال؟"
-            : "هل تريد إرسال هذا التصريح للاعتماد؟", "نعم", "لا", "confirm"))
-            return;
         errorMessage = null;
         saving = true;
         try
@@ -385,6 +388,7 @@ else
             await MaterialPermits.UpdateVisitorAsync(Id, request, currentUser);
             if (submit)
                 await MaterialPermits.SubmitDraftAsync(Id, currentUser);
+            await Toast.DoneAsync(submit ? "تم إرسال الطلب." : "تم حفظ البيانات.");
             Navigation.NavigateTo(ReturnUrl.Read(Navigation) ?? "/permits");
         }
         catch (Exception ex)
@@ -406,12 +410,12 @@ else
         try
         {
             await MaterialPermits.CancelAsync(Id, currentUser);
-            await Toast.SuccessAsync("تم إلغاء التصريح.");
+            await Toast.DoneAsync("تم إلغاء التصريح.");
             Navigation.NavigateTo(ReturnUrl.Read(Navigation) ?? "/permits");
         }
         catch (Exception ex)
         {
-            await Toast.ErrorAsync(ex.Message);
+            errorMessage = ex.Message;
         }
         finally
         {

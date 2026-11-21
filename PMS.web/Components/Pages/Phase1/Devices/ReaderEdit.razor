@@ -4,6 +4,7 @@
 @inject IGates GateService
 @inject AuthenticationStateProvider AuthProvider
 @inject NavigationManager Navigation
+@inject IUiToast Toast
 
 <PageTitle>@(IsNew ? "إضافة قارئة" : "تعديل قارئة") - PMS</PageTitle>
 
@@ -12,7 +13,6 @@
         <i class="bi bi-hdd-network-fill text-warning"></i>
         @(IsNew ? "إضافة قارئة جديدة" : "تعديل بيانات القارئة")
     </h3>
-    <p class="text-muted small mb-2">اربط القارئة ببوابة وحدد اتجاه الحركة، ثم احفظ البيانات.</p>
 
     @if (loading)
     {
@@ -35,7 +35,6 @@
                                 <div class="mb-3">
                                     <label class="form-label">الرقم التسلسلي <span class="text-danger">*</span></label>
                                     <InputText class="form-control" @bind-Value="model.DeviceSerial" />
-                                    <div class="form-text">يجب أن يطابق الرقم المسجّل في الجهاز.</div>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">نوع القارئة <span class="text-danger">*</span></label>
@@ -43,7 +42,6 @@
                                         <option value="@MovementDirection.In">دخول</option>
                                         <option value="@MovementDirection.Out">خروج</option>
                                     </InputSelect>
-                                    <div class="form-text">كل حركة تُرحَّل من هذه القارئة تُسجَّل بهذا الاتجاه.</div>
                                 </div>
                                 <div class="mb-0">
                                     <label class="form-label">الموديل</label>
@@ -199,6 +197,7 @@
                 await ReaderService.UpdateAsync(model);
             }
 
+            await Toast.DoneAsync("تم حفظ البيانات.");
             Navigation.NavigateTo(ReturnUrl.Read(Navigation) ?? "/devices/readers");
         }
         catch (Exception ex)

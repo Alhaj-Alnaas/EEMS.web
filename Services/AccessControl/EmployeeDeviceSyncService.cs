@@ -132,30 +132,106 @@ namespace Services.AccessControl
 
             var disable = (!employee.IsActive || employee.isDeleted) ? "1" : "0";
             var name = trackedEmp?.FullName ?? employee.FullName;
-            var queued = 0;
+            var person = trackedEmp ?? employee;
+
             foreach (var reader in readers)
             {
                 ct.ThrowIfCancellationRequested();
-                await SupersedePendingUpdatesAsync(reader.Id, pin, ct);
-                queued += await QueueAccAccessAsync(reader, pin, name, disable, enrollUser: true, ct);
+                await QueueGateLinkAsync(reader, person, pin, name, disable, ct);
             }
 
-            var devices = string.Join("، ", readers.Select(r => string.IsNullOrWhiteSpace(r.Name) ? r.DeviceSerial : r.Name));
-            var addresses = string.Join("، ", readers.Select(r => r.IpAddress).Where(ip => !string.IsNullOrWhiteSpace(ip)));
+            return readers.Count;
+        }
+
+        /// <summary>
+        /// Update the PIN in place. If the reader reports the PIN missing, the ACK handler
+        /// queues one create. Card, face, and fingerprint ride along only when stored.
+        /// </summary>
+        private async Task QueueGateLinkAsync(
+            Reader reader, Employee employee, string pin, string? name, string disable, CancellationToken ct)
+        {
+            await SupersedePendingUpdatesAsync(reader.Id, pin, ct);
+            var card = string.IsNullOrWhiteSpace(employee.CardNumber) ? null : employee.CardNumber.Trim();
+            await _commands.EnqueueAsync(
+                reader.Id,
+                DeviceCommandType.UpdateUserInfo,
+                ZkTecoAccUserCommand.AccUserLine(pin, name, disable, card: card),
+                remarks: "gate-link:update");
+            await _commands.EnqueueAsync(
+                reader.Id,
+                DeviceCommandType.UpdateUserInfo,
+                ZkTecoAccUserCommand.AccAuthorizeLine(pin, disable != "1"));
+            await QueueTemplatesAsync(reader.Id, employee, pin, ct, linkMarker: "gate-link");
+        }
+
+        public async Task AuditGateLinkResultAsync(DeviceCommand command, Reader reader, CancellationToken ct = default)
+        {
+            var marker = command.remarks ?? "";
+            if (!marker.StartsWith("gate-link:", StringComparison.Ordinal))
+                return;
+
+            var pin = PinFromPayload(command.Payload);
+            if (string.IsNullOrWhiteSpace(pin))
+                return;
+
+            var employee = await _unitOfWork.Employees.GetQueryable()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(e => e.FileNumber == pin && !e.isDeleted, ct);
+            var name = employee?.FullName?.Trim();
+            var who = string.IsNullOrWhiteSpace(name) ? pin : name + " (" + pin + ")";
+            var device = string.IsNullOrWhiteSpace(reader.Name) ? reader.DeviceSerial : reader.Name;
+
+            string action;
+            string summary;
+            if (marker.StartsWith("gate-link:add", StringComparison.Ordinal))
+            {
+                action = AuditAction.Add;
+                summary = "إضافة الموظف " + who + " على القارئة " + device + CardClause(command.Payload);
+            }
+            else if (marker.StartsWith("gate-link:face", StringComparison.Ordinal))
+            {
+                action = AuditAction.Edit;
+                summary = "تحديث قالب الوجه للموظف " + who + " على القارئة " + device;
+            }
+            else if (marker.StartsWith("gate-link:finger", StringComparison.Ordinal))
+            {
+                action = AuditAction.Edit;
+                summary = "تحديث البصمة للموظف " + who + " على القارئة " + device;
+            }
+            else if (marker.StartsWith("gate-link:update", StringComparison.Ordinal))
+            {
+                action = AuditAction.Edit;
+                summary = "تعديل بيانات الموظف " + who + " على القارئة " + device + CardClause(command.Payload);
+            }
+            else
+            {
+                return;
+            }
+
             await _audit.WriteAsync(new AuditLogEntry
             {
-                SourceKey = "enroll:" + employee.Id + ":" + DateTime.Now.Ticks,
+                SourceKey = "gate-link:" + command.Id,
                 Area = AuditArea.Administration,
-                Action = AuditAction.Enroll,
-                Summary = "إضافة الموظف " + pin + " " + name + " على أجهزة البصمة",
-                ActorFileNumber = employee.updatedBy,
+                Action = action,
+                Summary = summary,
+                ActorFileNumber = employee?.updatedBy,
                 ActorName = name,
                 OccurredAt = DateTime.Now,
-                DeviceName = devices,
-                NetworkAddress = addresses
+                DeviceName = device,
+                NetworkAddress = reader.IpAddress
             });
+        }
 
-            return queued;
+        private static string? PinFromPayload(string? payload)
+        {
+            var match = Regex.Match(payload ?? "", @"\bPin=(\S+)", RegexOptions.IgnoreCase);
+            return match.Success ? match.Groups[1].Value.Trim() : null;
+        }
+
+        private static string CardClause(string? payload)
+        {
+            var match = Regex.Match(payload ?? "", @"\bCardNo=(\S+)", RegexOptions.IgnoreCase);
+            return match.Success ? " مع الكرت " + match.Groups[1].Value : "";
         }
 
         private async Task<int> QueueAccAccessAsync(
@@ -163,31 +239,22 @@ namespace Services.AccessControl
         {
             var employee = await _unitOfWork.Employees.GetQueryable()
                 .FirstOrDefaultAsync(e => e.FileNumber == pin && !e.isDeleted, ct);
-            var card = await ResolveCardNumberAsync(employee, ct);
-            var userLine = ZkTecoAccUserCommand.UserInfoUpsertLine(pin, name ?? employee?.FullName, card);
+            var slot = ZkTecoAccUserCommand.TryGetReaderSlot(employee?.remarks, reader.DeviceSerial);
+            var userLine = ZkTecoAccUserCommand.AccUserLine(pin, name ?? employee?.FullName, disable, slot);
             await _commands.EnqueueAsync(reader.Id, DeviceCommandType.UpdateUserInfo, userLine);
+            await _commands.EnqueueAsync(
+                reader.Id,
+                DeviceCommandType.UpdateUserInfo,
+                ZkTecoAccUserCommand.AccAuthorizeLine(pin, disable != "1"));
             var templates = await QueueTemplatesAsync(reader.Id, employee, pin, ct);
-            await _commands.EnqueueAsync(reader.Id, DeviceCommandType.QueryBioData, pin);
             _logger.LogWarning(
-                "Queued sync PIN={Pin} card={Card} templates={Templates} SN={Serial} enrollUser={Enroll}",
-                pin, string.IsNullOrWhiteSpace(card) ? "-" : card, templates, reader.DeviceSerial, enrollUser);
+                "Queued Acc sync PIN={Pin} templates={Templates} SN={Serial} enrollUser={Enroll}",
+                pin, templates, reader.DeviceSerial, enrollUser);
             return 2 + templates;
         }
 
-        private async Task<string?> ResolveCardNumberAsync(Employee? employee, CancellationToken ct)
-        {
-            if (employee == null) return null;
-            if (!string.IsNullOrWhiteSpace(employee.CardNumber))
-                return employee.CardNumber.Trim();
-
-            var card = await _unitOfWork.EmployeeCards.GetQueryable()
-                .Where(c => c.EmployeeId == employee.Id && !c.isDeleted && c.CardNumber != "")
-                .Select(c => c.CardNumber)
-                .FirstOrDefaultAsync(ct);
-            return string.IsNullOrWhiteSpace(card) ? null : card.Trim();
-        }
-
-        private async Task<int> QueueTemplatesAsync(Guid readerId, Employee? employee, string pin, CancellationToken ct)
+        private async Task<int> QueueTemplatesAsync(
+            Guid readerId, Employee? employee, string pin, CancellationToken ct, List<Guid>? commandIds = null, string? linkMarker = null)
         {
             if (employee == null) return 0;
 
@@ -219,6 +286,14 @@ namespace Services.AccessControl
             {
                 if (template.TemplateData == null || template.TemplateData.Length == 0)
                     continue;
+                if (template.TemplateType == BiometricTemplateType.Face
+                    && !FaceTemplatePolicy.IsDoorFace(template.TemplateData, template.remarks))
+                {
+                    _logger.LogWarning(
+                        "Skip face push PIN={Pin} reader={ReaderId} bytes={Bytes} — template cannot open the door",
+                        pin, readerId, template.TemplateData.Length);
+                    continue;
+                }
                 if (!TryParseTemplateMarker(template.remarks, out var marker))
                 {
                     marker = new TemplateMarker(
@@ -237,7 +312,12 @@ namespace Services.AccessControl
                     marker.Major,
                     marker.Minor,
                     marker.Format);
-                await _commands.EnqueueAsync(readerId, DeviceCommandType.AddTemplate, line);
+                var markerRemarks = linkMarker == "gate-link"
+                    ? (template.TemplateType == BiometricTemplateType.Face ? "gate-link:face" : "gate-link:finger")
+                    : null;
+                var command = await _commands.EnqueueAsync(
+                    readerId, DeviceCommandType.AddTemplate, line, remarks: markerRemarks);
+                commandIds?.Add(command.Id);
                 queued++;
             }
 
@@ -277,18 +357,26 @@ namespace Services.AccessControl
 
             var readers = await ResolveReadersAsync(employee, pin, ct);
             var source = sourceSerial.Trim();
+            var doorFaces = await LoadDoorFacesAsync(employee.Id, ct);
+            if (doorFaces.Count == 0)
+            {
+                _logger.LogWarning(
+                    "Skip template push PIN={Pin} — no door face to copy from SN={Source}",
+                    pin, source);
+                return;
+            }
+
             foreach (var reader in readers)
             {
                 if (string.Equals(reader.DeviceSerial, source, StringComparison.OrdinalIgnoreCase))
                     continue;
                 ct.ThrowIfCancellationRequested();
-                var queued = await QueueTemplatesAsync(reader.Id, employee, pin, ct);
-                if (queued > 0)
-                {
-                    _logger.LogWarning(
-                        "Pushed {Count} templates PIN={Pin} from SN={Source} to SN={Target}",
-                        queued, pin, source, reader.DeviceSerial);
-                }
+                var disable = employee.IsActive && !employee.isDeleted ? "0" : "1";
+                await QueueDoorFaceOnReaderAsync(
+                    reader, employee, pin, employee.FullName, disable, ct, requireTemplate: false);
+                _logger.LogWarning(
+                    "Queued door face PIN={Pin} from SN={Source} to SN={Target}",
+                    pin, source, reader.DeviceSerial);
             }
         }
 
@@ -337,14 +425,29 @@ namespace Services.AccessControl
             var employee = await _unitOfWork.Employees.GetQueryable()
                 .FirstOrDefaultAsync(e => e.FileNumber == pin && !e.isDeleted, ct);
 
-            var card = await ResolveCardNumberAsync(employee, ct);
-            var line = ZkTecoAccUserCommand.UserInfoUpsertLine(pin, employee?.FullName, card);
-            await _commands.EnqueueAsync(readerId, DeviceCommandType.UpdateUserInfo, line);
-            var templates = await QueueTemplatesAsync(readerId, employee, pin, ct);
-            await _commands.EnqueueAsync(readerId, DeviceCommandType.QueryBioData, pin);
+            var failed = await _unitOfWork.DeviceCommands.GetQueryable()
+                .Where(c => c.ReaderId == readerId && !c.isDeleted && c.Payload == failedUpdatePayload)
+                .OrderByDescending(c => c.CompletedOn)
+                .FirstOrDefaultAsync(ct);
+            var fromGateLink = (failed?.remarks ?? "").StartsWith("gate-link:", StringComparison.Ordinal);
+            var card = string.IsNullOrWhiteSpace(employee?.CardNumber) ? null : employee!.CardNumber!.Trim();
+
+            var uid = await AllocateReaderSlotAsync(reader, employee, ct);
+            var line = ZkTecoAccUserCommand.AccUserLine(pin, employee?.FullName, disable, uid, card);
+            await _commands.EnqueueAsync(
+                readerId,
+                DeviceCommandType.UpdateUserInfo,
+                line,
+                remarks: fromGateLink ? "gate-link:add" : null);
+            await _commands.EnqueueAsync(
+                readerId,
+                DeviceCommandType.UpdateUserInfo,
+                ZkTecoAccUserCommand.AccAuthorizeLine(pin, disable != "1"));
+            var templates = await QueueTemplatesAsync(
+                readerId, employee, pin, ct, linkMarker: fromGateLink ? "gate-link" : null);
             _logger.LogWarning(
-                "Queued USERINFO upsert after -1004 PIN={Pin} templates={Templates} SN={Serial}",
-                pin, templates, reader.DeviceSerial);
+                "Queued Acc create after -1004 PIN={Pin} uid={Uid} templates={Templates} SN={Serial}",
+                pin, uid, templates, reader.DeviceSerial);
         }
 
         private async Task<int> AllocateReaderSlotAsync(Reader reader, Employee? employee, CancellationToken ct)
@@ -497,6 +600,73 @@ namespace Services.AccessControl
                 disable = "1";
 
             return pin.Length > 0;
+        }
+
+        private async Task<Guid> QueueAccUserCreateAsync(
+            Reader reader, Employee employee, string pin, string? name, string disable, CancellationToken ct)
+        {
+            await SupersedePendingUpdatesAsync(reader.Id, pin, ct);
+            var uid = await AllocateReaderSlotAsync(reader, employee, ct);
+            var user = await _commands.EnqueueAsync(
+                reader.Id,
+                DeviceCommandType.UpdateUserInfo,
+                ZkTecoAccUserCommand.AccUserLine(pin, name, disable, uid));
+            _logger.LogWarning(
+                "Queued Acc user PIN={Pin} uid={Uid} SN={Serial}",
+                pin, uid, reader.DeviceSerial);
+            return user.Id;
+        }
+
+        private async Task<List<Guid>> QueueAuthorizeAndFaceAsync(
+            Reader reader, Employee employee, string pin, string disable, CancellationToken ct)
+        {
+            var ids = new List<Guid>();
+            var auth = await _commands.EnqueueAsync(
+                reader.Id,
+                DeviceCommandType.UpdateUserInfo,
+                ZkTecoAccUserCommand.AccAuthorizeLine(pin, disable != "1"));
+            ids.Add(auth.Id);
+            var queued = await QueueTemplatesAsync(reader.Id, employee, pin, ct, ids);
+            if (queued == 0)
+                throw new FaceSyncException("لم يكتمل ربط الوجه. لا يوجد قالب وجه صالح لنسخه.");
+            return ids;
+        }
+
+        private async Task<List<Guid>> QueueDoorFaceOnReaderAsync(
+            Reader reader, Employee employee, string pin, string? name, string disable, CancellationToken ct, bool requireTemplate = true)
+        {
+            await SupersedePendingUpdatesAsync(reader.Id, pin, ct);
+            var ids = new List<Guid>();
+            var uid = await AllocateReaderSlotAsync(reader, employee, ct);
+            var user = await _commands.EnqueueAsync(
+                reader.Id,
+                DeviceCommandType.UpdateUserInfo,
+                ZkTecoAccUserCommand.AccUserLine(pin, name, disable, uid));
+            ids.Add(user.Id);
+            var auth = await _commands.EnqueueAsync(
+                reader.Id,
+                DeviceCommandType.UpdateUserInfo,
+                ZkTecoAccUserCommand.AccAuthorizeLine(pin, disable != "1"));
+            ids.Add(auth.Id);
+            var queued = await QueueTemplatesAsync(reader.Id, employee, pin, ct, ids);
+            if (queued == 0)
+            {
+                if (requireTemplate)
+                    throw new FaceSyncException("لم يكتمل ربط الوجه. لا يوجد قالب وجه صالح لنسخه.");
+                _logger.LogWarning("Door user queued without a face PIN={Pin} SN={Serial}", pin, reader.DeviceSerial);
+                return ids;
+            }
+
+            return ids;
+        }
+
+        private async Task<List<BiometricTemplate>> LoadDoorFacesAsync(Guid employeeId, CancellationToken ct)
+        {
+            var rows = await _unitOfWork.BiometricTemplates.GetQueryable()
+                .AsNoTracking()
+                .Where(t => t.EmployeeId == employeeId && !t.isDeleted && t.TemplateType == BiometricTemplateType.Face)
+                .ToListAsync(ct);
+            return rows.Where(t => FaceTemplatePolicy.IsDoorFace(t.TemplateData, t.remarks)).ToList();
         }
 
         private async Task<List<Reader>> ResolveReadersAsync(Employee employee, string pin, CancellationToken ct)

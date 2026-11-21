@@ -60,7 +60,6 @@ else
                         <option value="Materials">مواد</option>
                         <option value="Cars">مركبات</option>
                         <option value="Visitors">زوار</option>
-                        <option value="EmployeeAccess">دخول موظفين</option>
                     </select>
                 </div>
                 <div class="col-md-3">
@@ -221,7 +220,9 @@ else
             var gateClaim = authState.User.FindFirst(SystemTaskCodes.SelectedGateIdClaimType)?.Value;
             if (Guid.TryParse(gateClaim, out var parsedGate))
                 gateId = parsedGate;
-            permits = await MaterialPermits.GetForResponsibilityCenterAsync(currentUser, gateId);
+            permits = (await MaterialPermits.GetForResponsibilityCenterAsync(currentUser, gateId))
+                .Where(p => !EmployeeCardPermit.Is(p))
+                .ToList();
             gateLabels = await Execution.ExecutionGateLabelsAsync(permits);
 
             foreach (var code in permits
@@ -280,7 +281,7 @@ else
         "مواد" or "تصريح مواد" => nameof(PermitClassification.Materials),
         "زوار" or "تصريح زوار" => nameof(PermitClassification.Visitors),
         "سيارات" or "مركبات" or "تصريح سيارات" => nameof(PermitClassification.Cars),
-        "دخول موظفين" => nameof(PermitClassification.EmployeeAccess),
+        "دخول موظفين" or "طلب إصدار بطاقة تصريح" => nameof(PermitClassification.EmployeeAccess),
         _ => classification?.Trim() ?? ""
     };
 
@@ -289,7 +290,7 @@ else
         nameof(PermitClassification.Materials) => "مواد",
         nameof(PermitClassification.Visitors) => "زوار",
         nameof(PermitClassification.Cars) => "مركبات",
-        nameof(PermitClassification.EmployeeAccess) => "دخول موظفين",
+        nameof(PermitClassification.EmployeeAccess) => "طلب إصدار بطاقة تصريح",
         "" => "—",
         var other => other.ToEnumDescription<PermitClassification>()
     };

@@ -1,3 +1,4 @@
+using Core.Common;
 using Core.Entities;
 using Core.Models;
 using static Core.Enums.BaseEnums;
@@ -14,6 +15,15 @@ namespace Services.Permits
             var ins = movements.Count(m => m.Direction == MovementDirection.In);
             var outs = movements.Count(m => m.Direction == MovementDirection.Out);
             var classification = permit.classification?.Trim() ?? "";
+
+            if (EmployeeCardPermit.IsClassification(classification))
+            {
+                return permit.isClosed || permit.status is 'C' or 'D'
+                    ? Done("تم تنفيذ طباعة البطاقة")
+                    : Close(MovementDirection.In, "طباعة الكرت وتنفيذ",
+                        "أدخل رقم الكرت الجديد ثم اطبع البطاقة.",
+                        "بانتظار طباعة البطاقة");
+            }
 
             if (IsVisitors(classification))
                 return Visitor(ins, outs);

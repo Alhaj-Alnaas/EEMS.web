@@ -48,10 +48,10 @@ namespace Services.Workflow
 
         public async Task<bool> HasApplicableStepAsync(WorkflowDefinition workflow, User entrant)
         {
-            var leaders = await LeaderCodesAsync();
+            var directory = await DirectoryAsync();
             var code = entrant.ResponsibilityCode ?? "";
             var isLeader = entrant.JobCatId == 1;
-            return ShapePath(workflow.Steps ?? Enumerable.Empty<WorkflowStep>(), code, isLeader, leaders).Count > 0;
+            return ShapePath(workflow.Steps ?? Enumerable.Empty<WorkflowStep>(), workflow.Id, code, isLeader, directory).Count > 0;
         }
 
         public async Task<WorkflowDefinition> EnsureActiveWorkflowAsync(PermitClassification classification)
@@ -149,7 +149,9 @@ namespace Services.Workflow
             if (approver == null || !UserMatchesStep(approver, permit, currentStep, route))
                 throw new InvalidOperationException("ليست لديك صلاحية اعتماد هذه الخطوة.");
 
-            if (decision == ApprovalDecision.Approved && currentStep.StepType == WorkflowStepType.GuardSection)
+            if (decision == ApprovalDecision.Approved
+                && currentStep.StepType == WorkflowStepType.GuardSection
+                && !EmployeeCardPermit.Is(permit))
             {
                 var gate = await db.Gates.AsNoTracking()
                     .FirstOrDefaultAsync(g => g.Id == executionGateId && g.isActive && !g.isDeleted)
@@ -158,6 +160,8 @@ namespace Services.Workflow
                 var gateNote = "بوابة التنفيذ: " + PermitExecutionService.GateLabel(gate);
                 comment = string.IsNullOrWhiteSpace(comment) ? gateNote : comment.Trim() + " | " + gateNote;
             }
+
+            await EnsureStepPersistedAsync(currentStep);
 
             var approval = new PermitApproval
             {
@@ -339,34 +343,43 @@ namespace Services.Workflow
                 .ToList();
         }
 
-        private HashSet<string>? leaderCodes;
+        private RouteDirectory? directory;
 
-        private async Task<HashSet<string>> LeaderCodesAsync()
+        private async Task<RouteDirectory> DirectoryAsync()
         {
-            if (leaderCodes != null)
-                return leaderCodes;
+            if (directory != null)
+                return directory;
 
             await using var db = await _dbFactory.CreateDbContextAsync();
-            var codes = await db.Users.AsNoTracking()
-                .Where(u => u.JobStatus == "AE" && u.JobCatId == 1 && u.ResponsibilityCode != null)
-                .Select(u => u.ResponsibilityCode!)
+            var rows = await db.Users.AsNoTracking()
+                .Where(u => u.JobStatus == "AE" && u.ResponsibilityCode != null && u.ResponsibilityCode != "")
+                .Select(u => new { u.ResponsibilityCode, u.JobCatId })
                 .ToListAsync();
 
-            leaderCodes = codes
-                .Select(ApprovalRoute.Normalize)
-                .Where(c => c.Length > 0)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            return leaderCodes;
+            var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var leaders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var row in rows)
+            {
+                var code = ApprovalRoute.Normalize(row.ResponsibilityCode);
+                if (code.Length == 0)
+                    continue;
+                known.Add(code);
+                if (row.JobCatId == 1)
+                    leaders.Add(code);
+            }
+
+            directory = new RouteDirectory(leaders, known);
+            return directory;
         }
 
         private async Task<RouteContext> RouteForAsync(Permit permit)
         {
             var entrant = await FindUserByNameAsync(permit.createdBy);
-            var leaders = await LeaderCodesAsync();
+            var units = await DirectoryAsync();
             var code = !string.IsNullOrWhiteSpace(entrant?.ResponsibilityCode)
                 ? entrant!.ResponsibilityCode
                 : permit.reqDepartment ?? "";
-            return new RouteContext(code, entrant?.JobCatId == 1, leaders);
+            return new RouteContext(code, entrant?.JobCatId == 1, units);
         }
 
         private async Task<List<WorkflowStep>> ApplicableStepsAsync(Permit permit)
@@ -378,26 +391,96 @@ namespace Services.Workflow
                 .ToListAsync();
 
             var route = await RouteForAsync(permit);
-            return ShapePath(steps, route.EntrantCode, route.EntrantIsLeader, route.LeaderCodes);
+            return ShapePath(steps, permit.WorkflowDefinitionId ?? Guid.Empty, route.EntrantCode, route.EntrantIsLeader, route.Units);
         }
 
         private static List<WorkflowStep> ShapePath(
             IEnumerable<WorkflowStep> steps,
+            Guid workflowId,
             string entrantCode,
             bool entrantIsLeader,
-            IReadOnlySet<string> leaders)
+            RouteDirectory units)
         {
-            return steps
-                .Where(s => !s.isDeleted && StepApplies(s, entrantCode, entrantIsLeader, leaders))
-                .OrderBy(s => s.StepOrder)
-                .ToList();
+            var ordered = steps.Where(s => !s.isDeleted).OrderBy(s => s.StepOrder).ToList();
+            var direct = entrantIsLeader
+                ? null
+                : ApprovalRoute.DirectSupervisor(entrantCode, false, units.Leaders);
+
+            WorkflowStep? gate = null;
+            if (!string.IsNullOrEmpty(direct))
+            {
+                gate = ordered.FirstOrDefault(step =>
+                    ApprovalRoute.Same(TargetOf(step, entrantCode, entrantIsLeader, units), direct));
+                if (gate == null && workflowId != Guid.Empty)
+                    gate = DirectSupervisorGate(workflowId);
+            }
+
+            var path = new List<WorkflowStep>();
+            if (gate != null)
+                path.Add(gate);
+
+            foreach (var step in ordered)
+            {
+                if (gate != null && step.Id == gate.Id)
+                    continue;
+                if (!StepApplies(step, entrantCode, entrantIsLeader, units))
+                    continue;
+                if (!string.IsNullOrEmpty(direct))
+                {
+                    if (ApprovalRoute.Same(TargetOf(step, entrantCode, entrantIsLeader, units), direct))
+                        continue;
+                    if (ApprovalPathCatalog.IsPathStep(step.StepType)
+                        && !ApprovalRoute.ComesAfterDirectSupervisor(step.StepType, direct, units.KnownUnits))
+                        continue;
+                }
+
+                path.Add(step);
+            }
+
+            return path;
         }
 
-        private static bool StepApplies(WorkflowStep step, string entrantCode, bool entrantIsLeader, IReadOnlySet<string> leaders)
+        private static WorkflowStep DirectSupervisorGate(Guid workflowId) => new()
+        {
+            Id = ApprovalRoute.DirectSupervisorStepId(workflowId),
+            WorkflowDefinitionId = workflowId,
+            StepOrder = 0,
+            StepType = WorkflowStepType.DirectSupervisor,
+            RoleName = ApprovalPathCatalog.Label(WorkflowStepType.DirectSupervisor),
+            SlaHours = 24,
+            IsRequired = true,
+            createdOn = DateTime.Now,
+            remarks = "اعتماد الرئيس المباشر"
+        };
+
+        private async Task EnsureStepPersistedAsync(WorkflowStep step)
+        {
+            var exists = await _unitOfWork.WorkflowSteps.GetQueryable().AnyAsync(s => s.Id == step.Id);
+            if (exists || step.WorkflowDefinitionId == Guid.Empty)
+                return;
+
+            _unitOfWork.WorkflowSteps.Insert(new WorkflowStep
+            {
+                Id = step.Id,
+                WorkflowDefinitionId = step.WorkflowDefinitionId,
+                StepOrder = step.StepOrder,
+                StepType = step.StepType,
+                RoleName = step.RoleName,
+                SlaHours = step.SlaHours,
+                IsRequired = step.IsRequired,
+                createdOn = DateTime.Now,
+                remarks = string.IsNullOrWhiteSpace(step.remarks) ? "اعتماد الرئيس المباشر" : step.remarks
+            });
+        }
+
+        private static string? TargetOf(WorkflowStep step, string entrantCode, bool entrantIsLeader, RouteDirectory units) =>
+            ApprovalRoute.StepTarget(step.StepType, entrantCode, entrantIsLeader, units.Leaders, units.KnownUnits);
+
+        private static bool StepApplies(WorkflowStep step, string entrantCode, bool entrantIsLeader, RouteDirectory units)
         {
             if (!ApprovalPathCatalog.IsPathStep(step.StepType))
                 return true;
-            return ApprovalRoute.StepTarget(step.StepType, entrantCode, entrantIsLeader, leaders) != null;
+            return ApprovalRoute.StepTarget(step.StepType, entrantCode, entrantIsLeader, units.Leaders, units.KnownUnits) != null;
         }
 
         private async Task<User?> FindUserByNameAsync(string? userName)
@@ -419,7 +502,8 @@ namespace Services.Workflow
             var code = user.ResponsibilityCode ?? "";
             if (ApprovalPathCatalog.IsPathStep(step.StepType))
             {
-                var target = ApprovalRoute.StepTarget(step.StepType, route.EntrantCode, route.EntrantIsLeader, route.LeaderCodes);
+                var target = ApprovalRoute.StepTarget(
+                    step.StepType, route.EntrantCode, route.EntrantIsLeader, route.Units.Leaders, route.Units.KnownUnits);
                 return target != null && ApprovalRoute.Same(code, target);
             }
 
@@ -434,7 +518,9 @@ namespace Services.Workflow
             };
         }
 
-        private sealed record RouteContext(string EntrantCode, bool EntrantIsLeader, HashSet<string> LeaderCodes);
+        private sealed record RouteDirectory(HashSet<string> Leaders, HashSet<string> KnownUnits);
+
+        private sealed record RouteContext(string EntrantCode, bool EntrantIsLeader, RouteDirectory Units);
 
         private static bool SameDepartmentPrefix(string responsibilityCode, string departmentCode)
         {

@@ -39,10 +39,7 @@
         <div class="row g-2 align-items-end">
             <div class="col-md-4">
                 <label class="form-label small mb-1">رقم PIN على القارئة (اختياري)</label>
-                <input class="form-control form-control-sm" @bind="pinFilter" placeholder="اتركه فارغاً لطلب الجميع (*)" />
-            </div>
-            <div class="col-md-8 small text-muted">
-                عند تحديد PIN يُرسل الأمر لهذا المستخدم فقط، وهو الأسلوب الأكثر توافقاً مع بعض إصدارات الفيرموير.
+                <input class="form-control form-control-sm" @bind="pinFilter" placeholder="فارغ يعني الجميع" />
             </div>
         </div>
     </div>
@@ -50,25 +47,10 @@
 
 @if (pendingCount > 0 && !hasPollHits)
 {
-    <div class="alert alert-warning small mb-3">
-        <strong>كل الأوامر Pending؟</strong> هذا يعني أن القارئة <em>لم تستعلم عن الأوامر بعد</em>.
-        يجب أن يظهر في <a href="/devices/monitor">حالة الأجهزة</a> طلب من IP القارئة (<code>10.205.0.49</code>)
-        إلى <code>/iclock/getrequest</code> أو <code>/iclock/ping</code>.
-        إذا ظهر فقط <code>/iclock/cdata</code> أو <code>/iclock/registry</code> بدون ping/getrequest — الأوامر لن تُنفَّذ.
-        <div class="mt-1">بعد إعادة تشغيل التطبيق، انتظر 30–60 ثانية ثم اضغط «سحب كامل» مرة أخرى.</div>
-    </div>
+    <div class="alert alert-warning small mb-3">الأوامر معلّقة حتى تستعلم القارئة. انتظر ثم أعد السحب.</div>
 }
 
-<div class="alert alert-info small mb-3">
-    <strong>آلية العمل:</strong> النظام لا يسحب البيانات من القارئة مباشرة. يضع أمراً في الطابور،
-    والقارئة تستلمه عند استعلامها الدوري (<code>/iclock/getrequest</code> أو <code>/iclock/ping</code>) ثم ترفع البيانات
-    إلى <code>/iclock/cdata</code>، وعندها يستوردها النظام.
-    <ol class="mb-0 mt-1">
-        <li>اضغط <strong>سحب كامل من القارئة</strong> — يُصفّر الطوابع ويرسل INFO + USERINFO + FINGERTMP + BIODATA.</li>
-        <li>انتظر 30–90 ثانية (القارئة تستعلم كل ~30 ثانية)، ثم اضغط <strong>تحديث</strong>.</li>
-        <li>قارن <strong>أعداد القارئة</strong> (من INFO) مع <strong>أعداد قاعدة البيانات</strong> أدناه.</li>
-    </ol>
-</div>
+<p class="text-muted small mb-3">السحب يضع أمراً للقارئة، وتظهر البيانات بعد استعلامها ثم تحديث.</p>
 
 @if (readers.Count > 0)
 {

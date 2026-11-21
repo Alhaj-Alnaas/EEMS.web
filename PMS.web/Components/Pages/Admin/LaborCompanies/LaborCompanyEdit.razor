@@ -1,0 +1,305 @@
+@page "/admin/labor-companies/edit/{Id:guid}"
+@attribute [Authorize(Policy = TaskPolicies.AdminLaborCompanies)]
+@rendermode InteractiveServer
+@inject ILaborRosterService Roster
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider Auth
+@inject IUiToast Toast
+
+<PageTitle>@(IsNew ? "إضافة شركة عمالة" : "تعديل شركة عمالة") - PMS</PageTitle>
+
+<div class="pms-create-page">
+    <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+        <div>
+            <h3 class="mb-1">
+                <i class="bi bi-building text-warning"></i>
+                @(IsNew ? "إضافة شركة عمالة" : "تعديل شركة عمالة")
+            </h3>
+        </div>
+        <BackLink Fallback="/admin/labor-companies" Css="btn pms-btn-refresh">
+            <i class="bi bi-arrow-right"></i> رجوع
+        </BackLink>
+    </div>
+
+    @if (loading)
+    {
+        <div class="text-center p-5"><div class="spinner-border text-warning"></div></div>
+    }
+    else
+    {
+        @if (IsNew)
+        {
+            <div class="pms-attend-mode">
+                <button type="button" class="btn btn-sm @(manual ? "pms-permit-view-btn" : "pms-permit-edit-btn")" @onclick="UseManual">إدخال يدوي</button>
+                <button type="button" class="btn btn-sm @(!manual ? "pms-permit-view-btn" : "pms-permit-edit-btn")" @onclick="ShowExternalAsync">اختيار من قاعدة الشركات</button>
+            </div>
+        }
+
+        @if (manual || !IsNew)
+        {
+            <EditForm Model="input" class="pms-create-form" OnValidSubmit="SaveAsync">
+                <div class="pms-create-body">
+                <div class="card pms-basic-card">
+                    <div class="card-header pms-header">بيانات الشركة</div>
+                    <div class="card-body pms-basic-inline">
+                        <div class="row g-4">
+                            <div class="col-md-6 pms-basic-inline">
+                                <div class="mb-3">
+                                    <label class="form-label">رقم الشركة <span class="pms-req">*</span></label>
+                                    <div>
+                                        @if (workerCount > 0)
+                                        {
+                                            <input class="form-control pms-readonly" value="@input.Number" readonly />
+                                            <div class="form-text">رقم الشركة ثابت لأن لها عمالة مسجّلة.</div>
+                                        }
+                                        else
+                                        {
+                                            <InputText class="form-control" @bind-Value="input.Number" />
+                                        }
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">العنوان</label>
+                                    <InputText class="form-control" @bind-Value="input.Address" />
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">الحالة <span class="pms-req">*</span></label>
+                                    <InputSelect class="form-select" @bind-Value="input.Status">
+                                        <option value="@LaborCompanyState.Active">مستمرة</option>
+                                        <option value="@LaborCompanyState.Stopped">متوقفة</option>
+                                    </InputSelect>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">نهاية العقد</label>
+                                    <InputDate class="form-control" @bind-Value="input.ContractEnd" />
+                                </div>
+                            </div>
+                            <div class="col-md-6 pms-basic-inline">
+                                <div class="mb-3">
+                                    <label class="form-label">اسم الشركة <span class="pms-req">*</span></label>
+                                    <InputText class="form-control" @bind-Value="input.Name" />
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">التخصص</label>
+                                    <InputText class="form-control" @bind-Value="input.Specialty" />
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">بداية العقد</label>
+                                    <InputDate class="form-control" @bind-Value="input.ContractStart" />
+                                </div>
+                                @if (!IsNew)
+                                {
+                                    <div class="mb-3">
+                                        <label class="form-label">رمز التصريح</label>
+                                        <input class="form-control text-center pms-permit-no pms-readonly" value="@permitCode" readonly />
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                </div>
+                @if (!string.IsNullOrEmpty(error))
+                {
+                    <div class="alert alert-danger mt-2 mb-0">@error</div>
+                }
+                <div class="pms-create-actions">
+                    <button type="submit" class="btn btn-warning px-4" disabled="@saving">
+                        <i class="bi bi-save"></i> @(saving ? "جاري الحفظ..." : "حفظ")
+                    </button>
+                    <BackLink Fallback="/admin/labor-companies" Css="btn btn-outline-secondary px-4">إلغاء</BackLink>
+                </div>
+            </EditForm>
+        }
+        else if (externalLoading)
+        {
+            <div class="text-center p-4"><div class="spinner-border text-warning"></div></div>
+        }
+        else if (external == null || !external.Available)
+        {
+            <div class="alert alert-warning">@(external?.Message ?? "تعذر قراءة قاعدة الشركات.")</div>
+            <div class="pms-create-actions">
+                <BackLink Fallback="/admin/labor-companies" Css="btn btn-outline-secondary px-4">إلغاء</BackLink>
+            </div>
+        }
+        else
+        {
+            <div class="card pms-basic-card">
+                <div class="card-header pms-header d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                    <span>اختر شركة أو أكثر</span>
+                    <input class="form-control form-control-sm" style="max-width:16rem" placeholder="بحث في القائمة" @bind="externalSearch" @bind:event="oninput" />
+                </div>
+                <div class="table-responsive" style="max-height: 28rem;">
+                    <table class="table table-hover align-middle mb-0 pms-permit-grid">
+                        <thead>
+                            <tr>
+                                <th style="width:3rem;"><input type="checkbox" @onchange="ToggleVisible" /></th>
+                                <th>الرقم</th>
+                                <th>الاسم</th>
+                                <th>العنوان</th>
+                                <th>التخصص</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in VisibleExternal)
+                            {
+                                var number = item.Number;
+                                <tr>
+                                    <td><input type="checkbox" checked="@selected.Contains(number)" @onchange="args => Toggle(number, args.Value is bool on && on)" /></td>
+                                    <td><bdi dir="ltr">@item.Number</bdi></td>
+                                    <td>@item.Name</td>
+                                    <td>@(item.Address ?? "—")</td>
+                                    <td>@(item.Specialty ?? "—")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            @if (!string.IsNullOrEmpty(error))
+            {
+                <div class="alert alert-danger mt-3">@error</div>
+            }
+            <div class="pms-create-actions">
+                <button type="button" class="btn btn-warning px-4" disabled="@(saving || selected.Count == 0)" @onclick="ImportAsync">
+                    <i class="bi bi-save"></i> إضافة المحدد (@selected.Count)
+                </button>
+                <BackLink Fallback="/admin/labor-companies" Css="btn btn-outline-secondary px-4">إلغاء</BackLink>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private bool IsNew => Id == Guid.Empty;
+    private bool loading = true;
+    private bool saving;
+    private bool manual = true;
+    private bool externalLoading;
+    private string? error;
+    private int workerCount;
+    private string? permitCode;
+    private LaborCompanyInput input = new();
+    private ExternalCompanyLookup? external;
+    private string externalSearch = "";
+    private readonly HashSet<string> selected = new(StringComparer.OrdinalIgnoreCase);
+
+    private IEnumerable<ExternalLaborCompany> VisibleExternal =>
+        (external?.Items ?? new List<ExternalLaborCompany>()).Where(item =>
+            string.IsNullOrWhiteSpace(externalSearch)
+            || item.Number.Contains(externalSearch.Trim(), StringComparison.OrdinalIgnoreCase)
+            || item.Name.Contains(externalSearch.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!IsNew)
+        {
+            var existing = await Roster.GetCompanyAsync(Id);
+            if (existing == null)
+                error = "الشركة غير موجودة.";
+            else
+            {
+                workerCount = existing.WorkerCount;
+                permitCode = existing.PermitCode;
+                input = new LaborCompanyInput
+                {
+                    Id = existing.Id,
+                    Number = existing.Number,
+                    Name = existing.Name,
+                    Address = existing.Address,
+                    Specialty = existing.Specialty,
+                    Status = existing.Status,
+                    ContractStart = existing.ContractStart,
+                    ContractEnd = existing.ContractEnd
+                };
+            }
+        }
+
+        loading = false;
+    }
+
+    private void UseManual() => manual = true;
+
+    private async Task ShowExternalAsync()
+    {
+        manual = false;
+        if (external != null)
+            return;
+        externalLoading = true;
+        external = await Roster.ListExternalAsync();
+        externalLoading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        error = null;
+        saving = true;
+        try
+        {
+            await Roster.SaveCompanyAsync(input, await ActorAsync());
+            await Toast.DoneAsync("تم حفظ البيانات.");
+            Navigation.NavigateTo("/admin/labor-companies");
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private async Task ImportAsync()
+    {
+        error = null;
+        var rows = (external?.Items ?? new List<ExternalLaborCompany>())
+            .Where(item => selected.Contains(item.Number))
+            .ToList();
+        saving = true;
+        try
+        {
+            var result = await Roster.ImportExternalAsync(rows, await ActorAsync());
+            if (result.Skipped > 0)
+                error = $"تُركت {result.Skipped} شركة لأنها موجودة أو ناقصة، وأُضيفت {result.Added}.";
+            else
+                await Toast.DoneAsync("تمت إضافة الشركات.");
+                Navigation.NavigateTo("/admin/labor-companies");
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private void Toggle(string number, bool on)
+    {
+        if (on)
+            selected.Add(number);
+        else
+            selected.Remove(number);
+    }
+
+    private void ToggleVisible(ChangeEventArgs args)
+    {
+        var on = args.Value is bool flag && flag;
+        foreach (var item in VisibleExternal)
+            Toggle(item.Number, on);
+    }
+
+    private async Task<LaborActor> ActorAsync()
+    {
+        var state = await Auth.GetAuthenticationStateAsync();
+        return new LaborActor
+        {
+            UserName = state.User.Identity?.Name,
+            FullName = state.User.FindFirst(SystemTaskCodes.FullNameClaimType)?.Value
+        };
+    }
+}

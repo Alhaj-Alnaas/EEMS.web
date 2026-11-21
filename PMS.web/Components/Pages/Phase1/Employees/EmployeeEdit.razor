@@ -4,6 +4,7 @@
 @inject IDepartmentMasterService DepartmentService
 @inject IReaderService ReaderService
 @inject NavigationManager Navigation
+@inject IUiToast Toast
 
 <PageTitle>بيانات الموظف - PMS</PageTitle>
 
@@ -100,11 +101,7 @@ else
                                         </div>
                                     }
                                 </div>
-                                <div class="form-text">
-                                    على SpeedFace M4: Access Control Role = Access Group + Time Period (Time Rule 1–24).
-                                    نشط: Access Group = enable و Time Rule [1] محدّد.
-                                    غير نشط: Access Group = disable و Time Rule [1] غير محدّد. البصمة لا تُحذف.
-                                </div>
+                                <div class="form-text">إيقاف القارئة يوقف الدخول دون حذف البصمة.</div>
                             }
                         </div>
                 </div>
@@ -201,6 +198,7 @@ else
             }
 
             saveOk = queued > 0 || readerList.Count == 0;
+            await Toast.DoneAsync("تم حفظ البيانات.");
             if (readerList.Count == 0)
                 saveMessage = "تم الحفظ في النظام فقط (لم تُحدَّد قارئات).";
             else if (queued > 0)

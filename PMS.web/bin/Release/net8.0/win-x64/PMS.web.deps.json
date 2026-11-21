@@ -18,6 +18,7 @@
           "Microsoft.VisualStudio.Web.CodeGeneration.Design": "8.0.7",
           "QRCoder": "1.7.0",
           "Services": "1.0.0",
+          "iTextSharp.LGPLv2.Core": "3.7.7",
           "runtimepack.Microsoft.NETCore.App.Runtime.win-x64": "8.0.28",
           "runtimepack.Microsoft.AspNetCore.App.Runtime.win-x64": "8.0.28"
         },

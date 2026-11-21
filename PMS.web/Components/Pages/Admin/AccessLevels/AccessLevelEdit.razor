@@ -11,6 +11,7 @@
 @inject ISystemTaskQueryService Tasks
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthState
+@inject IUiToast Toast
 
 <PageTitle>@(Id.HasValue ? "تعديل مستوى" : "إضافة مستوى") - PMS</PageTitle>
 
@@ -82,7 +83,6 @@ else
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <div>
                             <div class="fw-bold">مهام النظام المسموحة</div>
-                            <div class="text-muted small">تُحدَّث تلقائياً من قائمة الشريط الجانبي</div>
                         </div>
                         <div class="btn-group btn-group-sm">
                             <button type="button" class="btn btn-outline-secondary" @onclick="SelectAll">تحديد الكل</button>
@@ -202,10 +202,12 @@ else
                 model.Id = Id;
                 await AccessLevels.UpdateAsync(model, userName);
                 success = "تم تحديث المستوى بنجاح.";
+                await Toast.DoneAsync(success);
             }
             else
             {
                 var created = await AccessLevels.CreateAsync(model, userName);
+                await Toast.DoneAsync("تم حفظ مستوى الدخول.");
                 Navigation.NavigateTo($"/admin/access-levels/edit/{created.Id}");
                 return;
             }

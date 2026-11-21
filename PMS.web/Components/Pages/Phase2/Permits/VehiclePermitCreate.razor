@@ -6,7 +6,7 @@
 @inject UserManager<User> UserManager
 @inject AuthenticationStateProvider AuthProvider
 @inject NavigationManager Navigation
-@inject PMS.web.Notifications.IUiToast Toast
+@inject IUiToast Toast
 @using Microsoft.AspNetCore.Identity
 @using Services.Permits
 
@@ -14,7 +14,6 @@
 
 <div class="pms-create-page">
 <h3 class="mb-1"><i class="bi bi-truck text-warning"></i> إضافة تصريح مركبات</h3>
-<p class="text-muted small mb-2">يُحفظ كمسودة أو يُحال لمسار اعتماد المركبات. الاستخدام الداخلي يُنفَّذ خروجاً ثم عودة بعدد الرحلات المحدد هنا.</p>
 
 @if (loading)
 {
@@ -151,11 +150,7 @@ else
                                 <label class="form-label fw-bold">عدد الرحلات</label>
                                 <InputNumber class="form-control" @bind-Value="request.TripCount" />
                             </div>
-                            <p class="text-muted small mb-0">كل رحلة خروج ثم عودة على نفس التصريح. يبقى التصريح مفتوحاً حتى تكتمل الرحلات، ويُنبَّه المسؤولون إذا تجاوزت العودة 24 ساعة.</p>
-                        }
-                        else
-                        {
-                            <p class="text-muted small mb-0">بدون استخدام داخلي تُسجَّل حركة واحدة ثم يُقفل التصريح.</p>
+                            <p class="text-muted small mb-0">كل رحلة خروج ثم عودة.</p>
                         }
                     </div>
                 </div>
@@ -271,13 +266,9 @@ else
         var missing = MaterialPermitService.MissingVehicle(request, submit);
         if (missing != null)
         {
-            await Toast.WarningAsync(missing);
+            errorMessage = missing;
             return;
         }
-        if (submit && !await Toast.ConfirmAsync(request.ShiftApproval
-            ? "هذا التصريح سوف يُعتمد من المناوب فقط. هل تريد الإحالة؟"
-            : "هل تريد إحالة هذا التصريح للاعتماد؟", "نعم", "لا", "confirm"))
-            return;
         errorMessage = null;
         saving = true;
         try
@@ -285,6 +276,7 @@ else
             if (currentUser == null)
                 throw new InvalidOperationException("المستخدم غير معروف.");
             await MaterialPermits.SaveVehicleAsync(request, currentUser, submit);
+            await Toast.DoneAsync(submit ? "تم إرسال الطلب." : "تم حفظ المسودة.");
             Navigation.NavigateTo(ReturnUrl.Read(Navigation) ?? "/permits");
         }
         catch (Exception ex)

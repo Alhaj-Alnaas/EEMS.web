@@ -15,7 +15,7 @@
 @using Services.Permits
 @using static Core.Enums.BaseEnums
 
-<PageTitle>عرض تصريح - PMS</PageTitle>
+<PageTitle>@(permit != null && EmployeeCardPermit.Is(permit) ? "عرض طلب تصريح" : "عرض تصريح") - PMS</PageTitle>
 
 @if (loading)
 {
@@ -27,11 +27,15 @@ else if (permit == null)
 }
 else
 {
+    @if (!string.IsNullOrEmpty(actionError))
+    {
+        <div class="alert alert-warning">@actionError</div>
+    }
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <h3><i class="bi bi-eye-fill text-warning"></i> تصريح رقم: <bdi dir="ltr">@permit.no</bdi></h3>
+        <h3><i class="bi bi-eye-fill text-warning"></i> @(EmployeeCardPermit.Is(permit) ? "طلب رقم" : "تصريح رقم"): <bdi dir="ltr">@permit.no</bdi></h3>
         <div class="d-flex gap-2 flex-wrap">
-            <BackLink Fallback="/permits">العودة للقائمة</BackLink>
-            <a class="btn btn-outline-secondary" href="/legacy/Permit/PrintPermitPdf?permitId=@permit.Id" target="_blank">
+            <BackLink Fallback="@(EmployeeCardPermit.Is(permit) ? "/permits/card-requests" : "/permits")">العودة للقائمة</BackLink>
+            <a class="btn btn-outline-secondary" href="/permits/@permit.Id/pdf" target="_blank">
                 <i class="bi bi-printer"></i> طباعة PDF
             </a>
             @if (canSubmit)
@@ -53,7 +57,7 @@ else
     {
         <div class="card mb-3">
             <div class="card-body d-flex flex-wrap gap-2 align-items-end">
-                @if (visibility.CanApprove && currentStep?.StepType == WorkflowStepType.GuardSection)
+                @if (visibility.CanApprove && currentStep?.StepType == WorkflowStepType.GuardSection && !EmployeeCardPermit.Is(permit))
                 {
                     <div style="min-width: 220px;">
                         <label class="form-label mb-1">بوابة التنفيذ</label>
@@ -98,39 +102,60 @@ else
             <div class="card pms-facts-card">
                 <div class="card-header pms-header">البيانات الأساسية</div>
                 <div class="pms-facts">
-                    <div class="pms-fact pms-fact-emphasis"><div class="pms-fact-label">رقم التصريح</div><div class="pms-fact-value"><bdi dir="ltr">@permit.no</bdi></div></div>
+                    <div class="pms-fact pms-fact-emphasis"><div class="pms-fact-label">@(EmployeeCardPermit.Is(permit) ? "رقم الطلب" : "رقم التصريح")</div><div class="pms-fact-value"><bdi dir="ltr">@permit.no</bdi></div></div>
                     <div class="pms-fact"><div class="pms-fact-label">التصنيف</div><div class="pms-fact-value">@ClassificationTitle(permit.classification)</div></div>
+                    @if (EmployeeCardPermit.Is(permit))
+                    {
+                        <div class="pms-fact"><div class="pms-fact-label">حالة الطلب</div><div class="pms-fact-value">@EmployeeCardPermit.KindLabel(permit.type)</div></div>
+                        <div class="pms-fact"><div class="pms-fact-label">اسم طالب التصريح</div><div class="pms-fact-value">@Show(permit.RequesterEmployee?.FullName)</div></div>
+                        <div class="pms-fact"><div class="pms-fact-label">التقسيم الإداري</div><div class="pms-fact-value">@Show(permit.RequesterEmployee?.DepartmentName)</div></div>
+                        <div class="pms-fact"><div class="pms-fact-label">رقم الملف</div><div class="pms-fact-value">@Show(permit.RequesterEmployee?.FileNumber)</div></div>
+                        <div class="pms-fact"><div class="pms-fact-label">الوظيفة</div><div class="pms-fact-value">@Show(permit.RequesterEmployee?.JobTitle)</div></div>
+                        <div class="pms-fact"><div class="pms-fact-label">رقم الكرت</div><div class="pms-fact-value">@Show(permit.RequesterEmployee?.CardNumber)</div></div>
+                    }
                     @if (IsMaterials(permit))
                     {
                         <div class="pms-fact"><div class="pms-fact-label">نوع التصريح</div><div class="pms-fact-value">@Show(permit.type?.ToEnumDescription<EnumPermitType>())</div></div>
                     }
-                    <div class="pms-fact"><div class="pms-fact-label">الجهة الطالبة</div><div class="pms-fact-value">@Show(departmentName)</div></div>
-                    @if (!IsVisitors(permit))
+                    @if (!EmployeeCardPermit.Is(permit))
+                    {
+                        <div class="pms-fact"><div class="pms-fact-label">الجهة الطالبة</div><div class="pms-fact-value">@Show(departmentName)</div></div>
+                    }
+                    @if (!IsVisitors(permit) && !EmployeeCardPermit.Is(permit))
                     {
                         <div class="pms-fact"><div class="pms-fact-label">الجهة المصرح لها</div><div class="pms-fact-value">@Show(permit.OrgDescription)</div></div>
                     }
-                    <div class="pms-fact"><div class="pms-fact-label">تصريح مؤقت</div><div class="pms-fact-value">@(permit.IsTemp ? "نعم" : "لا")</div></div>
+                    @if (!EmployeeCardPermit.Is(permit))
+                    {
+                        <div class="pms-fact"><div class="pms-fact-label">تصريح مؤقت</div><div class="pms-fact-value">@(permit.IsTemp ? "نعم" : "لا")</div></div>
+                    }
                     <div class="pms-fact"><div class="pms-fact-label">التاريخ</div><div class="pms-fact-value">@permit.date.ToString("yyyy/MM/dd")</div></div>
-                    @if (!IsVisitors(permit))
+                    @if (!IsVisitors(permit) && !EmployeeCardPermit.Is(permit))
                     {
                         <div class="pms-fact"><div class="pms-fact-label">الوقت</div><div class="pms-fact-value">@Show(permit.hourOfEntry)</div></div>
                         <div class="pms-fact"><div class="pms-fact-label">قادم من</div><div class="pms-fact-value">@Show(permit.moveFrom)</div></div>
                         <div class="pms-fact"><div class="pms-fact-label">ذاهب إلى</div><div class="pms-fact-value">@Show(permit.moveTo)</div></div>
                     }
-                    <div class="pms-fact"><div class="pms-fact-label">الهاتف</div><div class="pms-fact-value">@Show(permit.phoneNo)</div></div>
+                    @if (!EmployeeCardPermit.Is(permit))
+                    {
+                        <div class="pms-fact"><div class="pms-fact-label">الهاتف</div><div class="pms-fact-value">@Show(permit.phoneNo)</div></div>
+                    }
                     <div class="pms-fact pms-fact-status">
                         <div class="pms-fact-label">الحالة</div>
                         <div class="pms-fact-value">@StatusText()</div>
                     </div>
-                    <div class="pms-fact"><div class="pms-fact-label">بداية السريان</div><div class="pms-fact-value">@ShowDate(permit.ValidFrom)</div></div>
-                    <div class="pms-fact"><div class="pms-fact-label">نهاية السريان</div><div class="pms-fact-value">@ShowDate(permit.ValidTo)</div></div>
-                    @if (!IsVisitors(permit))
+                    @if (!EmployeeCardPermit.Is(permit))
                     {
-                        <div class="pms-fact"><div class="pms-fact-label">المتوقع للتنفيذ</div><div class="pms-fact-value">@Show(permit.ExpectedExecutionTime)</div></div>
+                        <div class="pms-fact"><div class="pms-fact-label">بداية السريان</div><div class="pms-fact-value">@ShowDate(permit.ValidFrom)</div></div>
+                        <div class="pms-fact"><div class="pms-fact-label">نهاية السريان</div><div class="pms-fact-value">@ShowDate(permit.ValidTo)</div></div>
+                        @if (!IsVisitors(permit))
+                        {
+                            <div class="pms-fact"><div class="pms-fact-label">المتوقع للتنفيذ</div><div class="pms-fact-value">@Show(permit.ExpectedExecutionTime)</div></div>
+                        }
+                        <div class="pms-fact"><div class="pms-fact-label">اعتماد مناوب</div><div class="pms-fact-value">@(permit.ShiftApproval ? "نعم" : "لا")</div></div>
+                        <div class="pms-fact"><div class="pms-fact-label">بوابة التنفيذ</div><div class="pms-fact-value">@GateText(permit.Gate)</div></div>
+                        <div class="pms-fact"><div class="pms-fact-label">الغرض من التصريح</div><div class="pms-fact-value">@Show(PermitText.Purpose(permit))</div></div>
                     }
-                    <div class="pms-fact"><div class="pms-fact-label">اعتماد مناوب</div><div class="pms-fact-value">@(permit.ShiftApproval ? "نعم" : "لا")</div></div>
-                    <div class="pms-fact"><div class="pms-fact-label">بوابة التنفيذ</div><div class="pms-fact-value">@GateText(permit.Gate)</div></div>
-                    <div class="pms-fact"><div class="pms-fact-label">الغرض من التصريح</div><div class="pms-fact-value">@Show(PermitText.Purpose(permit))</div></div>
                     @if (IsCars(permit))
                     {
                         <div class="pms-fact"><div class="pms-fact-label">الاستخدام</div><div class="pms-fact-value">@(permit.VehicleDetail?.InternalUse == false ? "حركة واحدة" : "استخدام داخلي")</div></div>
@@ -155,7 +180,7 @@ else
         </div>
 
         <div class="col-md-8">
-            @if (!IsCars(permit) && !IsVisitors(permit))
+            @if (!IsCars(permit) && !IsVisitors(permit) && !EmployeeCardPermit.Is(permit))
             {
             <div class="card mb-3">
                 <div class="card-header pms-header">المواد والمعدات</div>
@@ -244,6 +269,7 @@ else
     [Parameter] public Guid Id { get; set; }
 
     private bool loading = true;
+    private string? actionError;
     private Permit? permit;
     private PermitActionsVisibility visibility = new();
     private User? currentUser;
@@ -332,37 +358,20 @@ else
     private async Task DoActionAsync(string actionType)
     {
         if (permit == null || currentUser == null) return;
-        if (actionType == "approve" && currentStep?.StepType == WorkflowStepType.GuardSection && !Guid.TryParse(executionGateId, out _))
+        actionError = null;
+        if (actionType == "approve" && currentStep?.StepType == WorkflowStepType.GuardSection && permit != null && !EmployeeCardPermit.Is(permit) && !Guid.TryParse(executionGateId, out _))
         {
-            await Toast.WarningAsync("حدد بوابة التنفيذ قبل الاعتماد.");
+            actionError = "حدد بوابة التنفيذ قبل الاعتماد.";
             return;
         }
         if (actionType is "reject" or "return" && string.IsNullOrWhiteSpace(decisionComment))
         {
-            await Toast.WarningAsync(actionType == "reject"
+            actionError = actionType == "reject"
                 ? "ملاحظة القرار مطلوبة قبل الرفض."
-                : "ملاحظة القرار مطلوبة قبل الترجيع.");
+                : "ملاحظة القرار مطلوبة قبل الترجيع.";
             return;
         }
-        var question = actionType switch
-        {
-            "approve" => "هل تريد اعتماد هذا التصريح؟",
-            "reject" => "هل تريد رفض هذا التصريح؟",
-            "return" => "هل تريد ترجيع هذا التصريح؟",
-            "close" => "هل تريد إغلاق هذا التصريح؟",
-            "delete" => "هل تريد إلغاء هذا التصريح؟",
-            _ => "هل تريد متابعة هذه العملية؟"
-        };
-        var yes = actionType switch
-        {
-            "reject" => "رفض",
-            "return" => "ترجيع",
-            "close" => "إغلاق",
-            "delete" => "إلغاء",
-            _ => "نعم"
-        };
-        var kind = actionType is "reject" or "delete" ? "danger" : "confirm";
-        if (!await Toast.ConfirmAsync(question, yes, "لا", kind))
+        if (actionType == "delete" && !await Toast.ConfirmAsync("هل تريد إلغاء هذا التصريح؟ لا يمكن التراجع عن الإلغاء.", "إلغاء", "لا", "danger"))
             return;
 
         try
@@ -376,7 +385,7 @@ else
                     _ => ApprovalDecision.Approved
                 };
                 Guid? gateId = null;
-                if (decision == ApprovalDecision.Approved && currentStep?.StepType == WorkflowStepType.GuardSection)
+                if (decision == ApprovalDecision.Approved && currentStep?.StepType == WorkflowStepType.GuardSection && !EmployeeCardPermit.Is(permit))
                 {
                     if (!Guid.TryParse(executionGateId, out var parsed))
                         throw new InvalidOperationException("حدد بوابة التنفيذ قبل الاعتماد.");
@@ -419,21 +428,22 @@ else
 
                 await PermitService.UpdatePermitAsync(permit);
             }
-
-            var done = actionType switch
-            {
-                "approve" => "تم اعتماد التصريح.",
-                "reject" => "تم رفض التصريح.",
-                "return" => "تم ترجيع التصريح.",
-                "close" => "تم إغلاق التصريح.",
-                "delete" => "تم حذف التصريح.",
-                _ => "تم تنفيذ العملية."
-            };
-            await Toast.SuccessAsync(done);
         }
         catch (Exception ex)
         {
-            await Toast.ErrorAsync(ex.Message);
+            actionError = ex.Message;
+        }
+
+        if (string.IsNullOrEmpty(actionError))
+        {
+            await Toast.DoneAsync(actionType switch
+            {
+                "reject" => "تم رفض الطلب.",
+                "return" => "تم ترجيع الطلب.",
+                "close" => "تم إغلاق التصريح.",
+                "delete" => "تم إلغاء التصريح.",
+                _ => "تم الاعتماد."
+            });
         }
 
         await LoadAsync();
@@ -442,30 +452,18 @@ else
     private async Task SubmitForApprovalAsync()
     {
         if (permit == null || currentUser == null) return;
-        if (!await Toast.ConfirmAsync(permit.ShiftApproval
-            ? "هذا التصريح سوف يُعتمد من المناوب فقط. هل تريد الإحالة؟"
-            : "هل تريد إحالة هذا التصريح للاعتماد؟", "نعم", "لا", "confirm"))
-            return;
-        var submitted = false;
+        actionError = null;
         try
         {
             await MaterialPermits.SubmitDraftAsync(permit.Id, currentUser);
-            submitted = true;
+            await Toast.DoneAsync("تم إرسال الطلب.");
         }
         catch (Exception ex)
         {
-            await Toast.ErrorAsync(ex.Message);
+            actionError = ex.Message;
         }
 
         await LoadAsync();
-        if (submitted)
-        {
-            var label = permit == null ? "" : StatusMapper.ListStatus(permit).Label;
-            var text = label == "تحت التنفيذ"
-                ? "أُحيل التصريح وأصبح تحت التنفيذ لأن مساره لا يحتاج اعتماداً."
-                : "تمت إحالة التصريح للاعتماد.";
-            await Toast.SuccessAsync(text);
-        }
     }
 
     private string StatusText()
@@ -486,11 +484,11 @@ else
         try
         {
             await MaterialPermits.CancelAsync(permit.Id, currentUser);
-            await Toast.SuccessAsync("تم إلغاء التصريح.");
+            await Toast.DoneAsync("تم إلغاء التصريح.");
         }
         catch (Exception ex)
         {
-            await Toast.ErrorAsync(ex.Message);
+            actionError = ex.Message;
         }
 
         await LoadAsync();
@@ -522,7 +520,7 @@ else
     {
         nameof(PermitClassification.Cars) or "سيارات" or "مركبات" or "تصريح سيارات" => "تصريح مركبات",
         nameof(PermitClassification.Visitors) or "زوار" or "تصريح زوار" => "تصريح زوار",
-        nameof(PermitClassification.EmployeeAccess) or "دخول موظفين" => "دخول موظفين",
+        nameof(PermitClassification.EmployeeAccess) or "دخول موظفين" or "طلب إصدار بطاقة تصريح" => "طلب إصدار بطاقة تصريح",
         _ => "تصريح مواد"
     };
 

@@ -20,6 +20,20 @@ namespace Core.Models
         public string Action { get; set; } = "";
         public string Notes { get; set; } = "";
         public string Gate { get; set; } = "";
+        public string Card { get; set; } = "";
+    }
+
+    /// <summary>
+    /// A visitor badge already stored on a gate reader.
+    /// Until a dedicated visitor-card registry exists, a card is a device user
+    /// whose employee number (PIN) equals the card number.
+    /// </summary>
+    public class VisitorCardOption
+    {
+        public Guid EmployeeId { get; set; }
+        public string CardNumber { get; set; } = "";
+        public string Pin { get; set; } = "";
+        public string? Name { get; set; }
     }
 
     public class OpenPermitAlert

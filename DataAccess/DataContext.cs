@@ -56,6 +56,11 @@ namespace DataAccess
         public DbSet<AccessLevelTask> AccessLevelTasks { get; set; }
         public DbSet<AuditLogEntry> AuditLogEntries { get; set; }
 
+        public DbSet<LaborCompany> LaborCompanies { get; set; }
+        public DbSet<LaborWorker> LaborWorkers { get; set; }
+        public DbSet<LaborImportBatch> LaborImportBatches { get; set; }
+        public DbSet<LaborImportLine> LaborImportLines { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -90,14 +95,6 @@ namespace DataAccess
                 .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<DepartmentDto>().HasNoKey().ToView(null);
-
-            // Orphan entities not (yet) wired into the unified model — excluded so EF
-            // does not try to map them or create tables for them.
-            modelBuilder.Ignore<ApproveMovment>();
-            modelBuilder.Ignore<Role>();
-            modelBuilder.Ignore<Permission>();
-            modelBuilder.Ignore<UserRole>();
-            modelBuilder.Ignore<RolePermission>();
 
             // ================= Unified Permit Management additions =================
 

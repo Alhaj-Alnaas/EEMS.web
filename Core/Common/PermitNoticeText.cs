@@ -9,6 +9,10 @@ namespace Core.Common
         {
             WorkflowStepType.DirectSupervisor => "الرئيس المباشر",
             WorkflowStepType.HigherSupervisor => "الرئيس الأعلى",
+            WorkflowStepType.SectionHead => "رئيس القسم",
+            WorkflowStepType.AdministrationManager => "مدير الإدارة",
+            WorkflowStepType.GeneralManager => "المدير العام",
+            WorkflowStepType.SectorSupervisor => "مشرف القطاع",
             WorkflowStepType.ElectronicMonitoring => "رئيس قسم المراقبة الإلكترونية",
             WorkflowStepType.SecurityAffairs => "مدير إدارة الشؤون الأمنية",
             WorkflowStepType.GuardSection => "رئيس قسم الحراسة",
@@ -23,6 +27,9 @@ namespace Core.Common
 
         public static string Ready(string? number) =>
             $"التصريح رقم {number} لا يحتاج اعتماداً وأصبح جاهزاً للتنفيذ.";
+
+        public static string CardPrinted(string? number, string card) =>
+            $"تم تنفيذ طلب إصدار بطاقة التصريح رقم {number} برقم الكرت {card}.";
 
         public static string Approved(string? number, string authority, bool ready, string? nextStep)
         {

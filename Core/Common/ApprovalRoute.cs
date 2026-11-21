@@ -4,9 +4,8 @@ namespace Core.Common
 {
     /// <summary>
     /// Resolves who approves a configured path step from the entrant's responsibility code.
-    /// A leader is his own direct supervisor, so that step is skipped.
-    /// From general manager upward, and for an administration with no general administration, there is no separate higher supervisor.
-    /// A permit entered from security affairs or one of its sections skips both supervisor steps and keeps electronic monitoring, the security-affairs director, then the guard-section head.
+    /// A non-leader always starts with the direct supervisor, even when the permit type needs no other approval.
+    /// Configured steps apply only when they sit strictly above that supervisor. A leader starts at the next enabled step.
     /// </summary>
     public static class ApprovalRoute
     {
@@ -74,21 +73,239 @@ namespace Core.Common
             return null;
         }
 
-        public static string? StepTarget(WorkflowStepType type, string? entrantCode, bool entrantIsLeader, IReadOnlySet<string> leaderCodes)
+        public static Guid DirectSupervisorStepId(Guid workflowId)
         {
-            if (BelongsTo(entrantCode, SecurityAffairsCode)
-                && type is WorkflowStepType.DirectSupervisor or WorkflowStepType.HigherSupervisor)
+            var hash = System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes("pms-direct-supervisor-gate:" + workflowId.ToString("N")));
+            hash[7] = (byte)((hash[7] & 0x0F) | 0x50);
+            hash[8] = (byte)((hash[8] & 0x3F) | 0x80);
+            return new Guid(hash.AsSpan(0, 16));
+        }
+
+        /// <summary>True when a configured step is strictly above the entrant's direct supervisor.</summary>
+        public static bool ComesAfterDirectSupervisor(WorkflowStepType type, string? directCode, IReadOnlySet<string> knownUnits)
+        {
+            if (type == WorkflowStepType.HigherSupervisor)
+                return true;
+
+            var rank = LadderRank(type);
+            if (rank == null || string.IsNullOrEmpty(directCode))
+                return false;
+
+            return rank.Value > LadderRankOfCode(directCode, knownUnits);
+        }
+
+        public static int? LadderRank(WorkflowStepType type) => type switch
+        {
+            WorkflowStepType.SectionHead => 0,
+            WorkflowStepType.AdministrationManager => 1,
+            WorkflowStepType.GeneralManager => 2,
+            WorkflowStepType.SectorSupervisor => 3,
+            WorkflowStepType.ElectronicMonitoring => 4,
+            WorkflowStepType.SecurityAffairs => 5,
+            WorkflowStepType.GuardSection => 6,
+            _ => null
+        };
+
+        public static int LadderRankOfCode(string? code, IReadOnlySet<string> knownUnits)
+        {
+            var current = Normalize(code);
+            if (Same(current, "45012"))
+                return 4;
+            if (Same(current, SecurityAffairsCode))
+                return 5;
+            if (Same(current, "45011"))
+                return 6;
+
+            return EffectiveRank(current, knownUnits) switch
+            {
+                OrgRank.Administration => 1,
+                OrgRank.General => 2,
+                OrgRank.Sector => 3,
+                _ => 0
+            };
+        }
+
+        public static string? StepTarget(
+            WorkflowStepType type,
+            string? entrantCode,
+            bool entrantIsLeader,
+            IReadOnlySet<string> leaderCodes,
+            IReadOnlySet<string>? knownUnits = null)
+        {
+            if (type == WorkflowStepType.DirectSupervisor)
+                return DirectSupervisor(entrantCode, entrantIsLeader, leaderCodes);
+
+            if (type == WorkflowStepType.HigherSupervisor)
+            {
+                if (BelongsTo(entrantCode, SecurityAffairsCode))
+                    return null;
+
+                return HigherSupervisor(entrantCode, entrantIsLeader, leaderCodes);
+            }
+
+            var known = knownUnits ?? leaderCodes;
+            if (BelongsTo(entrantCode, SecurityAffairsCode))
+                return SecurityTarget(type, entrantCode, entrantIsLeader, leaderCodes);
+
+            if (RankOf(type) is OrgRank stepRank)
+                return OrgTarget(stepRank, entrantCode, entrantIsLeader, leaderCodes, known);
+
+            var fixedCode = FixedSecurityCode(type);
+            return Occupied(fixedCode, leaderCodes);
+        }
+
+        public static bool WatchesOrganization(
+            string? viewerCode,
+            string? entrantCode,
+            bool entrantIsLeader,
+            IReadOnlySet<string> leaderCodes,
+            IReadOnlySet<string> knownUnits)
+        {
+            foreach (var type in new[]
+            {
+                WorkflowStepType.SectionHead,
+                WorkflowStepType.AdministrationManager,
+                WorkflowStepType.GeneralManager,
+                WorkflowStepType.SectorSupervisor
+            })
+            {
+                if (Same(viewerCode, StepTarget(type, entrantCode, entrantIsLeader, leaderCodes, knownUnits)))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static string? OrgTarget(
+            OrgRank stepRank,
+            string? entrantCode,
+            bool entrantIsLeader,
+            IReadOnlySet<string> leaderCodes,
+            IReadOnlySet<string> knownUnits)
+        {
+            var code = Normalize(entrantCode);
+            if (code.Length < 5)
                 return null;
 
-            return type switch
+            var effective = EffectiveRank(code, knownUnits);
+            if (stepRank < effective)
+                return null;
+
+            if (stepRank == effective)
+                return entrantIsLeader ? null : Occupied(code, leaderCodes);
+
+            return Occupied(AncestorAt(code, stepRank, knownUnits), leaderCodes);
+        }
+
+        private static string? SecurityTarget(
+            WorkflowStepType type,
+            string? entrantCode,
+            bool entrantIsLeader,
+            IReadOnlySet<string> leaderCodes)
+        {
+            var fixedCode = FixedSecurityCode(type);
+            if (fixedCode == null)
+                return null;
+
+            var own = OwnSecurityStep(Normalize(entrantCode));
+            if (entrantIsLeader && own != null && SecurityOrder(type) <= SecurityOrder(own.Value))
+                return null;
+
+            return Occupied(fixedCode, leaderCodes);
+        }
+
+        /// <summary>A section whose parent administration has no staff stands in for that administration.</summary>
+        private static OrgRank EffectiveRank(string code, IReadOnlySet<string> knownUnits)
+        {
+            var rank = StructuralRank(code);
+            if (rank == OrgRank.Section && !Exists(Parent(code), knownUnits))
+                return OrgRank.Administration;
+            return rank;
+        }
+
+        private static string? AncestorAt(string code, OrgRank rank, IReadOnlySet<string> knownUnits)
+        {
+            var current = Parent(code);
+            while (!string.IsNullOrEmpty(current))
             {
-                WorkflowStepType.DirectSupervisor => DirectSupervisor(entrantCode, entrantIsLeader, leaderCodes),
-                WorkflowStepType.HigherSupervisor => HigherSupervisor(entrantCode, entrantIsLeader, leaderCodes),
-                WorkflowStepType.ElectronicMonitoring => "45012",
-                WorkflowStepType.SecurityAffairs => SecurityAffairsCode,
-                WorkflowStepType.GuardSection => "45011",
-                _ => null
-            };
+                if (StructuralRank(current) == rank)
+                    return Exists(current, knownUnits) ? current : null;
+                current = Parent(current);
+            }
+
+            return null;
+        }
+
+        private static string? Occupied(string? code, IReadOnlySet<string> leaderCodes)
+        {
+            var current = Normalize(code);
+            return current.Length >= 5 && HasLeader(leaderCodes, current) ? current : null;
+        }
+
+        private static bool Exists(string? code, IReadOnlySet<string>? knownUnits)
+        {
+            var current = Normalize(code);
+            if (current.Length < 5)
+                return false;
+            if (knownUnits == null)
+                return true;
+            return knownUnits.Contains(current);
+        }
+
+        private static WorkflowStepType? OwnSecurityStep(string code)
+        {
+            if (Same(code, "45012"))
+                return WorkflowStepType.ElectronicMonitoring;
+            if (Same(code, SecurityAffairsCode))
+                return WorkflowStepType.SecurityAffairs;
+            if (Same(code, "45011"))
+                return WorkflowStepType.GuardSection;
+            return null;
+        }
+
+        private static int SecurityOrder(WorkflowStepType type) => type switch
+        {
+            WorkflowStepType.ElectronicMonitoring => 1,
+            WorkflowStepType.SecurityAffairs => 2,
+            WorkflowStepType.GuardSection => 3,
+            _ => 0
+        };
+
+        private static string? FixedSecurityCode(WorkflowStepType type) => type switch
+        {
+            WorkflowStepType.ElectronicMonitoring => "45012",
+            WorkflowStepType.SecurityAffairs => SecurityAffairsCode,
+            WorkflowStepType.GuardSection => "45011",
+            _ => null
+        };
+
+        private static OrgRank? RankOf(WorkflowStepType type) => type switch
+        {
+            WorkflowStepType.SectionHead => OrgRank.Section,
+            WorkflowStepType.AdministrationManager => OrgRank.Administration,
+            WorkflowStepType.GeneralManager => OrgRank.General,
+            WorkflowStepType.SectorSupervisor => OrgRank.Sector,
+            _ => null
+        };
+
+        private static OrgRank StructuralRank(string code)
+        {
+            if (IsSector(code))
+                return OrgRank.Sector;
+            if (IsGeneralAdministration(code))
+                return OrgRank.General;
+            if (IsAdministration(code))
+                return OrgRank.Administration;
+            return OrgRank.Section;
+        }
+
+        private enum OrgRank
+        {
+            Section = 0,
+            Administration = 1,
+            General = 2,
+            Sector = 3
         }
 
         /// <summary>

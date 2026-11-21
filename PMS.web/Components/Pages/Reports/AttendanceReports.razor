@@ -1,5 +1,6 @@
 @page "/reports/attendance"
 @rendermode InteractiveServer
+@implements IDisposable
 @using DataAccess
 @using Microsoft.EntityFrameworkCore
 @using Microsoft.AspNetCore.Identity
@@ -35,7 +36,7 @@
     }
     else
     {
-    <p class="pms-audit-note">@(wide ? "التقرير يشمل موظفي الشركة المسجّلين، وتظهر التقسيمات التي لها موظفون مسجّلون فقط." : "التقرير يشمل موظفي مركز مسؤوليتك " + unitLabel + "، وتظهر التقسيمات التي لها موظفون مسجّلون فقط.")</p>
+    <p class="pms-audit-note">@(wide ? "يشمل موظفي الشركة." : "يشمل موظفي " + unitLabel + ".")</p>
 
     <div class="pms-attend-mode">
         <button type="button" class="btn btn-sm @(employeeMode ? "pms-permit-view-btn" : "pms-permit-edit-btn")" @onclick="ShowEmployee">
@@ -58,18 +59,15 @@
                 <div class="row g-2 align-items-end">
                     <div class="col-md-3">
                         <label class="form-label mb-1">رقم الموظف</label>
-                        <input class="form-control form-control-sm" @bind="fileNumber" @bind:event="oninput" placeholder="رقم الموظف" />
+                        <input class="form-control form-control-sm" @bind="fileNumber" @bind:event="oninput" @bind:after="QueueEmployee" @onkeydown="OnEmployeeKey" placeholder="رقم الموظف" />
                     </div>
                     <div class="col-md-3">
                         <label class="form-label mb-1">من تاريخ</label>
-                        <input class="form-control form-control-sm" type="date" @bind="fromDate" @bind:format="yyyy-MM-dd" />
+                        <input class="form-control form-control-sm" type="date" @bind="fromDate" @bind:format="yyyy-MM-dd" @bind:after="OnEmployeeDates" />
                     </div>
                     <div class="col-md-3">
                         <label class="form-label mb-1">إلى تاريخ</label>
-                        <input class="form-control form-control-sm" type="date" @bind="toDate" @bind:format="yyyy-MM-dd" />
-                    </div>
-                    <div class="col-md-2">
-                        <button type="button" class="btn btn-sm pms-permit-view-btn w-100" @onclick="SearchEmployeeAsync" disabled="@loading">عرض</button>
+                        <input class="form-control form-control-sm" type="date" @bind="toDate" @bind:format="yyyy-MM-dd" @bind:after="OnEmployeeDates" />
                     </div>
                 </div>
             }
@@ -78,7 +76,7 @@
                 <div class="row g-2 align-items-end">
                     <div class="col-md-5">
                         <label class="form-label mb-1">التقسيم الإداري</label>
-                        <select class="form-select form-select-sm" @bind="divisionKey">
+                        <select class="form-select form-select-sm" @bind="divisionKey" @bind:after="OnDivisionChanged">
                             <option value="">اختر التقسيم</option>
                             @foreach (var choice in divisions)
                             {
@@ -88,10 +86,7 @@
                     </div>
                     <div class="col-md-3">
                         <label class="form-label mb-1">التاريخ</label>
-                        <input class="form-control form-control-sm" type="date" @bind="divisionDate" @bind:format="yyyy-MM-dd" />
-                    </div>
-                    <div class="col-md-2">
-                        <button type="button" class="btn btn-sm pms-permit-view-btn w-100" @onclick="SearchDivisionAsync" disabled="@loading">عرض</button>
+                        <input class="form-control form-control-sm" type="date" @bind="divisionDate" @bind:format="yyyy-MM-dd" @bind:after="OnDivisionChanged" />
                     </div>
                 </div>
             }
@@ -200,6 +195,7 @@
     private string unit = "";
     private string unitLabel = "";
     private Dictionary<string, string> responsibilityByFile = new(StringComparer.OrdinalIgnoreCase);
+    private readonly SearchDelay typing = new();
     private string fileNumber = "";
     private DateTime? fromDate = DateTime.Today;
     private DateTime? toDate = DateTime.Today;
@@ -266,17 +262,55 @@
         divisionReport = null;
     }
 
-    private async Task SearchEmployeeAsync()
+    private Task QueueEmployee()
+    {
+        if (string.IsNullOrWhiteSpace(fileNumber))
+        {
+            typing.Cancel();
+            employeeReport = null;
+            loadError = null;
+            return Task.CompletedTask;
+        }
+        return typing.AfterAsync(() => SearchEmployeeAsync(false));
+    }
+
+    private async Task OnEmployeeKey(KeyboardEventArgs key)
+    {
+        if (key.Key != "Enter")
+            return;
+        typing.Cancel();
+        await SearchEmployeeAsync(true);
+    }
+
+    private async Task OnEmployeeDates()
+    {
+        if (!string.IsNullOrWhiteSpace(fileNumber))
+            await SearchEmployeeAsync(false);
+    }
+
+    private async Task OnDivisionChanged()
+    {
+        if (string.IsNullOrWhiteSpace(divisionKey))
+        {
+            divisionReport = null;
+            loadError = null;
+            return;
+        }
+        await SearchDivisionAsync();
+    }
+
+    private async Task SearchEmployeeAsync(bool announce)
     {
         if (blocked)
             return;
         loadError = null;
-        employeeReport = null;
         divisionReport = null;
         var file = fileNumber.Trim();
         if (string.IsNullOrWhiteSpace(file))
         {
-            loadError = "أدخل رقم الموظف.";
+            employeeReport = null;
+            if (announce)
+                loadError = "أدخل رقم الموظف.";
             return;
         }
         if (fromDate == null || toDate == null)
@@ -297,20 +331,32 @@
             return;
         }
 
-        loading = true;
-        try
+        var people = await LoadPeopleAsync();
+        var matches = people.Where(item =>
+            InScope(item)
+            && (item.FileNumber ?? "").Contains(file, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (matches.Count != 1)
         {
-            await using var db = await DbFactory.CreateDbContextAsync();
-            var people = await LoadPeopleAsync();
-            var person = people.FirstOrDefault(item =>
-                string.Equals((item.FileNumber ?? "").Trim(), file, StringComparison.OrdinalIgnoreCase));
-            if (person == null || !InScope(person))
+            employeeReport = null;
+            if (matches.Count == 0)
             {
                 loadError = wide
                     ? "لا يوجد موظف بهذا الرقم."
                     : "لا يوجد موظف بهذا الرقم ضمن مركز مسؤوليتك.";
-                return;
             }
+            else if (announce)
+            {
+                loadError = "أكثر من موظف يطابق هذا الرقم. أكمل الرقم.";
+            }
+            return;
+        }
+
+        var person = matches[0];
+        loading = true;
+        employeeReport = null;
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
 
             var end = to.AddDays(1);
             var punches = await db.MovementLogs.AsNoTracking()
@@ -358,7 +404,7 @@
         var choice = divisions.FirstOrDefault(item => item.Key == divisionKey);
         if (choice == null)
         {
-            loadError = "اختر التقسيم الإداري.";
+            divisionReport = null;
             return;
         }
         if (divisionDate == null)
@@ -608,6 +654,8 @@
 
     private static string Display(string? value) =>
         string.IsNullOrWhiteSpace(value) ? "—" : value.Trim();
+
+    public void Dispose() => typing.Dispose();
 
     private sealed record DivisionChoice(string Key, string Label, string Code);
     private sealed record PersonRow(Guid Id, string? FileNumber, string? FullName, Guid? DepartmentId, string? DeptCode, string? MasterName, string? FreeName);

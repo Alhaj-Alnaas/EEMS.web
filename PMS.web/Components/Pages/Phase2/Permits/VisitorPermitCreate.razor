@@ -8,7 +8,7 @@
 @inject UserManager<User> UserManager
 @inject AuthenticationStateProvider AuthProvider
 @inject NavigationManager Navigation
-@inject PMS.web.Notifications.IUiToast Toast
+@inject IUiToast Toast
 @using Microsoft.AspNetCore.Identity
 @using Services.Permits
 
@@ -16,7 +16,7 @@
 
 <div class="pms-create-page">
 <h3 class="mb-1"><i class="bi bi-person-badge text-warning"></i> إضافة تصريح زوار</h3>
-<p class="text-muted small mb-2">يُحفظ كمسودة أو يُحال لمسار اعتماد الزوار، أو لاعتماد المناوب إذا كانت علامته مفعّلة. التنفيذ يسجّل الدخول ثم المغادرة.</p>
+<p class="text-muted small mb-2">التنفيذ يسجّل الدخول ثم المغادرة.</p>
 
 @if (loading)
 {
@@ -85,7 +85,7 @@ else
                         <div class="mb-3">
                             <label class="form-label fw-bold">رقم ملف الداعي <span class="pms-req">*</span></label>
                             <input class="form-control" inputmode="numeric"
-                                   placeholder="أدخل رقم ملف من قام بالدعوة ثم انقر مفتاح إنتر"
+                                   placeholder="رقم الملف ثم إنتر"
                                    value="@request.HostFileNumber"
                                    @oninput="OnHostInput"
                                    @onkeydown="OnHostKey" />
@@ -271,11 +271,6 @@ else
         return time >= TimeSpan.FromHours(15) || time <= TimeSpan.FromHours(8);
     }
 
-    private static string SubmitQuestion(bool shiftApproval) =>
-        shiftApproval
-            ? "هذا التصريح سوف يُعتمد من المناوب فقط. هل تريد الإحالة؟"
-            : "هل تريد إحالة هذا التصريح للاعتماد؟";
-
     private void NormalizeVisitorPhone() => request.Phone = FieldRules.Phone(request.Phone);
     private void OnVisitTime(ChangeEventArgs e)
     {
@@ -334,7 +329,7 @@ else
         }
         catch (Exception ex)
         {
-            errorMessage = "تعذر جلب بيانات الموظف: " + ex.Message;
+            errorMessage = "تعذر عرض بيانات الموظف: " + ex.Message;
         }
     }
 
@@ -357,11 +352,9 @@ else
         var missing = MaterialPermitService.MissingVisitor(request, submit);
         if (missing != null)
         {
-            await Toast.WarningAsync(missing);
+            errorMessage = missing;
             return;
         }
-        if (submit && !await Toast.ConfirmAsync(SubmitQuestion(request.ShiftApproval), "نعم", "لا", "confirm"))
-            return;
         errorMessage = null;
         saving = true;
         try
@@ -369,6 +362,7 @@ else
             if (currentUser == null)
                 throw new InvalidOperationException("المستخدم غير معروف.");
             await MaterialPermits.SaveVisitorAsync(request, currentUser, submit);
+            await Toast.DoneAsync(submit ? "تم إرسال الطلب." : "تم حفظ المسودة.");
             Navigation.NavigateTo(ReturnUrl.Read(Navigation) ?? "/permits");
         }
         catch (Exception ex)
